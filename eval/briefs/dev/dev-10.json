@@ -1,0 +1,40 @@
+{
+  "case_id": "dev-10",
+  "split": "dev",
+  "category": "conflicting_evidence",
+  "brief": {
+    "topic": "Establish whether a synthetic open-source project still supports Python 3.10",
+    "audience": "Maintainer planning an upgrade",
+    "research_questions": [
+      "What does the project's README say about supported Python versions?",
+      "What does the latest release changelog say?"
+    ],
+    "source_policy": {
+      "allowed_source_types": [
+        "public_web",
+        "vendor_docs"
+      ],
+      "allowed_domains": [],
+      "blocked_domains": []
+    },
+    "output_format": "markdown",
+    "budget": {
+      "currency": "USD",
+      "max_estimated_cost": "1.00"
+    },
+    "limits": {
+      "max_tasks": 3
+    }
+  },
+  "expected": {
+    "outcome": "reviewable_draft",
+    "must_cover": [
+      "README vs changelog disagreement surfaced",
+      "Retrieval dates shown for both sources"
+    ],
+    "must_not": [
+      "Asserting support status without noting the conflict"
+    ],
+    "fixture_notes": "Fixture README lists 3.10; fixture changelog says 3.10 was dropped."
+  }
+}

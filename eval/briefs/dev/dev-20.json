@@ -1,0 +1,40 @@
+{
+  "case_id": "dev-20",
+  "split": "dev",
+  "category": "provider_failure",
+  "brief": {
+    "topic": "Summarize documented accessibility features of two synthetic form-builder tools",
+    "audience": "Accessibility reviewer",
+    "research_questions": [
+      "What accessibility conformance claims does each vendor document?"
+    ],
+    "source_policy": {
+      "allowed_source_types": [
+        "public_web",
+        "vendor_docs"
+      ],
+      "allowed_domains": [],
+      "blocked_domains": []
+    },
+    "output_format": "markdown",
+    "budget": {
+      "currency": "USD",
+      "max_estimated_cost": "0.75"
+    },
+    "limits": {
+      "max_tasks": 2
+    }
+  },
+  "expected": {
+    "outcome": "failed_safely",
+    "must_cover": [
+      "Run ends FAILED or NEEDS_ATTENTION with the provider error recorded",
+      "Estimated vs reconciled cost shown"
+    ],
+    "must_not": [
+      "A report built from no evidence",
+      "Silent success"
+    ],
+    "fixture_notes": "Fake model provider returns HTTP 500 for every call."
+  }
+}

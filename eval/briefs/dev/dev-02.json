@@ -1,0 +1,41 @@
+{
+  "case_id": "dev-02",
+  "split": "dev",
+  "category": "answerable",
+  "brief": {
+    "topic": "Compare PostgreSQL full-text search with a dedicated search engine for product search",
+    "audience": "Backend tech lead",
+    "research_questions": [
+      "What relevance features does PostgreSQL full-text search document?",
+      "What operational overhead does a dedicated engine add?",
+      "When do the official docs recommend each approach?"
+    ],
+    "source_policy": {
+      "allowed_source_types": [
+        "public_web",
+        "vendor_docs"
+      ],
+      "allowed_domains": [
+        "postgresql.org"
+      ],
+      "blocked_domains": []
+    },
+    "output_format": "markdown",
+    "budget": {
+      "currency": "USD",
+      "max_estimated_cost": "1.50"
+    },
+    "limits": {}
+  },
+  "expected": {
+    "outcome": "reviewable_draft",
+    "must_cover": [
+      "Documented PostgreSQL text search features",
+      "Operational trade-offs with citations",
+      "Recommendation labelled as recommendation"
+    ],
+    "must_not": [
+      "Benchmarks not present in evidence"
+    ]
+  }
+}

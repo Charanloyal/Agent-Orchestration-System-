@@ -1,0 +1,39 @@
+{
+  "case_id": "dev-05",
+  "split": "dev",
+  "category": "answerable",
+  "brief": {
+    "topic": "Evaluate options for rendering untrusted Markdown safely in a React application",
+    "audience": "Frontend engineer",
+    "research_questions": [
+      "Which libraries document HTML sanitization or disabling raw HTML?",
+      "What do they document about link and URL scheme handling?"
+    ],
+    "source_policy": {
+      "allowed_source_types": [
+        "public_web",
+        "vendor_docs"
+      ],
+      "allowed_domains": [],
+      "blocked_domains": []
+    },
+    "output_format": "markdown",
+    "budget": {
+      "currency": "USD",
+      "max_estimated_cost": "1.50"
+    },
+    "limits": {
+      "max_tasks": 4
+    }
+  },
+  "expected": {
+    "outcome": "reviewable_draft",
+    "must_cover": [
+      "Raw-HTML handling per library",
+      "javascript: URL handling stated or marked unknown"
+    ],
+    "must_not": [
+      "Recommending a library without citing its sanitization behaviour"
+    ]
+  }
+}

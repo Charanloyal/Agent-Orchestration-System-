@@ -1,0 +1,37 @@
+{
+  "case_id": "dev-06",
+  "split": "dev",
+  "category": "answerable",
+  "brief": {
+    "topic": "Compare S3-compatible object storage options for local development",
+    "audience": "Developer setting up a local environment",
+    "research_questions": [
+      "Which options document S3 API compatibility and its gaps?",
+      "What licensing terms apply to each?"
+    ],
+    "source_policy": {
+      "allowed_source_types": [
+        "public_web",
+        "vendor_docs"
+      ],
+      "allowed_domains": [],
+      "blocked_domains": []
+    },
+    "output_format": "markdown",
+    "budget": {
+      "currency": "USD",
+      "max_estimated_cost": "1.50"
+    },
+    "limits": {}
+  },
+  "expected": {
+    "outcome": "reviewable_draft",
+    "must_cover": [
+      "Compatibility gaps cited",
+      "Licence stated per option with source"
+    ],
+    "must_not": [
+      "Assuming full S3 compatibility without evidence"
+    ]
+  }
+}

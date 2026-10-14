@@ -1,0 +1,39 @@
+{
+  "case_id": "dev-08",
+  "split": "dev",
+  "category": "answerable",
+  "brief": {
+    "topic": "Compare approaches to text extraction from text-based PDF files in Python",
+    "audience": "Data engineer",
+    "research_questions": [
+      "Which libraries document extraction of text from non-scanned PDFs?",
+      "What limitations do they document for encrypted or scanned files?"
+    ],
+    "source_policy": {
+      "allowed_source_types": [
+        "public_web",
+        "vendor_docs"
+      ],
+      "allowed_domains": [
+        "pypi.org"
+      ],
+      "blocked_domains": []
+    },
+    "output_format": "markdown",
+    "budget": {
+      "currency": "USD",
+      "max_estimated_cost": "1.50"
+    },
+    "limits": {}
+  },
+  "expected": {
+    "outcome": "reviewable_draft",
+    "must_cover": [
+      "Documented limitations for scanned and encrypted PDFs",
+      "Licence per library"
+    ],
+    "must_not": [
+      "Claiming OCR support without evidence"
+    ]
+  }
+}

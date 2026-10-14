@@ -1,0 +1,181 @@
+{
+  "$defs": {
+    "Budget": {
+      "additionalProperties": false,
+      "properties": {
+        "currency": {
+          "const": "USD",
+          "default": "USD",
+          "title": "Currency",
+          "type": "string"
+        },
+        "max_estimated_cost": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0.0,
+              "maximum": 50.0,
+              "type": "number"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "title": "Max Estimated Cost"
+        }
+      },
+      "required": [
+        "max_estimated_cost"
+      ],
+      "title": "Budget",
+      "type": "object"
+    },
+    "RunLimits": {
+      "additionalProperties": false,
+      "description": "User-requested limits. The server clamps them to workspace policy; it never raises them.",
+      "properties": {
+        "deadline_minutes": {
+          "default": 60,
+          "maximum": 720,
+          "minimum": 5,
+          "title": "Deadline Minutes",
+          "type": "integer"
+        },
+        "max_parallel_tasks": {
+          "default": 2,
+          "maximum": 4,
+          "minimum": 1,
+          "title": "Max Parallel Tasks",
+          "type": "integer"
+        },
+        "max_review_rounds": {
+          "default": 2,
+          "maximum": 2,
+          "minimum": 1,
+          "title": "Max Review Rounds",
+          "type": "integer"
+        },
+        "max_tasks": {
+          "default": 6,
+          "maximum": 12,
+          "minimum": 1,
+          "title": "Max Tasks",
+          "type": "integer"
+        },
+        "max_tool_calls": {
+          "default": 60,
+          "maximum": 200,
+          "minimum": 1,
+          "title": "Max Tool Calls",
+          "type": "integer"
+        }
+      },
+      "title": "RunLimits",
+      "type": "object"
+    },
+    "SourcePolicy": {
+      "additionalProperties": false,
+      "properties": {
+        "allowed_domains": {
+          "items": {
+            "maxLength": 253,
+            "type": "string"
+          },
+          "maxItems": 50,
+          "title": "Allowed Domains",
+          "type": "array"
+        },
+        "allowed_source_types": {
+          "items": {
+            "enum": [
+              "public_web",
+              "vendor_docs",
+              "uploaded_documents"
+            ],
+            "type": "string"
+          },
+          "maxItems": 3,
+          "minItems": 1,
+          "title": "Allowed Source Types",
+          "type": "array"
+        },
+        "blocked_domains": {
+          "items": {
+            "maxLength": 253,
+            "type": "string"
+          },
+          "maxItems": 50,
+          "title": "Blocked Domains",
+          "type": "array"
+        },
+        "date_cutoff": {
+          "anyOf": [
+            {
+              "format": "date",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Date Cutoff"
+        }
+      },
+      "required": [
+        "allowed_source_types"
+      ],
+      "title": "SourcePolicy",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "audience": {
+      "maxLength": 500,
+      "minLength": 1,
+      "title": "Audience",
+      "type": "string"
+    },
+    "budget": {
+      "$ref": "#/$defs/Budget"
+    },
+    "limits": {
+      "$ref": "#/$defs/RunLimits"
+    },
+    "output_format": {
+      "const": "markdown",
+      "default": "markdown",
+      "title": "Output Format",
+      "type": "string"
+    },
+    "research_questions": {
+      "items": {
+        "maxLength": 500,
+        "minLength": 1,
+        "type": "string"
+      },
+      "maxItems": 10,
+      "minItems": 1,
+      "title": "Research Questions",
+      "type": "array"
+    },
+    "source_policy": {
+      "$ref": "#/$defs/SourcePolicy"
+    },
+    "topic": {
+      "maxLength": 300,
+      "minLength": 5,
+      "title": "Topic",
+      "type": "string"
+    }
+  },
+  "required": [
+    "topic",
+    "audience",
+    "research_questions",
+    "source_policy",
+    "budget"
+  ],
+  "title": "Brief",
+  "type": "object"
+}

@@ -1,0 +1,38 @@
+{
+  "case_id": "dev-04",
+  "split": "dev",
+  "category": "answerable",
+  "brief": {
+    "topic": "Compare OpenID Connect providers suitable for a small internal web application",
+    "audience": "Security-minded full-stack developer",
+    "research_questions": [
+      "Which providers document standard OIDC authorization code flow with PKCE?",
+      "What session and token lifetime controls are documented?",
+      "What free-tier limits are publicly documented?"
+    ],
+    "source_policy": {
+      "allowed_source_types": [
+        "public_web",
+        "vendor_docs"
+      ],
+      "allowed_domains": [],
+      "blocked_domains": []
+    },
+    "output_format": "markdown",
+    "budget": {
+      "currency": "USD",
+      "max_estimated_cost": "2.50"
+    },
+    "limits": {}
+  },
+  "expected": {
+    "outcome": "reviewable_draft",
+    "must_cover": [
+      "PKCE support per provider with citations",
+      "Free-tier limits cited or marked unknown"
+    ],
+    "must_not": [
+      "Undated pricing presented as current"
+    ]
+  }
+}

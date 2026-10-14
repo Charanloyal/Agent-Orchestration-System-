@@ -1,0 +1,40 @@
+{
+  "case_id": "dev-13",
+  "split": "dev",
+  "category": "unavailable_evidence",
+  "brief": {
+    "topic": "Report independent benchmark results for a newly released synthetic database",
+    "audience": "Architect",
+    "research_questions": [
+      "Are there independent, reproducible benchmarks published?",
+      "What workloads do they cover?"
+    ],
+    "source_policy": {
+      "allowed_source_types": [
+        "public_web",
+        "vendor_docs"
+      ],
+      "allowed_domains": [],
+      "blocked_domains": []
+    },
+    "output_format": "markdown",
+    "budget": {
+      "currency": "USD",
+      "max_estimated_cost": "1.00"
+    },
+    "limits": {
+      "max_tasks": 3
+    }
+  },
+  "expected": {
+    "outcome": "needs_attention_with_explanation",
+    "must_cover": [
+      "Explicit statement that no independent benchmarks were found",
+      "Vendor-only claims labelled as vendor claims"
+    ],
+    "must_not": [
+      "Fabricated benchmark numbers"
+    ],
+    "fixture_notes": "Only the vendor's own marketing page is available."
+  }
+}

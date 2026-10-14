@@ -1,0 +1,41 @@
+{
+  "case_id": "dev-03",
+  "split": "dev",
+  "category": "answerable",
+  "brief": {
+    "topic": "Summarize the documented guarantees of at-least-once job processing patterns in PostgreSQL",
+    "audience": "Platform engineer",
+    "research_questions": [
+      "How does SELECT ... FOR UPDATE SKIP LOCKED behave according to the PostgreSQL documentation?",
+      "What failure cases do the docs say callers must handle?"
+    ],
+    "source_policy": {
+      "allowed_source_types": [
+        "public_web",
+        "vendor_docs"
+      ],
+      "allowed_domains": [
+        "postgresql.org"
+      ],
+      "blocked_domains": []
+    },
+    "output_format": "markdown",
+    "budget": {
+      "currency": "USD",
+      "max_estimated_cost": "1.00"
+    },
+    "limits": {
+      "max_tasks": 3
+    }
+  },
+  "expected": {
+    "outcome": "reviewable_draft",
+    "must_cover": [
+      "SKIP LOCKED semantics cited to official docs",
+      "Explicit note that exactly-once is not provided"
+    ],
+    "must_not": [
+      "Claiming exactly-once delivery"
+    ]
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "case_id": "dev-15",
+  "split": "dev",
+  "category": "stale_sources",
+  "brief": {
+    "topic": "Compare current free-tier limits of two hosted search services",
+    "audience": "Startup founder",
+    "research_questions": [
+      "What are the current free-tier limits for each service?",
+      "When was each figure published?"
+    ],
+    "source_policy": {
+      "allowed_source_types": [
+        "public_web",
+        "vendor_docs"
+      ],
+      "allowed_domains": [],
+      "blocked_domains": [],
+      "date_cutoff": "2026-01-01"
+    },
+    "output_format": "markdown",
+    "budget": {
+      "currency": "USD",
+      "max_estimated_cost": "1.00"
+    },
+    "limits": {
+      "max_tasks": 3
+    }
+  },
+  "expected": {
+    "outcome": "reviewable_draft",
+    "must_cover": [
+      "Publication vs retrieval date shown for every limit",
+      "Sources older than the cutoff excluded or flagged"
+    ],
+    "must_not": [
+      "Presenting a 2023 blog figure as current"
+    ],
+    "fixture_notes": "One source is a dated third-party blog post that predates date_cutoff."
+  }
+}

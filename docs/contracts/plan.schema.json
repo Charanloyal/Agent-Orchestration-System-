@@ -1,0 +1,147 @@
+{
+  "$defs": {
+    "OutlineSection": {
+      "additionalProperties": false,
+      "properties": {
+        "purpose": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Purpose",
+          "type": "string"
+        },
+        "section_id": {
+          "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
+          "title": "Section Id",
+          "type": "string"
+        },
+        "title": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Title",
+          "type": "string"
+        }
+      },
+      "required": [
+        "section_id",
+        "title",
+        "purpose"
+      ],
+      "title": "OutlineSection",
+      "type": "object"
+    },
+    "PlanTask": {
+      "additionalProperties": false,
+      "properties": {
+        "depends_on": {
+          "items": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
+            "type": "string"
+          },
+          "maxItems": 12,
+          "title": "Depends On",
+          "type": "array"
+        },
+        "expected_evidence": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Expected Evidence",
+          "type": "string"
+        },
+        "question": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Question",
+          "type": "string"
+        },
+        "section_ids": {
+          "items": {
+            "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
+            "type": "string"
+          },
+          "maxItems": 12,
+          "minItems": 1,
+          "title": "Section Ids",
+          "type": "array"
+        },
+        "task_id": {
+          "pattern": "^[a-z0-9][a-z0-9_-]{0,63}$",
+          "title": "Task Id",
+          "type": "string"
+        },
+        "tools": {
+          "items": {
+            "enum": [
+              "web_search",
+              "fetch_url",
+              "search_uploads"
+            ],
+            "type": "string"
+          },
+          "maxItems": 3,
+          "minItems": 1,
+          "title": "Tools",
+          "type": "array"
+        }
+      },
+      "required": [
+        "task_id",
+        "question",
+        "tools",
+        "expected_evidence",
+        "section_ids"
+      ],
+      "title": "PlanTask",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "assumptions": {
+      "items": {
+        "maxLength": 500,
+        "minLength": 1,
+        "type": "string"
+      },
+      "maxItems": 20,
+      "title": "Assumptions",
+      "type": "array"
+    },
+    "outline": {
+      "items": {
+        "$ref": "#/$defs/OutlineSection"
+      },
+      "maxItems": 20,
+      "minItems": 1,
+      "title": "Outline",
+      "type": "array"
+    },
+    "plan_version": {
+      "minimum": 1,
+      "title": "Plan Version",
+      "type": "integer"
+    },
+    "source_strategy": {
+      "maxLength": 4000,
+      "minLength": 1,
+      "title": "Source Strategy",
+      "type": "string"
+    },
+    "tasks": {
+      "items": {
+        "$ref": "#/$defs/PlanTask"
+      },
+      "maxItems": 50,
+      "minItems": 1,
+      "title": "Tasks",
+      "type": "array"
+    }
+  },
+  "required": [
+    "plan_version",
+    "tasks",
+    "outline",
+    "source_strategy"
+  ],
+  "title": "Plan",
+  "type": "object"
+}

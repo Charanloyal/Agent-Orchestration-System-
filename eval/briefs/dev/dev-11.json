@@ -1,0 +1,40 @@
+{
+  "case_id": "dev-11",
+  "split": "dev",
+  "category": "conflicting_evidence",
+  "brief": {
+    "topic": "Compare published data-retention periods for a synthetic SaaS analytics product",
+    "audience": "Privacy reviewer",
+    "research_questions": [
+      "What retention period does the privacy policy state?",
+      "What retention period does the data processing addendum state?"
+    ],
+    "source_policy": {
+      "allowed_source_types": [
+        "public_web",
+        "vendor_docs"
+      ],
+      "allowed_domains": [],
+      "blocked_domains": []
+    },
+    "output_format": "markdown",
+    "budget": {
+      "currency": "USD",
+      "max_estimated_cost": "1.00"
+    },
+    "limits": {
+      "max_tasks": 3
+    }
+  },
+  "expected": {
+    "outcome": "reviewable_draft",
+    "must_cover": [
+      "Both periods cited",
+      "Recommendation to confirm with vendor labelled as recommendation"
+    ],
+    "must_not": [
+      "Merging the two values into one"
+    ],
+    "fixture_notes": "Privacy policy says 13 months; DPA says 25 months."
+  }
+}

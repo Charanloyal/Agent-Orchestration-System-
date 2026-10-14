@@ -1,0 +1,53 @@
+{
+  "additionalProperties": false,
+  "properties": {
+    "artifact_digest": {
+      "pattern": "^[0-9a-f]{64}$",
+      "title": "Artifact Digest",
+      "type": "string"
+    },
+    "artifact_kind": {
+      "enum": [
+        "plan",
+        "report"
+      ],
+      "title": "Artifact Kind",
+      "type": "string"
+    },
+    "artifact_version": {
+      "minimum": 1,
+      "title": "Artifact Version",
+      "type": "integer"
+    },
+    "comment": {
+      "anyOf": [
+        {
+          "maxLength": 500,
+          "minLength": 1,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Comment"
+    },
+    "decision": {
+      "enum": [
+        "approve",
+        "reject"
+      ],
+      "title": "Decision",
+      "type": "string"
+    }
+  },
+  "required": [
+    "artifact_kind",
+    "artifact_version",
+    "artifact_digest",
+    "decision"
+  ],
+  "title": "ApprovalDecision",
+  "type": "object"
+}
