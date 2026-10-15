@@ -11,6 +11,8 @@ checkpointed state, inserts use deterministic keys with ON CONFLICT DO NOTHING, 
 first committed result wins.
 """
 
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any, TypedDict
 
 from langgraph.checkpoint.base import BaseCheckpointSaver
@@ -21,10 +23,12 @@ from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert
 
 from app.agents.base import EvidenceView
+from app.billing.meter import BudgetExhausted
 from app.contracts import (
     Plan,
     PlanPolicyViolation,
     PlanTask,
+    ResearcherOutput,
     ReviewerOutput,
     ReviewFinding,
     WriterOutput,
@@ -38,7 +42,7 @@ from app.db.models import Approval, EvidencePassage, PlanVersion, ReportVersion,
 from app.policy.tools import allowed_tools, plan_policy_for
 from app.services.events import append_event
 from app.services.runs import latest_artifact
-from app.tools.research import RunResearchTools
+from app.tools.research import RunResearchTools, ToolLimitReached
 from app.workflow.context import RunContext
 from app.workflow.errors import StepFailed
 
@@ -161,9 +165,7 @@ def build_graph(
         supplementary = [PlanTask.model_validate(t) for t in state.get("supplementary_tasks") or []]
         tasks_by_id = {t.task_id: t for t in (supplementary or plan.tasks)}
         levels = [[t.task_id for t in supplementary]] if supplementary else plan.execution_order()
-        for level in levels:
-            for task_id in level:
-                run_research_task(ctx, tasks_by_id[task_id])
+        run_levels(ctx, [[tasks_by_id[t] for t in level] for level in levels])
         ctx.crash_if("after_research")
         with ctx.sm() as session:
             evidence_count = session.scalar(
@@ -339,24 +341,24 @@ def build_graph(
     return builder.compile(checkpointer=checkpointer)
 
 
-def run_research_task(ctx: RunContext, task: PlanTask) -> None:
-    """Run one task unless its result is already committed (at-least-once, idempotent)."""
-    with ctx.sm() as session:
-        if session.get(TaskResult, (ctx.run_id, task.task_id)) is not None:
-            return
-    call = ctx.agents.researcher.research(ctx.brief, task, RunResearchTools(ctx, task.task_id))
-    output = call.output
-    if output.task_id != task.task_id:
-        raise StepFailed(
-            "research", f"researcher answered task {output.task_id!r}, expected {task.task_id!r}"
-        )
-    with ctx.sm() as session:
-        known = set(
-            session.scalars(select(EvidencePassage.evidence_id).where(EvidencePassage.run_id == ctx.run_id))
-        )
-    if unknown := sorted(set(output.evidence_ids) - known):
-        raise StepFailed("research", f"researcher cited {len(unknown)} evidence id(s) it did not collect")
-    status = "succeeded" if output.evidence_ids else "no_evidence"
+def run_levels(ctx: RunContext, levels: list[list[PlanTask]]) -> None:
+    """Run tasks level by level (dependencies first), up to `max_parallel_tasks` at once.
+    Exhausting the budget or tool-call limit stops scheduling; unfinished tasks are recorded
+    as stopped rather than silently dropped. Other errors propagate to the worker, which
+    retries transient ones (committed tasks are then skipped)."""
+    stop = threading.Event()
+    for level in levels:
+        workers = max(1, min(len(level), ctx.brief.limits.max_parallel_tasks))
+        with ThreadPoolExecutor(max_workers=workers, thread_name_prefix=f"research-{ctx.run_id}") as pool:
+            futures = [pool.submit(run_research_task, ctx, task, stop) for task in level]
+            errors = [f.exception() for f in futures if f.exception() is not None]
+        if errors:
+            raise errors[0]  # type: ignore[misc]
+
+
+def _record_task(
+    ctx: RunContext, task: PlanTask, output: ResearcherOutput, status: str, event: dict[str, Any]
+) -> None:
     with ctx.fenced() as session:
         inserted = session.execute(
             insert(TaskResult)
@@ -376,12 +378,57 @@ def run_research_task(ctx: RunContext, task: PlanTask) -> None:
                 ctx.run_id,
                 ctx.workspace_id,
                 "task_completed",
-                {
-                    "task_id": task.task_id,
-                    "status": status,
-                    "evidence": len(output.evidence_ids),
-                    "unresolved": len(output.unresolved_questions),
-                    "conflicts": len(output.conflicts),
-                    **provenance(call.generation),
-                },
+                {"task_id": task.task_id, "status": status, **event},
             )
+
+
+def run_research_task(ctx: RunContext, task: PlanTask, stop: threading.Event | None = None) -> None:
+    """Run one task unless its result is already committed (at-least-once, idempotent)."""
+    with ctx.sm() as session:
+        if session.get(TaskResult, (ctx.run_id, task.task_id)) is not None:
+            return
+    if stop is not None and stop.is_set():
+        _record_task(
+            ctx,
+            task,
+            ResearcherOutput(task_id=task.task_id, unresolved_questions=[task.question]),
+            "failed",
+            {"evidence": 0, "unresolved": 1, "stopped": "not started: run limits reached"},
+        )
+        return
+    try:
+        call = ctx.agents.researcher.research(ctx.brief, task, RunResearchTools(ctx, task.task_id))
+    except (BudgetExhausted, ToolLimitReached) as exc:
+        if stop is not None:
+            stop.set()
+        _record_task(
+            ctx,
+            task,
+            ResearcherOutput(task_id=task.task_id, unresolved_questions=[task.question]),
+            "failed",
+            {"evidence": 0, "unresolved": 1, "stopped": str(exc)[:200]},
+        )
+        return
+    output = call.output
+    if output.task_id != task.task_id:
+        raise StepFailed(
+            "research", f"researcher answered task {output.task_id!r}, expected {task.task_id!r}"
+        )
+    with ctx.sm() as session:
+        known = set(
+            session.scalars(select(EvidencePassage.evidence_id).where(EvidencePassage.run_id == ctx.run_id))
+        )
+    if unknown := sorted(set(output.evidence_ids) - known):
+        raise StepFailed("research", f"researcher cited {len(unknown)} evidence id(s) it did not collect")
+    _record_task(
+        ctx,
+        task,
+        output,
+        "succeeded" if output.evidence_ids else "no_evidence",
+        {
+            "evidence": len(output.evidence_ids),
+            "unresolved": len(output.unresolved_questions),
+            "conflicts": len(output.conflicts),
+            **provenance(call.generation),
+        },
+    )

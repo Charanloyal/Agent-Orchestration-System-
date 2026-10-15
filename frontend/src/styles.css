@@ -168,3 +168,9 @@ select { width: auto; }
 .sources { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.45rem; }
 .source-row { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: baseline; }
 input[type="file"] { width: auto; flex: 1 1 16rem; }
+.side { position: sticky; top: 4.5rem; align-self: start; }
+.side .timeline-card { position: static; max-height: calc(100vh - 22rem); }
+.meter { height: 0.5rem; border-radius: 999px; background: var(--tone-neutral-bg); overflow: hidden; margin-bottom: 0.5rem; }
+.meter span { display: block; height: 100%; background: var(--primary); }
+.table.compact th, .table.compact td { padding: 0.3rem 0.4rem; font-size: 0.82rem; }
+@media (max-width: 960px) { .side { position: static; } .side .timeline-card { max-height: none; } }

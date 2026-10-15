@@ -78,7 +78,11 @@ export function describeEvent(event: RunEvent): string {
     case "search_results_filtered":
       return `Task ${str(p.task_id)}: kept ${num(p.kept)} of ${num(p.returned)} results (source policy)`;
     case "task_completed":
-      return `Task ${str(p.task_id)} ${str(p.status).replace("_", " ")}: ${num(p.evidence)} evidence passage(s)`;
+      return p.stopped
+        ? `Task ${str(p.task_id)} stopped: ${str(p.stopped)}`
+        : `Task ${str(p.task_id)} ${str(p.status).replace("_", " ")}: ${num(p.evidence)} evidence passage(s)`;
+    case "budget_exhausted":
+      return `Budget exhausted at ${str(p.step)}: no further ${str(p.kind)} calls scheduled`;
     case "report_drafted":
       return `Report v${num(p.version)} drafted: ${num(p.claims)} claims, ${num(p.citations)} citations`;
     case "review_completed":

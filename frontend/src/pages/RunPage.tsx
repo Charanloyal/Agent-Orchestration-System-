@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useOutletContext, useParams } from "react-router";
 
-import { isTerminal, useDecide, useEvidence, useRun, useRunEvents, useSources } from "../api/hooks";
+import { isTerminal, useDecide, useEvidence, useRun, useRunEvents, useSources, useUsage } from "../api/hooks";
 import type { Evidence, Generation, Me, PlanBody, ReportBody, RunDetail, RunEvent } from "../api/types";
 import { PlanEditor } from "../components/PlanEditor";
 import { Badge, Card, EmptyState, ErrorBanner, Spinner, StateBadge } from "../components/ui";
@@ -67,7 +67,10 @@ export function RunPage() {
           {activeTab === "report" && <ReportView run={detail} />}
           {activeTab === "evidence" && <EvidenceList runId={detail.id} />}
         </div>
-        <Timeline events={stream.events} status={stream.status} terminal={isTerminal(detail.state)} />
+        <div className="stack side">
+          <CostCard runId={detail.id} />
+          <Timeline events={stream.events} status={stream.status} terminal={isTerminal(detail.state)} />
+        </div>
       </div>
     </div>
   );
@@ -354,6 +357,48 @@ function Timeline({ events, status, terminal }: { events: RunEvent[]; status: st
           ))}
         </ol>
       )}
+    </Card>
+  );
+}
+
+const money = (value: string | null | undefined) => `$${Number(value ?? 0).toFixed(4)}`;
+
+function CostCard({ runId }: { runId: string }) {
+  const usage = useUsage(runId);
+  if (!usage.data) return null;
+  const u = usage.data;
+  const used = Number(u.committed);
+  const budget = Number(u.budget);
+  const percent = budget > 0 ? Math.min(100, (used / budget) * 100) : 0;
+  return (
+    <Card title="Cost (estimated)" className="cost-card">
+      <div className="meter" role="meter" aria-label="Budget used" aria-valuemin={0} aria-valuemax={budget}
+           aria-valuenow={used}>
+        <span style={{ width: `${percent}%` }} />
+      </div>
+      <p className="small">
+        <strong>{money(u.committed)}</strong> of {money(u.budget)} committed ? reconciled {money(u.reconciled)}
+        {Number(u.outstanding) > 0 && <> ? in flight {money(u.outstanding)}</>}
+        {Number(u.uncertain) > 0 && <> ? uncertain {money(u.uncertain)}</>}
+      </p>
+      {u.lines.length > 0 && (
+        <table className="table compact">
+          <thead>
+            <tr><th scope="col">Step</th><th scope="col">Calls</th><th scope="col">Tokens</th><th scope="col">Actual</th></tr>
+          </thead>
+          <tbody>
+            {u.lines.map((line) => (
+              <tr key={`${line.step}-${line.kind}`}>
+                <td>{line.step} <span className="muted small">{line.kind}</span></td>
+                <td>{line.calls}</td>
+                <td>{line.input_tokens + line.output_tokens || "-"}</td>
+                <td>{line.actual === null ? "-" : money(line.actual)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      <p className="small muted">{u.note}</p>
     </Card>
   );
 }

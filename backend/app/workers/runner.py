@@ -24,6 +24,8 @@ from sqlalchemy.orm import Session, sessionmaker
 from app.agents.base import AgentSuite
 from app.agents.fake import fake_agents
 from app.agents.llm_planner import LlmPlanner
+from app.agents.llm_researcher import LlmResearcher
+from app.billing.meter import BudgetExhausted, MeteredLlm, MeteredSearch
 from app.config import Settings, get_settings
 from app.contracts import Brief as BriefSpec
 from app.contracts.run_state import RunState
@@ -31,7 +33,7 @@ from app.db.models import Brief, Run
 from app.db.session import get_sessionmaker
 from app.observability.logging import configure_logging
 from app.providers.corpus import CorpusSearch
-from app.providers.llm import OpenAICompatibleLlm
+from app.providers.llm import LlmProvider, OpenAICompatibleLlm
 from app.providers.search import FakeSearch, SearchProvider
 from app.providers.tavily import TavilySearch
 from app.services.events import append_event, set_run_state
@@ -49,13 +51,20 @@ log = logging.getLogger("aos.worker")
 WAIT_STATES = {"plan": RunState.AWAITING_PLAN_APPROVAL, "report": RunState.AWAITING_REPORT_APPROVAL}
 
 
-def build_agents(settings: Settings) -> AgentSuite:
-    if settings.agent_mode == "fake":
+def build_agents(settings: Settings, ctx: RunContext, llm: LlmProvider | None = None) -> AgentSuite:
+    """Fake agents by default; LLM agents (metered against the run budget) when configured.
+    Agents switch to LLM implementations milestone by milestone."""
+    if settings.agent_mode == "fake" and llm is None:
         return fake_agents()
-    llm = OpenAICompatibleLlm(settings)
-    fakes = fake_agents()
-    # Agents are switched to their LLM implementations milestone by milestone (M6 planner).
-    return replace(fakes, planner=LlmPlanner(llm, max_output_tokens=settings.llm_max_output_tokens))
+    base = llm or OpenAICompatibleLlm(settings)
+    tokens = settings.llm_max_output_tokens
+    return replace(
+        fake_agents(),
+        planner=LlmPlanner(MeteredLlm(base, ctx.meter, "planner"), max_output_tokens=tokens),
+        researcher=LlmResearcher(
+            MeteredLlm(base, ctx.meter, "research"), max_output_tokens=min(tokens, 1500)
+        ),
+    )
 
 
 def build_search(settings: Settings) -> SearchProvider:
@@ -121,6 +130,7 @@ def process_one(
     agents: AgentSuite | None = None,
     search: SearchProvider | None = None,
     fetcher: Fetcher | None = None,
+    llm: LlmProvider | None = None,
 ) -> str:
     settings = settings or get_settings()
     sm = get_sessionmaker()
@@ -132,10 +142,12 @@ def process_one(
         settings,
         sm,
         lease,
-        agents or build_agents(settings),
+        fake_agents(),
         search or build_search(settings),
         fetcher or build_fetcher(settings),
     )
+    ctx.agents = agents or build_agents(settings, ctx, llm)
+    ctx.search = MeteredSearch(ctx.search, ctx.meter)
     heartbeat = Heartbeat(ctx)
     heartbeat.start()
     log_extra = {"run_id": str(lease.run_id), "worker": worker_id, "token": lease.token}
@@ -161,6 +173,9 @@ def process_one(
     except StepFailed as exc:
         _fail(ctx, exc.step, exc.reason)
         return "failed"
+    except BudgetExhausted as exc:
+        _needs_attention(ctx, f"Budget exhausted at {exc.step}; work stopped (estimated accounting)")
+        return "done"
     except Exception as exc:
         log.exception("unexpected worker error", extra=log_extra)
         _fail(ctx, "worker", f"internal error ({type(exc).__name__})")
@@ -211,6 +226,12 @@ def _complete(ctx: RunContext) -> str:
     with ctx.fenced() as session:
         jobs.mark_done(session, ctx.lease)
     return "done"
+
+
+def _needs_attention(ctx: RunContext, reason: str) -> None:
+    with ctx.fenced() as session:
+        set_run_state(session, ctx.run_id, RunState.NEEDS_ATTENTION, reason)
+        jobs.mark_done(session, ctx.lease)
 
 
 def _fail(ctx: RunContext, step: str, reason: str) -> None:

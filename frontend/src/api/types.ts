@@ -191,4 +191,26 @@ export type UploadInfo = {
   created_at: string;
 };
 
+export type UsageLine = {
+  step: string;
+  kind: "llm" | "search";
+  calls: number;
+  estimated: string;
+  actual: string | null;
+  input_tokens: number;
+  output_tokens: number;
+};
+
+export type RunUsage = {
+  currency: string;
+  budget: string;
+  committed: string;
+  reconciled: string;
+  outstanding: string;
+  uncertain: string;
+  price_schedules: string[];
+  lines: UsageLine[];
+  note: string;
+};
+
 export type UploadSearchHit = { upload_id: string; filename: string; locator: string | null; text: string; rank: number };

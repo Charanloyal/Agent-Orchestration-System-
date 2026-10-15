@@ -9,11 +9,11 @@ import hashlib
 import uuid
 from datetime import UTC, datetime
 
-from sqlalchemy import func, update
+from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert
 
 from app.agents.base import EvidenceRef
-from app.db.models import EvidencePassage, Source, ToolExecution
+from app.db.models import EvidencePassage, Run, Source, ToolExecution
 from app.providers.search import SearchHit
 from app.services.events import append_event
 from app.services.uploads import search_chunks
@@ -24,6 +24,14 @@ from app.tools.policy import domain_permitted, is_stale, source_id_for
 from app.workflow.context import RunContext
 
 MAX_SEARCH_RESULTS = 5
+
+
+class ToolLimitReached(Exception):
+    def __init__(self, limit: int) -> None:
+        super().__init__(f"tool-call limit of {limit} reached")
+        self.limit = limit
+
+
 MAX_UPLOAD_RESULTS = 5
 
 
@@ -237,8 +245,17 @@ class RunResearchTools:
             )
 
     def _start(self, tool: str) -> uuid.UUID:
+        """Record the call before making it. The run row is locked while counting, so parallel
+        tasks can never exceed the brief's tool-call limit (FR-09)."""
         execution_id = uuid.uuid4()
+        limit = self.ctx.brief.limits.max_tool_calls
         with self.ctx.fenced() as session:
+            session.execute(select(Run.id).where(Run.id == self.ctx.run_id).with_for_update())
+            used = session.scalar(
+                select(func.count()).select_from(ToolExecution).where(ToolExecution.run_id == self.ctx.run_id)
+            )
+            if (used or 0) >= limit:
+                raise ToolLimitReached(limit)
             session.add(
                 ToolExecution(
                     id=execution_id,

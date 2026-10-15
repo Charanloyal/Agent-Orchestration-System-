@@ -11,6 +11,7 @@ from typing import Any
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.agents.base import AgentSuite
+from app.billing.meter import BudgetMeter
 from app.config import Settings
 from app.contracts import Brief
 from app.contracts.run_state import RunState
@@ -32,9 +33,11 @@ class RunContext:
     search: SearchProvider
     fetcher: Fetcher
     alive: threading.Event = field(default_factory=threading.Event)
+    meter: BudgetMeter = field(init=False)
 
     def __post_init__(self) -> None:
         self.alive.set()
+        self.meter = BudgetMeter(self)
 
     @property
     def run_id(self) -> uuid.UUID:

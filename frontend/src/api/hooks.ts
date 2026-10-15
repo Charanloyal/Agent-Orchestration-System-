@@ -12,6 +12,7 @@ import type {
   RunDetail,
   RunEvent,
   RunSummary,
+  RunUsage,
   Source,
   UploadInfo,
   UploadSearchHit,
@@ -126,6 +127,13 @@ export function useDeleteUpload(workspaceId: string) {
   });
 }
 
+export function useUsage(runId: string) {
+  return useQuery({
+    queryKey: ["usage", runId],
+    queryFn: () => api<RunUsage>(`/api/v1/runs/${runId}/usage`),
+  });
+}
+
 export function useEditPlan(runId: string) {
   const client = useQueryClient();
   return useMutation({
@@ -195,7 +203,10 @@ export function useRunEvents(runId: string): { events: RunEvent[]; status: Strea
     const refresh = (what: "run" | "evidence") => {
       pending.add(what);
       timer ??= setTimeout(() => {
-        if (pending.has("run")) void client.invalidateQueries({ queryKey: keys.run(runId) });
+        if (pending.has("run")) {
+          void client.invalidateQueries({ queryKey: keys.run(runId) });
+          void client.invalidateQueries({ queryKey: ["usage", runId] });
+        }
         if (pending.has("evidence")) {
           void client.invalidateQueries({ queryKey: keys.evidence(runId) });
           void client.invalidateQueries({ queryKey: ["sources", runId] });

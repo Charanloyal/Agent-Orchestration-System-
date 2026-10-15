@@ -5,6 +5,7 @@ import json
 import uuid
 from collections.abc import AsyncIterator
 from datetime import datetime
+from decimal import Decimal
 from typing import Annotated, Any, Literal
 
 from fastapi import APIRouter, Depends, Header, Query, Request, Response
@@ -14,12 +15,14 @@ from pydantic import BaseModel, Field, StringConstraints
 from sqlalchemy import func, select, text
 
 from app.auth.deps import AppSettings, CurrentPrincipal, DbSession, Principal, check_workspace_access
+from app.billing.meter import spend_for
 from app.contracts import Brief as BriefSpec
 from app.contracts import Plan as PlanSpec
 from app.contracts.common import Sha256Hex
 from app.contracts.run_state import TERMINAL_STATES, RunState
 from app.db.models import (
     Approval,
+    BudgetReservation,
     EvidencePassage,
     PlanVersion,
     ReportVersion,
@@ -446,6 +449,76 @@ def list_sources(run_id: uuid.UUID, principal: CurrentPrincipal, db: DbSession) 
         )
         for s, n in rows
     ]
+
+
+class UsageLine(BaseModel):
+    step: str
+    kind: str
+    calls: int
+    estimated: Decimal
+    actual: Decimal | None
+    input_tokens: int
+    output_tokens: int
+
+
+class UsageOut(BaseModel):
+    currency: str
+    budget: Decimal
+    committed: Decimal
+    reconciled: Decimal
+    outstanding: Decimal
+    uncertain: Decimal
+    price_schedules: list[str]
+    lines: list[UsageLine]
+    note: str
+
+
+@router.get("/runs/{run_id}/usage", response_model=UsageOut)
+def run_usage(run_id: uuid.UUID, principal: CurrentPrincipal, db: DbSession) -> UsageOut:
+    """FR-09: estimated vs reconciled cost. Estimated accounting, not a provider billing cap."""
+    run, _ = get_run(db, principal, run_id, Action.RUN_READ)
+    brief = db.get(BriefRow, run.brief_id)
+    assert brief is not None
+    budget = Decimal(str(brief.body["budget"]["max_estimated_cost"]))
+    spend = spend_for(db, run_id, budget)
+    rows = db.execute(
+        select(
+            BudgetReservation.step,
+            BudgetReservation.kind,
+            func.count(),
+            func.sum(BudgetReservation.estimated_cost),
+            func.sum(BudgetReservation.actual_cost),
+            func.coalesce(func.sum(BudgetReservation.usage["input_tokens"].as_integer()), 0),
+            func.coalesce(func.sum(BudgetReservation.usage["output_tokens"].as_integer()), 0),
+        )
+        .where(BudgetReservation.run_id == run_id)
+        .group_by(BudgetReservation.step, BudgetReservation.kind)
+        .order_by(BudgetReservation.step, BudgetReservation.kind)
+    ).all()
+    schedules = db.scalars(
+        select(BudgetReservation.price_snapshot["schedule_id"].astext)
+        .where(BudgetReservation.run_id == run_id)
+        .distinct()
+    ).all()
+    return UsageOut(
+        currency=brief.body["budget"].get("currency", "USD"),
+        budget=budget,
+        committed=spend.committed,
+        reconciled=spend.reconciled,
+        outstanding=spend.outstanding,
+        uncertain=spend.uncertain,
+        price_schedules=[s for s in schedules if s],
+        lines=[
+            UsageLine(
+                step=st, kind=k, calls=n, estimated=e or Decimal(0), actual=a, input_tokens=i, output_tokens=o
+            )
+            for st, k, n, e, a, i, o in rows
+        ],
+        note=(
+            "Estimated from configured price schedules and provider-reported usage; "
+            "not a provider billing cap."
+        ),
+    )
 
 
 @router.get("/runs/{run_id}/timeline", response_model=list[EventOut])

@@ -1,3 +1,4 @@
+from app.db.models.billing import BudgetReservation
 from app.db.models.identity import (
     AuditEvent,
     AuthSession,
@@ -27,6 +28,7 @@ __all__ = [
     "AuditEvent",
     "AuthSession",
     "Brief",
+    "BudgetReservation",
     "EvidencePassage",
     "Membership",
     "OidcLoginState",

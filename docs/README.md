@@ -37,6 +37,7 @@
   - Version- and digest-bound decisions.
   - Persisted timeline with SSE replay.
   - Evidence with provenance.
+- **Research and budgets (M7):** bounded parallel fan-out by dependency level; tool-call limit enforced under a row lock; transactional budget reservations before every LLM/search call with reconciliation; exhaustion ? needs attention; LLM researcher citing only provided passages; usage endpoint and cost card.
 - **Planner (M6):** OpenAI-compatible adapter with classified errors; schema-validated output with one bounded repair; versioned prompts and per-artifact provenance; plan editing as new versions; approval-wait expiry.
 - **Evidence ingestion (M5):** Tavily, offline-corpus and fake search; SSRF-safe pinned fetcher; isolated text-PDF extraction; uploads with content sniffing; workspace-scoped full-text retrieval; failed sources shown as not read.
 - **Frontend:**
@@ -51,9 +52,9 @@
 
 ### Not implemented yet
 
-- LLM researcher, writer and reviewer (the planner is LLM-backed when `AOS_AGENT_MODE=llm`).
-- Budgets and reservations, cancellation and retry APIs, the export, observability
-  beyond logs, evaluation runs.
+- LLM writer and reviewer (planner and researcher are LLM-backed when `AOS_AGENT_MODE=llm`).
+- Cancellation and retry APIs, the export, observability beyond logs and cost views, and
+  evaluation runs.
 
 ## Product and planning
 
@@ -82,6 +83,7 @@
 | [0010](decisions/0010-workflow-runtime-events-frontend.md) | Workflow runtime, live events and frontend architecture | Accepted |
 | [0011](decisions/0011-evidence-ingestion-retrieval.md) | Evidence ingestion: search, safe fetching, extraction, uploads, retrieval | Accepted |
 | [0012](decisions/0012-llm-structured-output-plan-editing.md) | LLM adapter, structured output, prompt versioning, plan editing, expiry | Accepted |
+| [0013](decisions/0013-parallel-research-budgets.md) | Bounded parallel research, tool-call limits, budget reservations | Accepted |
 
 ## Session handoff
 

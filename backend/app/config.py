@@ -51,6 +51,13 @@ class Settings(BaseSettings):
     llm_max_output_tokens: int = 2500
     llm_seed: int | None = 7
     llm_timeout_seconds: float = 60.0
+
+    # Estimated-cost accounting (FR-09). Configured estimates, not quotes: verify against
+    # current provider price pages. Defaults reflect publicly listed small-model pricing.
+    price_schedule_id: str = "configured-2026-10"
+    price_llm_input_per_million: float = 0.15
+    price_llm_output_per_million: float = 0.60
+    price_search_per_credit: float = 0.008
     search_provider: Literal["fake", "tavily", "corpus"] = "fake"
     tavily_api_key: SecretStr | None = None
     corpus_dir: Path = BACKEND_DIR.parent / "eval" / "corpus" / "v1"
