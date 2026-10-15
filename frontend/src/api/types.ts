@@ -95,7 +95,24 @@ export type ReportBody = {
   sections: { section_id: string; title: string; claims: Claim[] }[];
 };
 
-export type Artifact<T> = { version: number; digest: string; created_at: string; body: T };
+export type Generation = {
+  provider?: string;
+  model?: string;
+  prompt_version?: string;
+  attempts?: number;
+  input_tokens?: number;
+  output_tokens?: number;
+  edited_from?: number;
+};
+
+export type Artifact<T> = {
+  version: number;
+  digest: string;
+  created_at: string;
+  body: T;
+  author?: "agent" | "user";
+  generation?: Generation | null;
+};
 
 export type Decision = {
   id: string;

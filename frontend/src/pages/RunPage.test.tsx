@@ -59,6 +59,21 @@ describe("RunPage", () => {
     expect(screen.getByText("Q2").closest("li")).toHaveTextContent("needs t1");
   });
 
+  it("edits a plan as a new version, dropping dependencies on removed tasks", async () => {
+    const calls = renderRun("analyst", run(), [
+      { method: "PUT", path: `/api/v1/runs/${RUN}/plan`, body: { ...plan, version: 2, author: "user" } },
+    ]);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("tab", { name: /Plan/ }));
+    await user.click(screen.getByRole("button", { name: "Edit plan" }));
+    await user.click(screen.getByRole("button", { name: "Remove task t1" }));
+    await user.click(screen.getByRole("button", { name: "Save as v2" }));
+    const put = calls.find((c) => c.method === "PUT");
+    const body = put?.body as { base_version: number; plan: { tasks: { task_id: string; depends_on: string[] }[] } };
+    expect(body.base_version).toBe(1);
+    expect(body.plan.tasks).toEqual([expect.objectContaining({ task_id: "t2", depends_on: [] })]);
+  });
+
   it("does not offer plan decisions to reviewers", async () => {
     renderRun("reviewer", run());
     expect(await screen.findByText(/Waiting for an analyst to approve plan v1/)).toBeInTheDocument();

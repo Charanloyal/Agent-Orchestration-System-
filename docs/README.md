@@ -37,6 +37,7 @@
   - Version- and digest-bound decisions.
   - Persisted timeline with SSE replay.
   - Evidence with provenance.
+- **Planner (M6):** OpenAI-compatible adapter with classified errors; schema-validated output with one bounded repair; versioned prompts and per-artifact provenance; plan editing as new versions; approval-wait expiry.
 - **Evidence ingestion (M5):** Tavily, offline-corpus and fake search; SSRF-safe pinned fetcher; isolated text-PDF extraction; uploads with content sniffing; workspace-scoped full-text retrieval; failed sources shown as not read.
 - **Frontend:**
   - Sign-in, workspace shell, runs list, brief form.
@@ -50,7 +51,7 @@
 
 ### Not implemented yet
 
-- Real LLM agents (the fakes are deterministic).
+- LLM researcher, writer and reviewer (the planner is LLM-backed when `AOS_AGENT_MODE=llm`).
 - Budgets and reservations, cancellation and retry APIs, the export, observability
   beyond logs, evaluation runs.
 
@@ -80,6 +81,7 @@
 | [0009](decisions/0009-identity-sessions-authorization.md) | Identity, sessions and workspace authorization | Accepted |
 | [0010](decisions/0010-workflow-runtime-events-frontend.md) | Workflow runtime, live events and frontend architecture | Accepted |
 | [0011](decisions/0011-evidence-ingestion-retrieval.md) | Evidence ingestion: search, safe fetching, extraction, uploads, retrieval | Accepted |
+| [0012](decisions/0012-llm-structured-output-plan-editing.md) | LLM adapter, structured output, prompt versioning, plan editing, expiry | Accepted |
 
 ## Session handoff
 

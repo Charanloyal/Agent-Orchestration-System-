@@ -169,7 +169,7 @@ issuer.
 | `AOS_OIDC_CLIENT_ID` / `AOS_OIDC_CLIENT_SECRET` | `aos-local` / none | Client registration (the secret is for Google or Entra) |
 | `AOS_OIDC_BACKCHANNEL_URL` | none | Internal issuer URL for server-to-server calls |
 | `AOS_COOKIE_SECURE` | `false` | Must be `true` in prod |
-| `AOS_AGENT_MODE` | `fake` | `fake` (deterministic, free) or `llm` (from M6) |
+| `AOS_AGENT_MODE` | `fake` | `fake` (deterministic, free) or `llm` (real model; see "Live model" below) |
 | `AOS_SEARCH_PROVIDER` | `fake` | `fake`, `corpus` (offline, versioned, free) or `tavily` (live; needs `AOS_TAVILY_API_KEY`) |
 | `AOS_TAVILY_API_KEY` | none | Tavily key (secret; `.env` only) |
 | `AOS_OBJECT_STORE_DIR` | `backend/.data/objects` | Local object storage for uploads (git-ignored) |
@@ -177,6 +177,25 @@ issuer.
 | `AOS_WORKER_LEASE_SECONDS` / `AOS_WORKER_HEARTBEAT_SECONDS` | `30` / `10` | Job lease and heartbeat |
 | `AOS_JOB_MAX_ATTEMPTS` | `5` | Transient-retry budget per segment |
 | `AOS_APPROVAL_TTL_HOURS` | `72` | How long a plan or report waits for a human |
+
+## Live model and search (optional, costs money)
+
+Everything runs on deterministic fakes by default. To use a real model, add the settings to
+`backend/.env`. The project ceiling is **USD 10** ([ADR 0005](docs/decisions/0005-spending-ceiling.md)).
+
+```text
+AOS_AGENT_MODE=llm
+# OpenAI:
+AOS_LLM_API_KEY=<key>
+AOS_LLM_MODEL=gpt-4o-mini
+# ...or Groq: AOS_LLM_BASE_URL=https://api.groq.com/openai/v1 and a Groq model name
+# ...or local Ollama (free): AOS_LLM_BASE_URL=http://127.0.0.1:11434/v1, AOS_LLM_MODEL=llama3.1
+# ...or Azure OpenAI: AOS_LLM_API_STYLE=azure, AOS_LLM_AZURE_ENDPOINT=..., AOS_LLM_MODEL=<deployment>
+AOS_SEARCH_PROVIDER=tavily
+AOS_TAVILY_API_KEY=<key>
+```
+
+Opt-in live smoke test (one small planner call): `$env:AOS_LIVE_TESTS="1"; .\.venv\Scripts\python.exe -m pytest -m live -s tests/live`.
 
 ## Corporate proxies and package mirrors
 

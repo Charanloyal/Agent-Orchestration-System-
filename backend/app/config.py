@@ -39,6 +39,18 @@ class Settings(BaseSettings):
 
     # Workflow execution
     agent_mode: Literal["fake", "llm"] = "fake"
+    # LLM provider (ADR 0002): any OpenAI-compatible chat-completions endpoint.
+    llm_api_style: Literal["openai", "azure"] = "openai"
+    llm_base_url: str | None = None  # e.g. https://api.groq.com/openai/v1, http://127.0.0.1:11434/v1
+    llm_api_key: SecretStr | None = None
+    llm_model: str = "gpt-4o-mini"
+    llm_azure_endpoint: str | None = None
+    llm_azure_api_version: str = "2024-10-21"
+    llm_response_format: Literal["json_object", "none"] = "json_object"
+    llm_temperature: float = 0.2
+    llm_max_output_tokens: int = 2500
+    llm_seed: int | None = 7
+    llm_timeout_seconds: float = 60.0
     search_provider: Literal["fake", "tavily", "corpus"] = "fake"
     tavily_api_key: SecretStr | None = None
     corpus_dir: Path = BACKEND_DIR.parent / "eval" / "corpus" / "v1"

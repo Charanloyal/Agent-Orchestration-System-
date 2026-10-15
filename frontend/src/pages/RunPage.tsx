@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Link, useOutletContext, useParams } from "react-router";
 
 import { isTerminal, useDecide, useEvidence, useRun, useRunEvents, useSources } from "../api/hooks";
-import type { Evidence, Me, PlanBody, ReportBody, RunDetail, RunEvent } from "../api/types";
+import type { Evidence, Generation, Me, PlanBody, ReportBody, RunDetail, RunEvent } from "../api/types";
+import { PlanEditor } from "../components/PlanEditor";
 import { Badge, Card, EmptyState, ErrorBanner, Spinner, StateBadge } from "../components/ui";
 import { CLAIM_KIND_LABELS, CLAIM_KIND_TONES, describeEvent, formatDateTime, formatTime } from "../format";
 
@@ -62,7 +63,7 @@ export function RunPage() {
               </button>
             ))}
           </div>
-          {activeTab === "plan" && <PlanView run={detail} />}
+          {activeTab === "plan" && <PlanView run={detail} role={role} />}
           {activeTab === "report" && <ReportView run={detail} />}
           {activeTab === "evidence" && <EvidenceList runId={detail.id} />}
         </div>
@@ -121,14 +122,37 @@ function DecisionPanel({ run, role }: { run: RunDetail; role: string | undefined
   );
 }
 
-function PlanView({ run }: { run: RunDetail }) {
+function GenerationNote({ artifact }: { artifact: { author?: string; generation?: Generation | null } }) {
+  const g = artifact.generation;
+  if (artifact.author === "user") {
+    return <p className="small muted">Edited by a person{g?.edited_from ? ` from v${g.edited_from}` : ""}.</p>;
+  }
+  if (!g || g.provider === "fake") return <p className="small muted">Produced by the deterministic test agent.</p>;
+  return (
+    <p className="small muted" data-testid="generation">
+      Produced by {g.model} via {g.provider} ? prompt {g.prompt_version} ? {g.attempts} attempt(s) ?{" "}
+      {(g.input_tokens ?? 0) + (g.output_tokens ?? 0)} tokens
+    </p>
+  );
+}
+
+function PlanView({ run, role }: { run: RunDetail; role: string | undefined }) {
+  const [editing, setEditing] = useState(false);
   if (!run.plan) {
     return <Card><EmptyState title="No plan yet"><p className="muted">The planner is working on it.</p></EmptyState></Card>;
+  }
+  const canEdit = run.pending_decision?.kind === "plan" && (role === "analyst" || role === "admin");
+  if (editing && canEdit) {
+    return <PlanEditor runId={run.id} plan={run.plan} onDone={() => setEditing(false)} />;
   }
   const plan: PlanBody = run.plan.body;
   const levels = dependencyLevels(plan);
   return (
-    <Card title={`Plan v${run.plan.version}`}>
+    <Card
+      title={`Plan v${run.plan.version}`}
+      actions={canEdit && <button type="button" className="btn btn-secondary" onClick={() => setEditing(true)}>Edit plan</button>}
+    >
+      <GenerationNote artifact={run.plan} />
       <p>{plan.source_strategy}</p>
       <h3>Tasks</h3>
       <ol className="levels">

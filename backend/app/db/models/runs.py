@@ -119,6 +119,7 @@ class PlanVersion(CreatedAtMixin, Base):
     digest: Mapped[str] = mapped_column(String(64), nullable=False)
     body: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
     author: Mapped[str] = mapped_column(String(10), nullable=False, default="agent")
+    generation: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
 
 class ReportVersion(CreatedAtMixin, Base):
@@ -129,6 +130,7 @@ class ReportVersion(CreatedAtMixin, Base):
     plan_version: Mapped[int] = mapped_column(Integer, nullable=False)
     digest: Mapped[str] = mapped_column(String(64), nullable=False)
     body: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
+    generation: Mapped[dict[str, Any] | None] = mapped_column(JSONB)
 
 
 class Approval(Base):

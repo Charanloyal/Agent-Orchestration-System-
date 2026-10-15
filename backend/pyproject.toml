@@ -1,7 +1,7 @@
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
-addopts = "-ra --strict-markers -p no:langsmith_plugin"
+addopts = "-ra --strict-markers -p no:langsmith_plugin -m 'not live'"
 filterwarnings = [
     "error",
     # Upstream langsmith (transitive via langgraph/langchain-core) on Python 3.14; not our code.

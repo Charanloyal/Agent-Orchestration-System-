@@ -13,6 +13,7 @@ import random
 import signal
 import threading
 import uuid
+from dataclasses import replace
 from types import FrameType
 from typing import Any
 
@@ -22,6 +23,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.agents.base import AgentSuite
 from app.agents.fake import fake_agents
+from app.agents.llm_planner import LlmPlanner
 from app.config import Settings, get_settings
 from app.contracts import Brief as BriefSpec
 from app.contracts.run_state import RunState
@@ -29,6 +31,7 @@ from app.db.models import Brief, Run
 from app.db.session import get_sessionmaker
 from app.observability.logging import configure_logging
 from app.providers.corpus import CorpusSearch
+from app.providers.llm import OpenAICompatibleLlm
 from app.providers.search import FakeSearch, SearchProvider
 from app.providers.tavily import TavilySearch
 from app.services.events import append_event, set_run_state
@@ -36,6 +39,7 @@ from app.tools.fetcher import Fetcher, FetchPolicy, SafeFetcher
 from app.workers import jobs
 from app.workers.checkpointer import FencedPostgresSaver, checkpoint_connection, setup_checkpointer
 from app.workers.jobs import Lease, StaleOwner
+from app.workers.maintenance import expire_overdue_waits
 from app.workflow.context import RunContext
 from app.workflow.errors import StepFailed, TransientError
 from app.workflow.graph import build_graph
@@ -48,7 +52,10 @@ WAIT_STATES = {"plan": RunState.AWAITING_PLAN_APPROVAL, "report": RunState.AWAIT
 def build_agents(settings: Settings) -> AgentSuite:
     if settings.agent_mode == "fake":
         return fake_agents()
-    raise NotImplementedError("LLM agents arrive in M6")
+    llm = OpenAICompatibleLlm(settings)
+    fakes = fake_agents()
+    # Agents are switched to their LLM implementations milestone by milestone (M6 planner).
+    return replace(fakes, planner=LlmPlanner(llm, max_output_tokens=settings.llm_max_output_tokens))
 
 
 def build_search(settings: Settings) -> SearchProvider:
@@ -265,7 +272,14 @@ def main(argv: list[str] | None = None) -> int:
     signal.signal(signal.SIGINT, request_stop)
     signal.signal(signal.SIGTERM, request_stop)
     log.info("worker started", extra={"worker": worker_id})
+    sm = get_sessionmaker()
     while not stopping.is_set():
+        try:
+            expired = expire_overdue_waits(sm)
+            if expired:
+                log.info("expired overdue approval waits", extra={"count": expired})
+        except Exception:
+            log.exception("maintenance failed")
         outcome = process_one(settings, worker_id=worker_id, run_id=args.run_id)
         if outcome == "no_job":
             stopping.wait(settings.worker_poll_seconds)

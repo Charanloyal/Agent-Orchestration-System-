@@ -62,7 +62,9 @@ export function describeEvent(event: RunEvent): string {
     case "state_changed":
       return `${STATE_LABELS[p.to as RunState] ?? str(p.to)}${p.reason ? ` (${str(p.reason)})` : ""}`;
     case "plan_proposed":
-      return `Plan v${num(p.version)} proposed with ${num(p.tasks)} task(s)`;
+      return `Plan v${num(p.version)} proposed with ${num(p.tasks)} task(s)${p.model ? ` by ${str(p.model)}` : ""}`;
+    case "plan_edited":
+      return `Plan edited by ${str(p.role)}: v${num(p.version)} created from v${num(p.from_version)}`;
     case "decision_recorded":
       return `${str(p.kind) === "plan" ? "Plan" : "Report"} v${num(p.version)} ${
         p.decision === "approve" ? "approved" : "rejected"

@@ -2,10 +2,11 @@
 network directly: research goes through ResearchTools, which enforces policy and records
 every external call."""
 
-from dataclasses import dataclass
-from typing import Protocol
+from dataclasses import dataclass, field
+from typing import Any, Protocol
 
 from app.contracts import Brief, Plan, PlanTask, ResearcherOutput, ReviewerOutput, ReviewFinding, WriterOutput
+from app.providers.llm import LlmUsage
 from app.providers.search import SearchHit
 
 
@@ -39,6 +40,9 @@ class ResearchTools(Protocol):
 class AgentCall[T]:
     output: T
     attempts: int
+    # Provenance of the artifact: provider, model, prompt version, attempts, token counts.
+    generation: dict[str, Any] = field(default_factory=lambda: {"provider": "fake"})
+    usage: tuple[LlmUsage, ...] = ()
 
 
 class Planner(Protocol):

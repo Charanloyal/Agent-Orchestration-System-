@@ -3,10 +3,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { api, ApiError, setCsrfToken } from "./client";
 import type {
+  Artifact,
   BriefInput,
   Decision,
   Evidence,
   Me,
+  PlanBody,
   RunDetail,
   RunEvent,
   RunSummary,
@@ -121,6 +123,15 @@ export function useDeleteUpload(workspaceId: string) {
     mutationFn: (uploadId: string) =>
       api<void>(`/api/v1/workspaces/${workspaceId}/uploads/${uploadId}`, { method: "DELETE" }),
     onSettled: () => client.invalidateQueries({ queryKey: ["uploads", workspaceId] }),
+  });
+}
+
+export function useEditPlan(runId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ baseVersion, plan }: { baseVersion: number; plan: PlanBody }) =>
+      api<Artifact<PlanBody>>(`/api/v1/runs/${runId}/plan`, { method: "PUT", body: { base_version: baseVersion, plan } }),
+    onSettled: () => client.invalidateQueries({ queryKey: keys.run(runId) }),
   });
 }
 

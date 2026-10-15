@@ -59,6 +59,12 @@ class RunGraphState(TypedDict, total=False):
     attention_reason: str | None
 
 
+def provenance(generation: dict[str, Any]) -> dict[str, Any]:
+    """Event-safe summary of how an artifact was produced (no prompts or outputs)."""
+    keys = ("provider", "model", "prompt_version", "attempts", "input_tokens", "output_tokens")
+    return {k: generation[k] for k in keys if k in generation}
+
+
 def load_evidence(ctx: RunContext) -> list[EvidenceView]:
     with ctx.sm() as session:
         rows = session.execute(
@@ -118,6 +124,7 @@ def build_graph(
                     digest=artifact_digest(plan),
                     body=plan.model_dump(mode="json"),
                     author="agent",
+                    generation=call.generation,
                 )
                 .on_conflict_do_nothing()
                 .returning(PlanVersion.version)
@@ -130,7 +137,7 @@ def build_graph(
                     run_id,
                     ctx.workspace_id,
                     "plan_proposed",
-                    {"version": version, "tasks": len(plan.tasks), "model_attempts": call.attempts},
+                    {"version": version, "tasks": len(plan.tasks), **provenance(call.generation)},
                 )
         return {"plan_version": version, "plan_digest": stored.digest, "plan": stored.body}
 
@@ -195,6 +202,7 @@ def build_graph(
                     plan_version=plan.plan_version,
                     digest=artifact_digest(draft),
                     body=draft.model_dump(mode="json"),
+                    generation=call.generation,
                 )
                 .on_conflict_do_nothing()
                 .returning(ReportVersion.version)
@@ -213,7 +221,7 @@ def build_graph(
                         "sections": len(draft.sections),
                         "claims": len(claims),
                         "citations": sum(len(c.evidence_ids) for c in claims),
-                        "model_attempts": call.attempts,
+                        **provenance(call.generation),
                     },
                 )
         ctx.crash_if("after_report_commit")
@@ -374,6 +382,6 @@ def run_research_task(ctx: RunContext, task: PlanTask) -> None:
                     "evidence": len(output.evidence_ids),
                     "unresolved": len(output.unresolved_questions),
                     "conflicts": len(output.conflicts),
-                    "model_attempts": call.attempts,
+                    **provenance(call.generation),
                 },
             )

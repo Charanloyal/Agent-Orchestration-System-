@@ -7,7 +7,7 @@ from collections.abc import AsyncIterator
 from datetime import datetime
 from typing import Annotated, Any, Literal
 
-from fastapi import APIRouter, Header, Query, Request, Response
+from fastapi import APIRouter, Depends, Header, Query, Request, Response
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, StringConstraints
@@ -15,6 +15,7 @@ from sqlalchemy import func, select, text
 
 from app.auth.deps import AppSettings, CurrentPrincipal, DbSession, Principal, check_workspace_access
 from app.contracts import Brief as BriefSpec
+from app.contracts import Plan as PlanSpec
 from app.contracts.common import Sha256Hex
 from app.contracts.run_state import TERMINAL_STATES, RunState
 from app.db.models import (
@@ -32,7 +33,7 @@ from app.db.models import Brief as BriefRow
 from app.db.session import get_sessionmaker
 from app.errors import NotFound
 from app.policy.permissions import Action
-from app.services.runs import create_run, decide, get_run, latest_artifact
+from app.services.runs import create_run, decide, edit_plan, get_run, latest_artifact, run_access
 
 router = APIRouter(prefix="/api/v1", tags=["runs"])
 
@@ -69,6 +70,8 @@ class ArtifactOut(BaseModel):
     digest: str
     created_at: datetime
     body: dict[str, Any]
+    author: str = "agent"
+    generation: dict[str, Any] | None = None
 
 
 class PendingDecision(BaseModel):
@@ -141,7 +144,14 @@ def _summary(run: Run, topic: str, creator: str) -> RunSummary:
 def _artifact(row: PlanVersion | ReportVersion | None) -> ArtifactOut | None:
     if row is None:
         return None
-    return ArtifactOut(version=row.version, digest=row.digest, created_at=row.created_at, body=row.body)
+    return ArtifactOut(
+        version=row.version,
+        digest=row.digest,
+        created_at=row.created_at,
+        body=row.body,
+        author=getattr(row, "author", "agent"),
+        generation=row.generation,
+    )
 
 
 @router.post("/runs", status_code=201, response_model=RunDetail)
@@ -256,7 +266,29 @@ def get_plan(run_id: uuid.UUID, version: int, principal: CurrentPrincipal, db: D
     return artifact
 
 
-@router.post("/runs/{run_id}/plan-decisions", response_model=DecisionOut, status_code=201)
+class PlanEditIn(BaseModel):
+    base_version: int = Field(ge=1)
+    plan: PlanSpec
+
+
+@router.put(
+    "/runs/{run_id}/plan", response_model=ArtifactOut, dependencies=[Depends(run_access(Action.PLAN_DECIDE))]
+)
+def edit_plan_route(
+    run_id: uuid.UUID, body: PlanEditIn, principal: CurrentPrincipal, db: DbSession
+) -> ArtifactOut:
+    """Save an edited plan as a new version (it must then be approved by version and digest)."""
+    artifact = _artifact(edit_plan(db, principal, run_id, base_version=body.base_version, plan=body.plan))
+    assert artifact is not None
+    return artifact
+
+
+@router.post(
+    "/runs/{run_id}/plan-decisions",
+    response_model=DecisionOut,
+    status_code=201,
+    dependencies=[Depends(run_access(Action.PLAN_DECIDE))],
+)
 def plan_decision(
     run_id: uuid.UUID, body: DecisionIn, principal: CurrentPrincipal, db: DbSession
 ) -> DecisionOut:
@@ -288,7 +320,12 @@ def get_report_version(
     return artifact
 
 
-@router.post("/reports/{report_id}/decisions", response_model=DecisionOut, status_code=201)
+@router.post(
+    "/reports/{report_id}/decisions",
+    response_model=DecisionOut,
+    status_code=201,
+    dependencies=[Depends(run_access(Action.REPORT_DECIDE, param="report_id"))],
+)
 def report_decision(
     report_id: uuid.UUID, body: DecisionIn, principal: CurrentPrincipal, db: DbSession
 ) -> DecisionOut:
