@@ -1,13 +1,14 @@
 import uuid
-from datetime import datetime
+from datetime import date, datetime, timedelta
+from decimal import Decimal
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Depends, Query, Response
 from pydantic import BaseModel, Field, StringConstraints
-from sqlalchemy import func, select
+from sqlalchemy import Integer, cast, func, select
 
 from app.auth.deps import CurrentPrincipal, DbSession, WorkspaceAccess, workspace_access
-from app.db.models import Membership, Role, User, Workspace
+from app.db.models import Brief, BudgetReservation, Membership, Role, Run, User, Workspace
 from app.errors import Conflict, NotFound, Unprocessable
 from app.policy.permissions import Action
 from app.services.audit import audit
@@ -205,3 +206,140 @@ def _ensure_other_admin(db: DbSession, workspace_id: uuid.UUID, user_id: uuid.UU
     )
     if not others:
         raise Conflict("A workspace must keep at least one admin")
+
+
+class UsageTotals(BaseModel):
+    runs: int
+    committed: Decimal
+    reconciled: Decimal
+    uncertain: Decimal
+    llm_input_tokens: int
+    llm_output_tokens: int
+    calls: int
+
+
+class UsageDay(BaseModel):
+    day: date
+    committed: Decimal
+    calls: int
+
+
+class UsageStep(BaseModel):
+    step: str
+    kind: str
+    calls: int
+    committed: Decimal
+    input_tokens: int
+    output_tokens: int
+
+
+class UsageRun(BaseModel):
+    run_id: uuid.UUID
+    topic: str
+    state: str
+    created_at: datetime
+    committed: Decimal
+    budget: Decimal
+
+
+class WorkspaceUsageOut(BaseModel):
+    days: int
+    since: datetime
+    totals: UsageTotals
+    by_day: list[UsageDay]
+    by_step: list[UsageStep]
+    top_runs: list[UsageRun]
+    note: str
+
+
+@router.get("/{workspace_id}/usage", response_model=WorkspaceUsageOut)
+def workspace_usage(
+    workspace_id: uuid.UUID,
+    access: Annotated[WorkspaceAccess, Depends(workspace_access(Action.USAGE_READ))],
+    db: DbSession,
+    days: Annotated[int, Query(ge=1, le=90)] = 30,
+) -> WorkspaceUsageOut:
+    """Estimated spend for the workspace over the last `days` days (by reservation time)."""
+    since = db.scalar(select(func.now() - timedelta(days=days)))
+    assert since is not None
+    spend = func.coalesce(BudgetReservation.actual_cost, BudgetReservation.estimated_cost)
+    tokens_in = func.coalesce(cast(BudgetReservation.usage["input_tokens"].astext, Integer), 0)
+    tokens_out = func.coalesce(cast(BudgetReservation.usage["output_tokens"].astext, Integer), 0)
+    scope = (BudgetReservation.workspace_id == workspace_id, BudgetReservation.created_at >= since)
+
+    totals = db.execute(
+        select(
+            func.count(func.distinct(BudgetReservation.run_id)),
+            func.coalesce(func.sum(spend), 0),
+            func.coalesce(
+                func.sum(BudgetReservation.actual_cost).filter(BudgetReservation.status == "reconciled"), 0
+            ),
+            func.coalesce(
+                func.sum(BudgetReservation.actual_cost).filter(BudgetReservation.uncertain.is_(True)), 0
+            ),
+            func.coalesce(func.sum(tokens_in), 0),
+            func.coalesce(func.sum(tokens_out), 0),
+            func.count(),
+        ).where(*scope)
+    ).one()
+    day = func.date_trunc("day", BudgetReservation.created_at)
+    by_day = db.execute(
+        select(day, func.coalesce(func.sum(spend), 0), func.count()).where(*scope).group_by(day).order_by(day)
+    ).all()
+    by_step = db.execute(
+        select(
+            BudgetReservation.step,
+            BudgetReservation.kind,
+            func.count(),
+            func.coalesce(func.sum(spend), 0),
+            func.coalesce(func.sum(tokens_in), 0),
+            func.coalesce(func.sum(tokens_out), 0),
+        )
+        .where(*scope)
+        .group_by(BudgetReservation.step, BudgetReservation.kind)
+        .order_by(BudgetReservation.step, BudgetReservation.kind)
+    ).all()
+    run_spend = func.coalesce(func.sum(spend), 0).label("committed")
+    top = db.execute(
+        select(Run.id, Brief.body, Run.state, Run.created_at, run_spend)
+        .join(Brief, Brief.id == Run.brief_id)
+        .join(BudgetReservation, BudgetReservation.run_id == Run.id)
+        .where(Run.workspace_id == workspace_id, *scope)
+        .group_by(Run.id, Brief.body, Run.state, Run.created_at)
+        .order_by(run_spend.desc())
+        .limit(10)
+    ).all()
+    return WorkspaceUsageOut(
+        days=days,
+        since=since,
+        totals=UsageTotals(
+            runs=totals[0],
+            committed=totals[1],
+            reconciled=totals[2],
+            uncertain=totals[3],
+            llm_input_tokens=totals[4],
+            llm_output_tokens=totals[5],
+            calls=totals[6],
+        ),
+        by_day=[UsageDay(day=d.date(), committed=c, calls=n) for d, c, n in by_day],
+        by_step=[
+            UsageStep(step=s, kind=k, calls=n, committed=c, input_tokens=i, output_tokens=o)
+            for s, k, n, c, i, o in by_step
+        ],
+        top_runs=[
+            UsageRun(
+                run_id=rid,
+                topic=str(body.get("topic", "")),
+                state=state,
+                created_at=created,
+                committed=committed,
+                budget=Decimal(str(body.get("budget", {}).get("max_estimated_cost", "0"))),
+            )
+            for rid, body, state, created, committed in top
+        ],
+        note=(
+            "Estimated from the configured price schedule and provider-reported usage; "
+            "'uncertain' covers calls that may have been billed but never confirmed. "
+            "Check the provider's billing console for invoiced amounts."
+        ),
+    )

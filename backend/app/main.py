@@ -5,11 +5,13 @@ from app.config import get_settings
 from app.errors import install_error_handlers
 from app.observability.logging import configure_logging
 from app.observability.middleware import RequestContextMiddleware
+from app.observability.tracing import configure_tracing
 
 
 def create_app() -> FastAPI:
     settings = get_settings()
     configure_logging(settings.log_level, settings.log_json)
+    configure_tracing(settings, "aos-api")
     app = FastAPI(
         title="Agent Orchestration System API",
         version="0.3.0",

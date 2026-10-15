@@ -6,6 +6,8 @@ import uuid
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from app.observability.context import reset_request_id, set_request_id
+from app.observability.metrics import http_metrics
+from app.observability.tracing import annotate, span
 
 log = logging.getLogger("aos.http")
 _VALID_REQUEST_ID = re.compile(r"^[A-Za-z0-9._-]{8,64}$")
@@ -49,16 +51,25 @@ class RequestContextMiddleware:
             await send(message)
 
         try:
-            await self.app(scope, receive, send_wrapper)
+            with span(
+                "HTTP request", request_id=request_id, **{"http.request.method": scope["method"]}
+            ) as current:
+                await self.app(scope, receive, send_wrapper)
+                route_path = getattr(scope.get("route"), "path", None) or "<unmatched>"
+                current.update_name(f"{scope['method']} {route_path}")
+                annotate(current, **{"http.route": route_path, "http.response.status_code": status})
         finally:
             route = scope.get("route")
+            route_path = getattr(route, "path", None) or "<unmatched>"
+            elapsed = time.perf_counter() - started
+            http_metrics.observe(scope["method"], route_path, status, elapsed)
             log.info(
                 "request",
                 extra={
                     "method": scope["method"],
-                    "route": getattr(route, "path", None) or "<unmatched>",
+                    "route": route_path,
                     "status": status,
-                    "duration_ms": round((time.perf_counter() - started) * 1000, 1),
+                    "duration_ms": round(elapsed * 1000, 1),
                 },
             )
             reset_request_id(token)

@@ -21,6 +21,7 @@ from app.auth.sessions import (
 )
 from app.db.models import Membership, OidcLoginState, User, Workspace
 from app.services.audit import audit
+from app.services.ratelimit import login_limit
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
@@ -34,7 +35,7 @@ def safe_next_path(value: str | None) -> str:
     return value[:500]
 
 
-@router.get("/login", include_in_schema=True)
+@router.get("/login", include_in_schema=True, dependencies=[Depends(login_limit)])
 def login(
     db: DbSession,
     oidc: Annotated[OidcClient, Depends(get_oidc_client)],

@@ -35,6 +35,7 @@ function AppShell({ me }: { me: Me }) {
             </NavLink>
             {current.role !== "reviewer" && <NavLink to={`/w/${current.workspace_id}/new`}>New brief</NavLink>}
             <NavLink to={`/w/${current.workspace_id}/documents`}>Documents</NavLink>
+            {current.role !== "reviewer" && <NavLink to={`/w/${current.workspace_id}/usage`}>Usage</NavLink>}
           </nav>
         )}
         <div className="topbar-right">

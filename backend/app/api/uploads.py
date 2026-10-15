@@ -13,6 +13,7 @@ from app.db.models import Upload, UploadChunk, User
 from app.errors import Forbidden, NotFound
 from app.policy.permissions import Action, is_allowed
 from app.services.audit import audit
+from app.services.ratelimit import user_limit
 from app.services.uploads import ingest_upload, search_chunks
 from app.storage import get_object_store
 
@@ -63,7 +64,7 @@ def _out(db: DbSession, upload: Upload) -> UploadOut:
     )
 
 
-@router.post("", response_model=UploadOut, status_code=201)
+@router.post("", response_model=UploadOut, status_code=201, dependencies=[Depends(user_limit("upload"))])
 async def create_upload(
     access: Annotated[WorkspaceAccess, Depends(workspace_access(Action.UPLOAD_CREATE))],
     db: DbSession,

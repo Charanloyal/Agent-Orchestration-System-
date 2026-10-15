@@ -10,6 +10,9 @@ x-backend-env: &backend-env
   AOS_PUBLIC_URL: http://localhost:8080
   AOS_OIDC_ISSUER: http://localhost:8001
   AOS_OIDC_BACKCHANNEL_URL: http://dev-oidc:8001
+  # Traces: set AOS_OTEL_EXPORTER=otlp and start with `--profile observability` (Jaeger UI on :16686).
+  AOS_OTEL_EXPORTER: ${AOS_OTEL_EXPORTER:-none}
+  AOS_OTEL_ENDPOINT: http://jaeger:4318/v1/traces
 
 services:
   db:
@@ -63,6 +66,12 @@ services:
     depends_on: [api]
     ports:
       - "127.0.0.1:8080:8080"
+
+  jaeger:
+    image: jaegertracing/jaeger:2.22.0
+    profiles: ["observability"]
+    ports:
+      - "127.0.0.1:16686:16686"
 
 volumes:
   pgdata:

@@ -8,12 +8,14 @@ staleness, workspace scope, SSRF rules) is enforced here in code, never by promp
 import hashlib
 import uuid
 from datetime import UTC, datetime
+from urllib.parse import urlsplit
 
 from sqlalchemy import func, select, update
 from sqlalchemy.dialects.postgresql import insert
 
 from app.agents.base import EvidenceRef
 from app.db.models import EvidencePassage, Run, Source, ToolExecution
+from app.observability.tracing import annotate, span
 from app.providers.search import SearchHit
 from app.services.events import append_event
 from app.services.uploads import search_chunks
@@ -130,15 +132,18 @@ class RunResearchTools:
     def _fetch(self, hit: SearchHit, source_id: str) -> tuple[list[Segment], str, str, str] | None:
         assert hit.url is not None
         execution_id = self._start("fetch_url")
-        try:
-            result = self.ctx.fetcher.fetch(hit.url)
-            if not domain_permitted(result.url, self.policy):
-                raise FetchError("redirected_outside_source_policy")
-            document = extract(result.body, result.content_type, result.charset)
-        except (FetchError, ExtractionError) as exc:
-            self._finish(execution_id, "failed", exc.reason[:60])
-            self._record_failure(hit, source_id, exc.reason)
-            return None
+        with span("fetch", task_id=self.task_id, domain=urlsplit(hit.url).hostname or "?") as current:
+            try:
+                result = self.ctx.fetcher.fetch(hit.url)
+                if not domain_permitted(result.url, self.policy):
+                    raise FetchError("redirected_outside_source_policy")
+                document = extract(result.body, result.content_type, result.charset)
+            except (FetchError, ExtractionError) as exc:
+                annotate(current, outcome=exc.reason[:60])
+                self._finish(execution_id, "failed", exc.reason[:60])
+                self._record_failure(hit, source_id, exc.reason)
+                return None
+            annotate(current, outcome="fetched", bytes=len(result.body))
         self._finish(execution_id, "succeeded")
         return document.segments, sha256_hex(result.body), (document.title or hit.title), result.url
 

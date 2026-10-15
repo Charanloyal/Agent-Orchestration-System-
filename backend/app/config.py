@@ -75,6 +75,19 @@ class Settings(BaseSettings):
     sse_poll_seconds: float = 1.0
     # Test-only fault injection (ignored unless env is dev/test).
     crash_at: str | None = None
+    # Observability (ADR 0016). Traces are off unless an exporter is chosen.
+    otel_exporter: Literal["none", "console", "otlp"] = "none"
+    otel_endpoint: str = "http://127.0.0.1:4318/v1/traces"
+    metrics_token: SecretStr | None = None
+    # Rate limits per fixed window (0 disables a limit).
+    rate_run_create_per_user_hour: int = 20
+    rate_run_create_per_workspace_hour: int = 60
+    rate_upload_per_user_hour: int = 30
+    rate_export_per_user_hour: int = 60
+    rate_login_per_ip_5min: int = 30
+    # Provider circuit breaker: consecutive transient failures before opening, and cooldown.
+    breaker_failure_threshold: int = 5
+    breaker_cooldown_seconds: float = 60.0
 
     @field_validator("public_url", "oidc_issuer")
     @classmethod

@@ -19,6 +19,7 @@ import type {
   Source,
   UploadInfo,
   UploadSearchHit,
+  WorkspaceUsage,
 } from "./types";
 import { TERMINAL_STATES } from "./types";
 
@@ -134,6 +135,13 @@ export function useUsage(runId: string) {
   return useQuery({
     queryKey: ["usage", runId],
     queryFn: () => api<RunUsage>(`/api/v1/runs/${runId}/usage`),
+  });
+}
+
+export function useWorkspaceUsage(workspaceId: string, days: number) {
+  return useQuery({
+    queryKey: ["workspace-usage", workspaceId, days],
+    queryFn: () => api<WorkspaceUsage>(`/api/v1/workspaces/${workspaceId}/usage?days=${days}`),
   });
 }
 

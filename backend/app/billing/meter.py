@@ -21,6 +21,7 @@ from sqlalchemy import case, func, select, update
 
 from app.billing.prices import PriceSchedule, schedule_from
 from app.db.models import BudgetReservation, Run
+from app.observability.tracing import annotate, span
 from app.providers.llm import LlmProvider, LlmResult
 from app.providers.search import SearchProvider, SearchResponse
 from app.services.events import append_event
@@ -168,20 +169,28 @@ class MeteredLlm:
                 "max_output_tokens": max_output_tokens,
             },
         )
-        try:
-            result = self.inner.complete(
-                system=system, user=user, json_output=json_output, max_output_tokens=max_output_tokens
+        with span("llm.call", step=self.step, provider=self.name, model=self.model) as current:
+            try:
+                result = self.inner.complete(
+                    system=system, user=user, json_output=json_output, max_output_tokens=max_output_tokens
+                )
+            except Exception:
+                # The request may have reached the provider; keep the estimate, flagged uncertain.
+                self.meter.reconcile(
+                    reservation, actual=estimate, usage={"model": self.model, "error": True}, uncertain=True
+                )
+                raise
+            usage = result.usage
+            actual = self.meter.schedule.llm_cost(usage.input_tokens, usage.output_tokens)
+            annotate(
+                current,
+                input_tokens=usage.input_tokens,
+                output_tokens=usage.output_tokens,
+                estimated_cost=float(actual),
             )
-        except Exception:
-            # The request may have reached the provider; keep the estimate, flagged uncertain.
-            self.meter.reconcile(
-                reservation, actual=estimate, usage={"model": self.model, "error": True}, uncertain=True
-            )
-            raise
-        usage = result.usage
         self.meter.reconcile(
             reservation,
-            actual=self.meter.schedule.llm_cost(usage.input_tokens, usage.output_tokens),
+            actual=actual,
             usage={
                 "model": usage.model,
                 "input_tokens": usage.input_tokens,
@@ -209,18 +218,23 @@ class MeteredSearch:
         reservation = self.meter.reserve(
             step="research", kind="search", estimate=priced, detail={"provider": self.inner.name}
         )
-        try:
-            response = self.inner.search(
-                query,
-                max_results=max_results,
-                allowed_domains=allowed_domains,
-                blocked_domains=blocked_domains,
-            )
-        except Exception:
-            self.meter.reconcile(
-                reservation, actual=priced, usage={"provider": self.inner.name, "error": True}, uncertain=True
-            )
-            raise
+        with span("search.call", step="research", provider=self.inner.name) as current:
+            try:
+                response = self.inner.search(
+                    query,
+                    max_results=max_results,
+                    allowed_domains=allowed_domains,
+                    blocked_domains=blocked_domains,
+                )
+            except Exception:
+                self.meter.reconcile(
+                    reservation,
+                    actual=priced,
+                    usage={"provider": self.inner.name, "error": True},
+                    uncertain=True,
+                )
+                raise
+            annotate(current, results=len(response.hits))
         actual = (
             self.meter.schedule.search_cost(response.credits) if self.inner.name != "fake" else Decimal(0)
         )

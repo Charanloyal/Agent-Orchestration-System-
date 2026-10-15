@@ -245,3 +245,21 @@ export type RunUsage = {
 };
 
 export type UploadSearchHit = { upload_id: string; filename: string; locator: string | null; text: string; rank: number };
+
+export type WorkspaceUsage = {
+  days: number;
+  since: string;
+  totals: {
+    runs: number;
+    committed: string;
+    reconciled: string;
+    uncertain: string;
+    llm_input_tokens: number;
+    llm_output_tokens: number;
+    calls: number;
+  };
+  by_day: { day: string; committed: string; calls: number }[];
+  by_step: { step: string; kind: string; calls: number; committed: string; input_tokens: number; output_tokens: number }[];
+  top_runs: { run_id: string; topic: string; state: RunState; created_at: string; committed: string; budget: string }[];
+  note: string;
+};

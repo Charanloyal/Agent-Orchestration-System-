@@ -33,11 +33,14 @@ from app.contracts.run_state import RunState
 from app.db.models import Brief, Run
 from app.db.session import get_sessionmaker
 from app.observability.logging import configure_logging
+from app.observability.tracing import annotate, configure_tracing, span
+from app.providers.breaker import BreakerLlm, BreakerSearch
 from app.providers.corpus import CorpusSearch
 from app.providers.llm import LlmProvider, OpenAICompatibleLlm
 from app.providers.search import FakeSearch, SearchProvider
 from app.providers.tavily import TavilySearch
 from app.services.events import append_event, set_run_state
+from app.services.ratelimit import purge_old_windows
 from app.tools.fetcher import Fetcher, FetchPolicy, SafeFetcher
 from app.workers import jobs
 from app.workers.checkpointer import FencedPostgresSaver, checkpoint_connection, setup_checkpointer
@@ -61,12 +64,18 @@ def build_agents(settings: Settings, ctx: RunContext, llm: LlmProvider | None = 
     tokens = settings.llm_max_output_tokens
     return replace(
         fake_agents(),
-        planner=LlmPlanner(MeteredLlm(base, ctx.meter, "planner"), max_output_tokens=tokens),
-        researcher=LlmResearcher(
-            MeteredLlm(base, ctx.meter, "research"), max_output_tokens=min(tokens, 1500)
+        planner=LlmPlanner(
+            BreakerLlm(MeteredLlm(base, ctx.meter, "planner"), settings), max_output_tokens=tokens
         ),
-        writer=LlmWriter(MeteredLlm(base, ctx.meter, "writer"), max_output_tokens=tokens),
-        reviewer=LlmReviewer(MeteredLlm(base, ctx.meter, "reviewer"), max_output_tokens=min(tokens, 1500)),
+        researcher=LlmResearcher(
+            BreakerLlm(MeteredLlm(base, ctx.meter, "research"), settings), max_output_tokens=min(tokens, 1500)
+        ),
+        writer=LlmWriter(
+            BreakerLlm(MeteredLlm(base, ctx.meter, "writer"), settings), max_output_tokens=tokens
+        ),
+        reviewer=LlmReviewer(
+            BreakerLlm(MeteredLlm(base, ctx.meter, "reviewer"), settings), max_output_tokens=min(tokens, 1500)
+        ),
     )
 
 
@@ -150,9 +159,27 @@ def process_one(
         fetcher or build_fetcher(settings),
     )
     ctx.agents = agents or build_agents(settings, ctx, llm)
-    ctx.search = MeteredSearch(ctx.search, ctx.meter)
+    ctx.search = BreakerSearch(MeteredSearch(ctx.search, ctx.meter), settings)
     heartbeat = Heartbeat(ctx)
     heartbeat.start()
+    try:
+        with span(
+            "worker.pass",
+            run_id=lease.run_id,
+            workspace_id=ctx.workspace_id,
+            worker=worker_id,
+            fencing_token=lease.token,
+            attempt=lease.attempts,
+        ) as current:
+            outcome = _run_pass(ctx, worker_id)
+            annotate(current, outcome=outcome)
+            return outcome
+    finally:
+        heartbeat.stop.set()
+
+
+def _run_pass(ctx: RunContext, worker_id: str) -> str:
+    lease = ctx.lease
     log_extra = {"run_id": str(lease.run_id), "worker": worker_id, "token": lease.token}
     try:
         with ctx.fenced() as session:
@@ -192,8 +219,6 @@ def process_one(
         log.exception("unexpected worker error", extra=log_extra)
         _fail(ctx, "worker", f"internal error ({type(exc).__name__})")
         return "failed"
-    finally:
-        heartbeat.stop.set()
 
 
 def _advance(ctx: RunContext) -> str:
@@ -308,6 +333,7 @@ def main(argv: list[str] | None = None) -> int:
 
     settings = get_settings()
     configure_logging(settings.log_level, settings.log_json)
+    configure_tracing(settings, "aos-worker")
     setup_checkpointer(settings)
     worker_id = args.worker_id or f"worker-{uuid.uuid4().hex[:8]}"
 
@@ -333,6 +359,7 @@ def main(argv: list[str] | None = None) -> int:
             reaped = reap_exhausted_jobs(sm)
             if reaped:
                 log.warning("reaped jobs whose workers kept crashing", extra={"count": reaped})
+            purge_old_windows()
         except Exception:
             log.exception("maintenance failed")
         outcome = process_one(settings, worker_id=worker_id, run_id=args.run_id)

@@ -11,11 +11,13 @@ checkpointed state, inserts use deterministic keys with ON CONFLICT DO NOTHING, 
 first committed result wins.
 """
 
+import contextvars
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, TypedDict
 
 from langgraph.checkpoint.base import BaseCheckpointSaver
+from langgraph.errors import GraphBubbleUp
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 from langgraph.types import interrupt
@@ -48,6 +50,7 @@ from app.db.models import (
     Source,
     TaskResult,
 )
+from app.observability.tracing import span
 from app.policy.tools import allowed_tools, plan_policy_for
 from app.services.events import append_event
 from app.services.runs import latest_artifact
@@ -334,7 +337,7 @@ def build_graph(
         ("finalize", finalize),
         ("needs_attention", needs_attention),
     ):
-        builder.add_node(name, node)
+        builder.add_node(name, _traced(name, node, ctx))
     builder.add_edge(START, "planner")
     builder.add_edge("planner", "await_plan")
     builder.add_conditional_edges(
@@ -440,6 +443,15 @@ def persist_review(
         )
 
 
+def _traced(name: str, node: Any, ctx: RunContext) -> Any:
+    def run(state: RunGraphState) -> RunGraphState:
+        with span(f"step.{name}", expected=(GraphBubbleUp,), step=name, run_id=ctx.run_id):
+            result: RunGraphState = node(state)
+            return result
+
+    return run
+
+
 def run_levels(ctx: RunContext, levels: list[list[PlanTask]]) -> None:
     """Run tasks level by level (dependencies first), up to `max_parallel_tasks` at once.
     Exhausting the budget or tool-call limit stops scheduling; unfinished tasks are recorded
@@ -449,7 +461,10 @@ def run_levels(ctx: RunContext, levels: list[list[PlanTask]]) -> None:
     for level in levels:
         workers = max(1, min(len(level), ctx.brief.limits.max_parallel_tasks))
         with ThreadPoolExecutor(max_workers=workers, thread_name_prefix=f"research-{ctx.run_id}") as pool:
-            futures = [pool.submit(run_research_task, ctx, task, stop) for task in level]
+            futures = [
+                pool.submit(contextvars.copy_context().run, run_research_task, ctx, task, stop)
+                for task in level
+            ]
             errors = [f.exception() for f in futures if f.exception() is not None]
         if errors:
             raise errors[0]  # type: ignore[misc]
@@ -484,6 +499,11 @@ def _record_task(
 
 
 def run_research_task(ctx: RunContext, task: PlanTask, stop: threading.Event | None = None) -> None:
+    with span("research.task", run_id=ctx.run_id, task_id=task.task_id):
+        _run_research_task(ctx, task, stop)
+
+
+def _run_research_task(ctx: RunContext, task: PlanTask, stop: threading.Event | None = None) -> None:
     """Run one task unless its result is already committed (at-least-once, idempotent)."""
     with ctx.sm() as session:
         if session.get(TaskResult, (ctx.run_id, task.task_id)) is not None:

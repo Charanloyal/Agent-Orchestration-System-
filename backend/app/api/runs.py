@@ -39,6 +39,7 @@ from app.db.session import get_sessionmaker
 from app.errors import NotFound
 from app.policy.permissions import Action
 from app.services.exports import export_report
+from app.services.ratelimit import user_limit, workspace_run_limit
 from app.services.runs import (
     cancel_run,
     create_run,
@@ -170,7 +171,9 @@ def _artifact(row: PlanVersion | ReportVersion | None) -> ArtifactOut | None:
     )
 
 
-@router.post("/runs", status_code=201, response_model=RunDetail)
+@router.post(
+    "/runs", status_code=201, response_model=RunDetail, dependencies=[Depends(user_limit("run_create"))]
+)
 def create(
     body: RunCreate,
     idempotency_key: Annotated[IdempotencyKey, Header(alias="Idempotency-Key")],
@@ -179,6 +182,8 @@ def create(
     settings: AppSettings,
     response: Response,
 ) -> RunDetail:
+    check_workspace_access(db, principal, body.workspace_id, Action.RUN_CREATE)
+    workspace_run_limit(body.workspace_id, settings)
     result = create_run(
         db,
         principal,
@@ -460,7 +465,7 @@ class ExportOut(BaseModel):
 @router.post(
     "/reports/{report_id}/versions/{version}/export",
     response_class=Response,
-    dependencies=[Depends(run_access(Action.RUN_READ, param="report_id"))],
+    dependencies=[Depends(run_access(Action.RUN_READ, param="report_id")), Depends(user_limit("export"))],
     responses={200: {"content": {"text/markdown": {}}}},
 )
 def export_report_version(

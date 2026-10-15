@@ -178,6 +178,12 @@ issuer.
 | `AOS_WORKER_LEASE_SECONDS` / `AOS_WORKER_HEARTBEAT_SECONDS` | `30` / `10` | Job lease and heartbeat |
 | `AOS_JOB_MAX_ATTEMPTS` | `5` | Transient-retry budget per segment |
 | `AOS_APPROVAL_TTL_HOURS` | `72` | How long a plan or report waits for a human |
+| `AOS_OTEL_EXPORTER` / `AOS_OTEL_ENDPOINT` | `none` / `http://127.0.0.1:4318/v1/traces` | Traces: `none`, `console` or `otlp` (redacted; [ADR 0016](docs/decisions/0016-observability-rate-limits.md)) |
+| `AOS_METRICS_TOKEN` | none | Bearer token for `/metrics` (required in prod, otherwise the endpoint is hidden there) |
+| `AOS_RATE_*` | 20 runs/user/h, 60 runs/workspace/h, 30 uploads/h, 60 exports/h, 30 logins/5 min | Rate limits (`0` disables one) |
+| `AOS_BREAKER_FAILURE_THRESHOLD` / `AOS_BREAKER_COOLDOWN_SECONDS` | `5` / `60` | Provider circuit breaker |
+
+Operations: [alert rules](docs/operations/alerts.yml) and the [incident runbook](docs/operations/runbook.md).
 
 ## Live model and search (optional, costs money)
 

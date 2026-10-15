@@ -8,6 +8,7 @@ from app.db.models.identity import (
     User,
     Workspace,
 )
+from app.db.models.ops import RateLimitCounter
 from app.db.models.reports import ReportExport, ReviewFindingRow
 from app.db.models.runs import (
     Approval,
@@ -34,6 +35,7 @@ __all__ = [
     "Membership",
     "OidcLoginState",
     "PlanVersion",
+    "RateLimitCounter",
     "ReportExport",
     "ReportVersion",
     "ReviewFindingRow",
