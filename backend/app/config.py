@@ -39,6 +39,13 @@ class Settings(BaseSettings):
 
     # Workflow execution
     agent_mode: Literal["fake", "llm"] = "fake"
+    search_provider: Literal["fake", "tavily", "corpus"] = "fake"
+    tavily_api_key: SecretStr | None = None
+    corpus_dir: Path = BACKEND_DIR.parent / "eval" / "corpus" / "v1"
+    object_store_dir: Path = BACKEND_DIR / ".data" / "objects"
+    upload_max_bytes: int = 10_000_000
+    fetch_max_bytes: int = 2_000_000
+    fetch_timeout_seconds: float = 10.0
     worker_lease_seconds: float = 30.0
     worker_heartbeat_seconds: float = 10.0
     worker_poll_seconds: float = 1.0

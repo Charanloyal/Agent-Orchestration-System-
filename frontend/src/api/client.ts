@@ -25,6 +25,7 @@ export function setCsrfToken(token: string | null): void {
 type RequestOptions = {
   method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
   body?: unknown;
+  form?: FormData;
   headers?: Record<string, string>;
   signal?: AbortSignal;
 };
@@ -45,7 +46,8 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
       method,
       headers,
       credentials: "same-origin",
-      body: options.body === undefined ? undefined : JSON.stringify(options.body),
+      // FormData sets its own multipart Content-Type with the boundary.
+      body: options.form ?? (options.body === undefined ? undefined : JSON.stringify(options.body)),
       signal: options.signal,
     });
   } catch (error) {

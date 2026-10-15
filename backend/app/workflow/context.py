@@ -16,6 +16,7 @@ from app.contracts import Brief
 from app.contracts.run_state import RunState
 from app.providers.search import SearchProvider
 from app.services.events import append_event, set_run_state
+from app.tools.fetcher import Fetcher
 from app.workers import jobs
 from app.workers.jobs import Lease, StaleOwner
 
@@ -29,6 +30,7 @@ class RunContext:
     brief: Brief
     agents: AgentSuite
     search: SearchProvider
+    fetcher: Fetcher
     alive: threading.Event = field(default_factory=threading.Event)
 
     def __post_init__(self) -> None:

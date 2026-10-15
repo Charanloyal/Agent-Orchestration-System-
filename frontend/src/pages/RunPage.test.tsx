@@ -80,7 +80,7 @@ describe("RunPage", () => {
     renderRun("reviewer", detail, [{
       path: `/api/v1/runs/${RUN}/evidence`,
       body: [{ evidence_id: "ev-1", task_id: "t1", locator: "passage 1", text: "SSO via SAML is supported.",
-               text_sha256: "c".repeat(64), source_id: "src-1", source_title: "Malicious page",
+               text_sha256: "c".repeat(64), source_id: "src-1", source_title: "Malicious page", source_kind: "web",
                source_url: "javascript:alert(1)", published_on: null, retrieved_at: "2026-10-15T10:01:00Z" }],
     }]);
 

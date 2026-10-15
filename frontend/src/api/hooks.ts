@@ -2,7 +2,18 @@ import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { api, ApiError, setCsrfToken } from "./client";
-import type { BriefInput, Decision, Evidence, Me, RunDetail, RunEvent, RunSummary } from "./types";
+import type {
+  BriefInput,
+  Decision,
+  Evidence,
+  Me,
+  RunDetail,
+  RunEvent,
+  RunSummary,
+  Source,
+  UploadInfo,
+  UploadSearchHit,
+} from "./types";
 import { TERMINAL_STATES } from "./types";
 
 export const keys = {
@@ -68,6 +79,51 @@ export function useEvidence(runId: string, enabled: boolean) {
   });
 }
 
+export function useSources(runId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ["sources", runId],
+    queryFn: () => api<Source[]>(`/api/v1/runs/${runId}/sources`),
+    enabled,
+  });
+}
+
+export function useUploads(workspaceId: string) {
+  return useQuery({
+    queryKey: ["uploads", workspaceId],
+    queryFn: () => api<UploadInfo[]>(`/api/v1/workspaces/${workspaceId}/uploads`),
+  });
+}
+
+export function useUploadSearch(workspaceId: string, query: string) {
+  return useQuery({
+    queryKey: ["upload-search", workspaceId, query],
+    queryFn: () =>
+      api<UploadSearchHit[]>(`/api/v1/workspaces/${workspaceId}/uploads/search?q=${encodeURIComponent(query)}`),
+    enabled: query.trim().length >= 2,
+  });
+}
+
+export function useUploadFile(workspaceId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (file: File) => {
+      const form = new FormData();
+      form.append("file", file);
+      return api<UploadInfo>(`/api/v1/workspaces/${workspaceId}/uploads`, { method: "POST", form });
+    },
+    onSuccess: () => client.invalidateQueries({ queryKey: ["uploads", workspaceId] }),
+  });
+}
+
+export function useDeleteUpload(workspaceId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (uploadId: string) =>
+      api<void>(`/api/v1/workspaces/${workspaceId}/uploads/${uploadId}`, { method: "DELETE" }),
+    onSettled: () => client.invalidateQueries({ queryKey: ["uploads", workspaceId] }),
+  });
+}
+
 export function useCreateRun(workspaceId: string) {
   const client = useQueryClient();
   return useMutation({
@@ -106,6 +162,8 @@ export function useDecide(runId: string) {
 
 export type StreamStatus = "connecting" | "live" | "reconnecting" | "ended";
 
+const EVIDENCE_EVENTS = new Set(["source_collected", "source_failed", "task_completed"]);
+
 /** Live run timeline over server-sent events. EventSource reconnects automatically and
  *  sends Last-Event-ID, so the server replays anything missed (FR-10). */
 export function useRunEvents(runId: string): { events: RunEvent[]; status: StreamStatus } {
@@ -127,7 +185,10 @@ export function useRunEvents(runId: string): { events: RunEvent[]; status: Strea
       pending.add(what);
       timer ??= setTimeout(() => {
         if (pending.has("run")) void client.invalidateQueries({ queryKey: keys.run(runId) });
-        if (pending.has("evidence")) void client.invalidateQueries({ queryKey: keys.evidence(runId) });
+        if (pending.has("evidence")) {
+          void client.invalidateQueries({ queryKey: keys.evidence(runId) });
+          void client.invalidateQueries({ queryKey: ["sources", runId] });
+        }
         pending.clear();
         timer = undefined;
       }, 250);
@@ -140,7 +201,7 @@ export function useRunEvents(runId: string): { events: RunEvent[]; status: Strea
       if (seen.current.has(event.id)) return;
       seen.current.add(event.id);
       setEvents((current) => [...current, event]);
-      refresh(event.type === "source_collected" || event.type === "task_completed" ? "evidence" : "run");
+      refresh(EVIDENCE_EVENTS.has(event.type) ? "evidence" : "run");
     });
     source.addEventListener("end", () => {
       source.close();

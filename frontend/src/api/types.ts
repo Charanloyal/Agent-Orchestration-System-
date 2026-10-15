@@ -140,6 +140,38 @@ export type Evidence = {
   source_id: string;
   source_title: string | null;
   source_url: string | null;
+  source_kind: "web" | "corpus" | "upload";
   published_on: string | null;
   retrieved_at: string;
 };
+
+export type Source = {
+  source_id: string;
+  kind: "web" | "corpus" | "upload";
+  url: string | null;
+  upload_id: string | null;
+  title: string | null;
+  fetch_status: "fetched" | "failed";
+  failure_reason: string | null;
+  retrieved_at: string;
+  published_on: string | null;
+  content_sha256: string | null;
+  passages: number;
+};
+
+export type UploadInfo = {
+  id: string;
+  filename: string;
+  title: string | null;
+  media_type: string;
+  size_bytes: number;
+  sha256: string;
+  pages: number | null;
+  text_chars: number;
+  chunks: number;
+  uploaded_by: string;
+  uploaded_by_id: string;
+  created_at: string;
+};
+
+export type UploadSearchHit = { upload_id: string; filename: string; locator: string | null; text: string; rank: number };

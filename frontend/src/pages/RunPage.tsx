@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useOutletContext, useParams } from "react-router";
 
-import { isTerminal, useDecide, useEvidence, useRun, useRunEvents } from "../api/hooks";
+import { isTerminal, useDecide, useEvidence, useRun, useRunEvents, useSources } from "../api/hooks";
 import type { Evidence, Me, PlanBody, ReportBody, RunDetail, RunEvent } from "../api/types";
 import { Badge, Card, EmptyState, ErrorBanner, Spinner, StateBadge } from "../components/ui";
 import { CLAIM_KIND_LABELS, CLAIM_KIND_TONES, describeEvent, formatDateTime, formatTime } from "../format";
@@ -234,19 +234,44 @@ function ReportView({ run }: { run: RunDetail }) {
 
 function EvidenceList({ runId }: { runId: string }) {
   const evidence = useEvidence(runId, true);
+  const sources = useSources(runId, true);
   if (evidence.isPending) return <Spinner label="Loading evidence…" />;
   if (evidence.isError) return <ErrorBanner error={evidence.error} title="Could not load evidence" />;
-  if (!evidence.data.length) {
-    return <Card><EmptyState title="No evidence yet"><p className="muted">Passages appear as research tasks complete.</p></EmptyState></Card>;
-  }
   return (
-    <Card title={`Evidence (${evidence.data.length} passages)`}>
-      <ul className="evidence-list">
-        {evidence.data.map((item) => (
-          <li key={item.evidence_id}><EvidenceItem item={item} /></li>
-        ))}
-      </ul>
-    </Card>
+    <div className="stack">
+      {sources.data && sources.data.length > 0 && (
+        <Card title={`Sources (${sources.data.length})`}>
+          <ul className="sources">
+            {sources.data.map((source) => (
+              <li key={source.source_id} className="source-row">
+                {source.fetch_status === "fetched" ? (
+                  <Badge tone="success">{source.kind === "upload" ? "Document" : "Read"}</Badge>
+                ) : (
+                  <Badge tone="danger">Not read</Badge>
+                )}
+                <SourceLink url={source.url} title={source.title ?? source.source_id} />
+                <span className="small muted">
+                  {source.fetch_status === "failed"
+                    ? ` · ${(source.failure_reason ?? "failed").replaceAll("_", " ")}; never cited`
+                    : ` · ${source.passages} passage(s)`}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
+      {!evidence.data.length ? (
+        <Card><EmptyState title="No evidence yet"><p className="muted">Passages appear as research tasks complete.</p></EmptyState></Card>
+      ) : (
+        <Card title={`Evidence (${evidence.data.length} passages)`}>
+          <ul className="evidence-list">
+            {evidence.data.map((item) => (
+              <li key={item.evidence_id}><EvidenceItem item={item} /></li>
+            ))}
+          </ul>
+        </Card>
+      )}
+    </div>
   );
 }
 
@@ -265,6 +290,7 @@ function EvidenceItem({ item }: { item: Evidence }) {
       <header className="small">
         <SourceLink url={item.source_url} title={item.source_title ?? item.source_id} />
         <span className="muted">
+          {item.source_kind === "upload" ? " · uploaded document" : ""}
           {" · "}task {item.task_id}
           {item.locator ? ` · ${item.locator}` : ""}
           {" · retrieved "}

@@ -11,8 +11,9 @@ from collections.abc import Callable
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy.orm import Session
 
-from app.db.models import Role, User, Workspace
+from app.db.models import Role, Upload, User, Workspace
 from app.main import app
 from app.policy.permissions import ROLE_PERMISSIONS, Action
 from tests.conftest import SAMPLE_BRIEF, LoggedIn
@@ -75,6 +76,7 @@ def victim_ids(world: dict[str, object]) -> dict[str, object]:
         "user_id": world["analyst"].id,  # type: ignore[attr-defined]
         "run_id": world["run_id"],
         "report_id": world["run_id"],
+        "upload_id": world["upload_id"],
         "version": 1,
     }
 
@@ -92,6 +94,7 @@ def test_unauthenticated_requests_get_401(client: TestClient, db: object, method
 
 @pytest.fixture
 def world(
+    db: Session,
     make_user: Callable[..., User],
     make_workspace: Callable[..., Workspace],
     make_run: Callable[..., uuid.UUID],
@@ -99,7 +102,20 @@ def world(
     analyst, reviewer, admin, outsider = (make_user(n) for n in ("Ana", "Rev", "Adm", "Out"))
     home = make_workspace("Home", {analyst: Role.ANALYST, reviewer: Role.REVIEWER, admin: Role.ADMIN})
     other = make_workspace("Other", {outsider: Role.ADMIN})
+    upload = Upload(
+        workspace_id=home.id,
+        created_by=analyst.id,
+        filename="x.txt",
+        media_type="text/plain",
+        size_bytes=1,
+        sha256="1" * 64,
+        object_key="uploads/x",
+        text_chars=1,
+    )
+    db.add(upload)
+    db.commit()
     return {
+        "upload_id": upload.id,
         "run_id": make_run(home, analyst),
         "analyst": analyst,
         "reviewer": reviewer,

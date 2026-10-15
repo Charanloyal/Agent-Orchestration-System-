@@ -28,8 +28,11 @@ from app.contracts.run_state import RunState
 from app.db.models import Brief, Run
 from app.db.session import get_sessionmaker
 from app.observability.logging import configure_logging
+from app.providers.corpus import CorpusSearch
 from app.providers.search import FakeSearch, SearchProvider
+from app.providers.tavily import TavilySearch
 from app.services.events import append_event, set_run_state
+from app.tools.fetcher import Fetcher, FetchPolicy, SafeFetcher
 from app.workers import jobs
 from app.workers.checkpointer import FencedPostgresSaver, checkpoint_connection, setup_checkpointer
 from app.workers.jobs import Lease, StaleOwner
@@ -49,7 +52,19 @@ def build_agents(settings: Settings) -> AgentSuite:
 
 
 def build_search(settings: Settings) -> SearchProvider:
+    if settings.search_provider == "tavily":
+        if settings.tavily_api_key is None:
+            raise RuntimeError("AOS_SEARCH_PROVIDER=tavily requires AOS_TAVILY_API_KEY")
+        return TavilySearch(settings.tavily_api_key)
+    if settings.search_provider == "corpus":
+        return CorpusSearch(settings.corpus_dir)
     return FakeSearch()
+
+
+def build_fetcher(settings: Settings) -> Fetcher:
+    return SafeFetcher(
+        FetchPolicy(max_bytes=settings.fetch_max_bytes, timeout_seconds=settings.fetch_timeout_seconds)
+    )
 
 
 class Heartbeat(threading.Thread):
@@ -75,14 +90,19 @@ class Heartbeat(threading.Thread):
 
 
 def _load_context(
-    settings: Settings, sm: sessionmaker[Session], lease: Lease, agents: AgentSuite, search: SearchProvider
+    settings: Settings,
+    sm: sessionmaker[Session],
+    lease: Lease,
+    agents: AgentSuite,
+    search: SearchProvider,
+    fetcher: Fetcher,
 ) -> RunContext:
     with sm() as session:
         run, brief = session.execute(
             select(Run, Brief).join(Brief, Brief.id == Run.brief_id).where(Run.id == lease.run_id)
         ).one()
     return RunContext(
-        settings, sm, lease, run.workspace_id, BriefSpec.model_validate(brief.body), agents, search
+        settings, sm, lease, run.workspace_id, BriefSpec.model_validate(brief.body), agents, search, fetcher
     )
 
 
@@ -93,6 +113,7 @@ def process_one(
     run_id: uuid.UUID | None = None,
     agents: AgentSuite | None = None,
     search: SearchProvider | None = None,
+    fetcher: Fetcher | None = None,
 ) -> str:
     settings = settings or get_settings()
     sm = get_sessionmaker()
@@ -101,7 +122,12 @@ def process_one(
     if lease is None:
         return "no_job"
     ctx = _load_context(
-        settings, sm, lease, agents or build_agents(settings), search or build_search(settings)
+        settings,
+        sm,
+        lease,
+        agents or build_agents(settings),
+        search or build_search(settings),
+        fetcher or build_fetcher(settings),
     )
     heartbeat = Heartbeat(ctx)
     heartbeat.start()

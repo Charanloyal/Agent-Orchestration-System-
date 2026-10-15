@@ -4,7 +4,7 @@ Uses the template from the context prompt (§4). Contains no secrets or private 
 
 ```text
 Project: Agent Orchestration System
-Current milestone: M4 (PRD Week 4), thin end-to-end slice: DONE. Next: M5 ingestion & evidence.
+Current milestone: M5 (PRD Week 5), ingestion & evidence: DONE. Next: M6 planner (real LLM) + plan approval UX.
 
 Last completed vertical slice:
   Analyst signs in → submits a brief → worker plans (fake planner) → analyst approves the exact
@@ -14,12 +14,14 @@ Last completed vertical slice:
   Verified in a real browser and by Playwright.
 
 Architecture decisions accepted:
-  0010 workflow runtime, live events, frontend architecture (adds to 0002-0009).
+  0010 workflow runtime, live events, frontend architecture; 0011 evidence ingestion
+  (Tavily/corpus/fake search, SSRF-pinned fetcher, isolated PDF extraction, uploads, Postgres FTS).
 
 Database migrations added/applied:
   0002_runs_jobs_events_artifacts_evidence (briefs, runs, run_jobs, run_events, plan_versions,
   report_versions, approvals, tool_executions, sources, evidence_passages, task_results; schema
-  `lg` for LangGraph checkpoints). Applied to dev DB `aos`; test/e2e DBs rebuilt per run.
+  `lg` for LangGraph checkpoints); 0003_uploads_and_full_text_search (uploads, upload_chunks with
+  generated tsvector + GIN; evidence_passages.tsv). Applied to dev DB `aos`; test/e2e DBs rebuilt per run.
 
 Tests actually run and results (2026-10-15, Windows, Python 3.14.7, PostgreSQL 17.11, Node 24.21):
   backend:  ruff + format clean; mypy --strict clean (55 files); pytest 192 passed
@@ -38,11 +40,11 @@ Checks not run:
 Observed performance/cost: none measured; no provider cost (fake agents only).
 
 Known gaps (planned):
-  Real LLM agents (M6/M8), real search + safe fetch + uploads (M5), budgets (M7), cancel/retry
+  Real LLM agents (M6/M8), offline evaluation corpus content (M11), budgets (M7), cancel/retry
   APIs + 10-scenario crash suite + reaper + approval expiry (M9), observability (M10),
   export (M8), evaluation (M11).
 
-Next bounded task: M5. Tavily + offline-corpus search adapters, SSRF-safe fetcher (pinned DNS,
-  redirect re-validation, size/time/type limits), HTML/text-PDF extraction in an isolated
-  subprocess, uploads, workspace-scoped full-text retrieval, provenance viewer.
+Next bounded task: M6. OpenAI-compatible LLM adapter with structured output + one bounded
+  repair, versioned planner prompt, plan edit-as-new-version, approval-wait expiry (EXPIRED),
+  plan review UI polish. Live calls only after explicit approval within the USD 10 ceiling.
 ```

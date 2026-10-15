@@ -170,6 +170,10 @@ issuer.
 | `AOS_OIDC_BACKCHANNEL_URL` | none | Internal issuer URL for server-to-server calls |
 | `AOS_COOKIE_SECURE` | `false` | Must be `true` in prod |
 | `AOS_AGENT_MODE` | `fake` | `fake` (deterministic, free) or `llm` (from M6) |
+| `AOS_SEARCH_PROVIDER` | `fake` | `fake`, `corpus` (offline, versioned, free) or `tavily` (live; needs `AOS_TAVILY_API_KEY`) |
+| `AOS_TAVILY_API_KEY` | none | Tavily key (secret; `.env` only) |
+| `AOS_OBJECT_STORE_DIR` | `backend/.data/objects` | Local object storage for uploads (git-ignored) |
+| `AOS_UPLOAD_MAX_BYTES` / `AOS_FETCH_MAX_BYTES` | 10 MB / 2 MB | Upload and fetched-page size limits |
 | `AOS_WORKER_LEASE_SECONDS` / `AOS_WORKER_HEARTBEAT_SECONDS` | `30` / `10` | Job lease and heartbeat |
 | `AOS_JOB_MAX_ATTEMPTS` | `5` | Transient-retry budget per segment |
 | `AOS_APPROVAL_TTL_HOURS` | `72` | How long a plan or report waits for a human |

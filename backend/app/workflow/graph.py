@@ -23,7 +23,6 @@ from sqlalchemy.dialects.postgresql import insert
 from app.agents.base import EvidenceView
 from app.contracts import (
     Plan,
-    PlanPolicy,
     PlanPolicyViolation,
     PlanTask,
     ReviewerOutput,
@@ -36,13 +35,12 @@ from app.contracts import (
 )
 from app.contracts.run_state import RunState
 from app.db.models import Approval, EvidencePassage, PlanVersion, ReportVersion, Source, TaskResult
+from app.policy.tools import allowed_tools, plan_policy_for
 from app.services.events import append_event
 from app.services.runs import latest_artifact
 from app.tools.research import RunResearchTools
 from app.workflow.context import RunContext
 from app.workflow.errors import StepFailed
-
-SERVER_TOOLS = frozenset({"web_search", "fetch_url"})
 
 
 class RunGraphState(TypedDict, total=False):
@@ -108,9 +106,7 @@ def build_graph(
         # The server assigns versions and limits; the model cannot widen the tool allowlist.
         plan = Plan.model_validate({**call.output.model_dump(mode="json"), "plan_version": version})
         try:
-            enforce_plan_policy(
-                plan, PlanPolicy(allowed_tools=SERVER_TOOLS, max_tasks=brief.limits.max_tasks)
-            )
+            enforce_plan_policy(plan, plan_policy_for(brief))
         except PlanPolicyViolation as exc:
             raise StepFailed("planner", f"plan violates policy: {exc}") from exc
         with ctx.fenced() as session:
@@ -257,7 +253,7 @@ def build_graph(
                 PlanTask(
                     task_id=f"r{review_round}-{i}",
                     question=f.requested_action,
-                    tools=["web_search", "fetch_url"],
+                    tools=sorted(allowed_tools(brief)),
                     expected_evidence="Evidence requested by review",
                     section_ids=[plan.outline[0].section_id],
                 ).model_dump(mode="json")

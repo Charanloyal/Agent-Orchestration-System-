@@ -33,3 +33,6 @@ blob-report/
 .DS_Store
 Thumbs.db
 *.log
+
+# Local object storage (uploads, exports)
+backend/.data/

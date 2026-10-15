@@ -6,6 +6,7 @@ import { NotFoundPage } from "./pages/NotFoundPage";
 import { RunPage } from "./pages/RunPage";
 import { RunsPage } from "./pages/RunsPage";
 import { SignInPage } from "./pages/SignInPage";
+import { UploadsPage } from "./pages/UploadsPage";
 
 export const routes: RouteObject[] = [
   { path: "/signin", element: <SignInPage /> },
@@ -15,6 +16,7 @@ export const routes: RouteObject[] = [
       { index: true, element: <HomeRedirect /> },
       { path: "w/:workspaceId/runs", element: <RunsPage /> },
       { path: "w/:workspaceId/new", element: <NewRunPage /> },
+      { path: "w/:workspaceId/documents", element: <UploadsPage /> },
       { path: "runs/:runId", element: <RunPage /> },
     ],
   },

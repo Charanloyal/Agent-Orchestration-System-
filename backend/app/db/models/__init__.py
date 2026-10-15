@@ -20,6 +20,7 @@ from app.db.models.runs import (
     TaskResult,
     ToolExecution,
 )
+from app.db.models.uploads import Upload, UploadChunk
 
 __all__ = [
     "Approval",
@@ -38,6 +39,8 @@ __all__ = [
     "Source",
     "TaskResult",
     "ToolExecution",
+    "Upload",
+    "UploadChunk",
     "User",
     "Workspace",
 ]

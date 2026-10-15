@@ -11,7 +11,7 @@ from fastapi import APIRouter, Header, Query, Request, Response
 from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, StringConstraints
-from sqlalchemy import select
+from sqlalchemy import func, select, text
 
 from app.auth.deps import AppSettings, CurrentPrincipal, DbSession, Principal, check_workspace_access
 from app.contracts import Brief as BriefSpec
@@ -121,6 +121,7 @@ class EvidenceOut(BaseModel):
     source_id: str
     source_title: str | None
     source_url: str | None
+    source_kind: str
     published_on: str | None
     retrieved_at: datetime
 
@@ -320,18 +321,30 @@ def _decision_out(db: DbSession, principal: Principal, approval: Approval) -> De
 
 
 @router.get("/runs/{run_id}/evidence", response_model=list[EvidenceOut])
-def list_evidence(run_id: uuid.UUID, principal: CurrentPrincipal, db: DbSession) -> list[EvidenceOut]:
-    """FR-05: evidence passages with provenance, scoped to an authorized run."""
+def list_evidence(
+    run_id: uuid.UUID,
+    principal: CurrentPrincipal,
+    db: DbSession,
+    q: Annotated[str | None, Query(min_length=2, max_length=200)] = None,
+) -> list[EvidenceOut]:
+    """FR-05: evidence passages with provenance, scoped to an authorized run. `q` ranks
+    passages by full-text relevance within this run only."""
     get_run(db, principal, run_id, Action.RUN_READ)
-    rows = db.execute(
+    query = (
         select(EvidencePassage, Source)
         .join(
             Source,
             (Source.run_id == EvidencePassage.run_id) & (Source.source_id == EvidencePassage.source_id),
         )
         .where(EvidencePassage.run_id == run_id)
-        .order_by(EvidencePassage.task_id, EvidencePassage.evidence_id)
-    ).all()
+    )
+    if q:
+        tsquery = func.websearch_to_tsquery(text("'english'"), q)
+        query = query.where(EvidencePassage.tsv.op("@@")(tsquery)).order_by(
+            func.ts_rank_cd(EvidencePassage.tsv, tsquery).desc(), EvidencePassage.evidence_id
+        )
+    else:
+        query = query.order_by(EvidencePassage.task_id, EvidencePassage.evidence_id)
     return [
         EvidenceOut(
             evidence_id=e.evidence_id,
@@ -342,10 +355,59 @@ def list_evidence(run_id: uuid.UUID, principal: CurrentPrincipal, db: DbSession)
             source_id=s.source_id,
             source_title=s.title,
             source_url=s.url,
+            source_kind=s.kind,
             published_on=s.published_on,
             retrieved_at=s.retrieved_at,
         )
-        for e, s in rows
+        for e, s in db.execute(query).all()
+    ]
+
+
+class SourceOut(BaseModel):
+    source_id: str
+    kind: str
+    url: str | None
+    upload_id: uuid.UUID | None
+    title: str | None
+    fetch_status: str
+    failure_reason: str | None
+    retrieved_at: datetime
+    published_on: str | None
+    content_sha256: str | None
+    passages: int
+
+
+@router.get("/runs/{run_id}/sources", response_model=list[SourceOut])
+def list_sources(run_id: uuid.UUID, principal: CurrentPrincipal, db: DbSession) -> list[SourceOut]:
+    """Every source the run touched, including failed fetches (which are never citable)."""
+    get_run(db, principal, run_id, Action.RUN_READ)
+    counts = (
+        select(EvidencePassage.source_id, func.count().label("n"))
+        .where(EvidencePassage.run_id == run_id)
+        .group_by(EvidencePassage.source_id)
+        .subquery()
+    )
+    rows = db.execute(
+        select(Source, func.coalesce(counts.c.n, 0))
+        .outerjoin(counts, counts.c.source_id == Source.source_id)
+        .where(Source.run_id == run_id)
+        .order_by(Source.fetch_status.desc(), Source.retrieved_at)
+    ).all()
+    return [
+        SourceOut(
+            source_id=s.source_id,
+            kind=s.kind,
+            url=s.url,
+            upload_id=s.upload_id,
+            title=s.title,
+            fetch_status=s.fetch_status,
+            failure_reason=s.failure_reason,
+            retrieved_at=s.retrieved_at,
+            published_on=s.published_on,
+            content_sha256=s.content_sha256,
+            passages=n,
+        )
+        for s, n in rows
     ]
 
 

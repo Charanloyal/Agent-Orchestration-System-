@@ -68,7 +68,11 @@ export function describeEvent(event: RunEvent): string {
         p.decision === "approve" ? "approved" : "rejected"
       } by ${str(p.role)}`;
     case "source_collected":
-      return `Source collected for task ${str(p.task_id)} (${num(p.passages)} passage(s))`;
+      return `${p.kind === "upload" ? "Document passage" : "Source"} collected for task ${str(p.task_id)} (${num(
+        p.passages,
+      )} passage(s))`;
+    case "source_failed":
+      return `Source not read for task ${str(p.task_id)}: ${str(p.reason).replaceAll("_", " ")}`;
     case "search_results_filtered":
       return `Task ${str(p.task_id)}: kept ${num(p.kept)} of ${num(p.returned)} results (source policy)`;
     case "task_completed":

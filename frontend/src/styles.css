@@ -164,3 +164,7 @@ select { width: auto; }
   .page-header { flex-wrap: wrap; }
 }
 .tabs { overflow-x: auto; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.sources { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.45rem; }
+.source-row { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: baseline; }
+input[type="file"] { width: auto; flex: 1 1 16rem; }

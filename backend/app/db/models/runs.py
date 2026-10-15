@@ -7,6 +7,7 @@ from typing import Any
 from sqlalchemy import (
     BigInteger,
     CheckConstraint,
+    Computed,
     DateTime,
     ForeignKey,
     ForeignKeyConstraint,
@@ -18,7 +19,7 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
 )
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import JSONB, TSVECTOR
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.contracts.run_state import RunState
@@ -207,6 +208,7 @@ class EvidencePassage(CreatedAtMixin, Base):
             ["run_id", "source_id"], ["sources.run_id", "sources.source_id"], ondelete="CASCADE"
         ),
         Index("ix_evidence_passages_run_task", "run_id", "task_id"),
+        Index("ix_evidence_passages_tsv", "tsv", postgresql_using="gin"),
     )
 
     run_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("runs.id", ondelete="CASCADE"), primary_key=True)
@@ -220,6 +222,7 @@ class EvidencePassage(CreatedAtMixin, Base):
     text: Mapped[str] = mapped_column(Text, nullable=False)
     text_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
     fencing_token: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    tsv: Mapped[Any] = mapped_column(TSVECTOR, Computed("to_tsvector('english', text)", persisted=True))
 
 
 class TaskResult(CreatedAtMixin, Base):

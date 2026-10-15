@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from app.api import auth, health, runs, workspaces
+from app.api import auth, health, runs, uploads, workspaces
 from app.config import get_settings
 from app.errors import install_error_handlers
 from app.observability.logging import configure_logging
@@ -18,7 +18,7 @@ def create_app() -> FastAPI:
     )
     app.add_middleware(RequestContextMiddleware)
     install_error_handlers(app)
-    for router in (health.router, auth.router, workspaces.router, runs.router):
+    for router in (health.router, auth.router, workspaces.router, runs.router, uploads.router):
         app.include_router(router)
     return app
 

@@ -14,16 +14,18 @@ from app.contracts import (
     ReviewFinding,
     WriterOutput,
 )
+from app.policy.tools import allowed_tools
 
 
 class FakePlanner:
     def plan(self, brief: Brief, *, version: int, feedback: str | None) -> AgentCall[Plan]:
         questions = brief.research_questions[: max(1, brief.limits.max_tasks - 1)]
+        tools = sorted(allowed_tools(brief))
         tasks = [
             PlanTask(
                 task_id=f"t{i}",
                 question=question,
-                tools=["web_search", "fetch_url"],
+                tools=tools,
                 expected_evidence="Primary documentation or reputable public sources",
                 section_ids=["findings"],
             )
@@ -35,7 +37,7 @@ class FakePlanner:
                     task_id="synthesis",
                     question=f"How do the findings compare for: {brief.topic}"[:500],
                     depends_on=[t.task_id for t in tasks],
-                    tools=["web_search"],
+                    tools=tools,
                     expected_evidence="Comparative sources",
                     section_ids=["summary"],
                 )
@@ -59,7 +61,12 @@ class FakePlanner:
 
 class FakeResearcher:
     def research(self, brief: Brief, task: PlanTask, tools: ResearchTools) -> AgentCall[ResearcherOutput]:
-        refs = [ref for hit in tools.search(task.question)[:2] for ref in tools.collect(hit)]
+        hits = []
+        if "web_search" in task.tools:
+            hits += tools.search(task.question)[:3]
+        if "search_uploads" in task.tools:
+            hits += tools.search_uploads(task.question)[:2]
+        refs = [ref for hit in hits for ref in tools.collect(hit)]
         if not refs:
             return AgentCall(ResearcherOutput(task_id=task.task_id, unresolved_questions=[task.question]), 1)
         findings = [

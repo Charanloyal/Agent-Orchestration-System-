@@ -37,6 +37,7 @@
   - Version- and digest-bound decisions.
   - Persisted timeline with SSE replay.
   - Evidence with provenance.
+- **Evidence ingestion (M5):** Tavily, offline-corpus and fake search; SSRF-safe pinned fetcher; isolated text-PDF extraction; uploads with content sniffing; workspace-scoped full-text retrieval; failed sources shown as not read.
 - **Frontend:**
   - Sign-in, workspace shell, runs list, brief form.
   - Run page with live timeline, plan view, cited structured report with evidence panel,
@@ -49,8 +50,8 @@
 
 ### Not implemented yet
 
-- Real LLM agents and search/fetch (the fakes are deterministic).
-- Uploads, budgets and reservations, cancellation and retry APIs, the export, observability
+- Real LLM agents (the fakes are deterministic).
+- Budgets and reservations, cancellation and retry APIs, the export, observability
   beyond logs, evaluation runs.
 
 ## Product and planning
@@ -78,6 +79,7 @@
 | [0008](decisions/0008-job-leasing-and-dispatch.md) | Job leasing, dispatch and approval resumption | Accepted |
 | [0009](decisions/0009-identity-sessions-authorization.md) | Identity, sessions and workspace authorization | Accepted |
 | [0010](decisions/0010-workflow-runtime-events-frontend.md) | Workflow runtime, live events and frontend architecture | Accepted |
+| [0011](decisions/0011-evidence-ingestion-retrieval.md) | Evidence ingestion: search, safe fetching, extraction, uploads, retrieval | Accepted |
 
 ## Session handoff
 

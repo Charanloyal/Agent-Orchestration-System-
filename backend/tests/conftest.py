@@ -36,6 +36,7 @@ TEST_DATABASE_URL = os.environ.get("AOS_TEST_DATABASE_URL") or _read_env_file().
 os.environ["AOS_ENV"] = "test"
 os.environ["AOS_LOG_JSON"] = "false"
 os.environ["AOS_PUBLIC_URL"] = "http://testserver"
+os.environ["AOS_OBJECT_STORE_DIR"] = __import__("tempfile").mkdtemp(prefix="aos-objects-")
 if TEST_DATABASE_URL:
     os.environ["AOS_DATABASE_URL"] = TEST_DATABASE_URL
 else:
