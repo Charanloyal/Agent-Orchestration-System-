@@ -12,12 +12,15 @@ ENV_FILE = REPO_ROOT / "backend" / ".env"
 
 
 def database_url() -> str | None:
-    if url := os.environ.get("AOS_DATABASE_URL"):
-        return url
+    for name in ("AOS_SPIKE_DATABASE_URL", "AOS_DATABASE_URL"):
+        if url := os.environ.get(name):
+            return url
     if ENV_FILE.exists():
-        for line in ENV_FILE.read_text(encoding="utf-8").splitlines():
-            if line.startswith("AOS_DATABASE_URL="):
-                return line.split("=", 1)[1].strip()
+        values = dict(
+            line.split("=", 1) for line in ENV_FILE.read_text(encoding="utf-8").splitlines() if "=" in line
+        )
+        # The spike has its own database so its ad-hoc tables never collide with the app's.
+        return (values.get("AOS_SPIKE_DATABASE_URL") or values.get("AOS_DATABASE_URL") or "").strip() or None
     return None
 
 

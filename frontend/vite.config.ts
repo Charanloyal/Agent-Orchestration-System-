@@ -11,7 +11,9 @@ export default defineConfig({
     port: 5173,
     strictPort: true,
     proxy: {
+      "/api": { target: BACKEND_URL, changeOrigin: true },
       "/health": { target: BACKEND_URL, changeOrigin: true },
+      "/readyz": { target: BACKEND_URL, changeOrigin: true },
     },
   },
 });

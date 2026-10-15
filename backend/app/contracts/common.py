@@ -11,12 +11,8 @@ Identifier = Annotated[str, StringConstraints(pattern=r"^[a-z0-9][a-z0-9_-]{0,63
 
 Sha256Hex = Annotated[str, StringConstraints(pattern=r"^[0-9a-f]{64}$")]
 
-ShortText = Annotated[
-    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=500)
-]
-LongText = Annotated[
-    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=4000)
-]
+ShortText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=500)]
+LongText = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=4000)]
 
 
 class StrictModel(BaseModel):
@@ -30,7 +26,11 @@ def canonical_json(value: Any) -> bytes:
     if isinstance(value, BaseModel):
         value = value.model_dump(mode="json")
     return json.dumps(
-        value, sort_keys=True, separators=(",", ":"), ensure_ascii=False, allow_nan=False
+        value,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+        allow_nan=False,
     ).encode("utf-8")
 
 

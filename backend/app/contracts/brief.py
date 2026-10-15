@@ -35,7 +35,7 @@ class SourcePolicy(StrictModel):
         return domains
 
     @model_validator(mode="after")
-    def _consistent(self) -> "SourcePolicy":
+    def _consistent(self) -> SourcePolicy:
         if overlap := set(self.allowed_domains) & set(self.blocked_domains):
             raise ValueError(f"domains both allowed and blocked: {sorted(overlap)}")
         if find_duplicates(list(self.allowed_source_types)):
@@ -45,7 +45,7 @@ class SourcePolicy(StrictModel):
 
 class Budget(StrictModel):
     currency: Literal["USD"] = "USD"
-    max_estimated_cost: Decimal = Field(gt=0, le=Decimal("50"), decimal_places=2)
+    max_estimated_cost: Decimal = Field(gt=0, le=Decimal(50), decimal_places=2)
     """Ceiling for *estimated* spend, enforced by reservations. Not a provider billing cap."""
 
 

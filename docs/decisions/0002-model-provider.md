@@ -1,6 +1,7 @@
 # 0002: Model provider
 
-- **Status:** Proposed. Decision **UNDECIDED**.
+- **Status:** Accepted (2026-10-14, project lead).
+- **Decision:** one **OpenAI-compatible chat-completions adapter**, configured by base URL, model and key. It works with OpenAI, Azure OpenAI, Groq or a local Ollama server. Deterministic fake model by default for tests and CI.
 - **Date:** 2026-10-14
 
 ## Context

@@ -14,8 +14,16 @@ def make_plan(**overrides: object) -> dict:
     plan: dict = {
         "plan_version": 1,
         "outline": [
-            {"section_id": "summary", "title": "Summary", "purpose": "Answer the brief"},
-            {"section_id": "pricing", "title": "Pricing", "purpose": "Compare public pricing"},
+            {
+                "section_id": "summary",
+                "title": "Summary",
+                "purpose": "Answer the brief",
+            },
+            {
+                "section_id": "pricing",
+                "title": "Pricing",
+                "purpose": "Compare public pricing",
+            },
         ],
         "tasks": [
             {
@@ -137,10 +145,6 @@ def test_long_dependency_chain_has_no_recursion_limit() -> None:
 def test_digest_is_stable_and_detects_edits() -> None:
     data = make_plan()
     reordered = dict(reversed(list(data.items())))
-    assert artifact_digest(Plan.model_validate(data)) == artifact_digest(
-        Plan.model_validate(reordered)
-    )
+    assert artifact_digest(Plan.model_validate(data)) == artifact_digest(Plan.model_validate(reordered))
     edited = make_plan(source_strategy="Something else entirely.")
-    assert artifact_digest(Plan.model_validate(data)) != artifact_digest(
-        Plan.model_validate(edited)
-    )
+    assert artifact_digest(Plan.model_validate(data)) != artifact_digest(Plan.model_validate(edited))

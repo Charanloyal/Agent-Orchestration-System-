@@ -4,7 +4,13 @@ from typing import Literal
 
 from pydantic import Field, model_validator
 
-from app.contracts.common import Identifier, LongText, ShortText, StrictModel, find_duplicates
+from app.contracts.common import (
+    Identifier,
+    LongText,
+    ShortText,
+    StrictModel,
+    find_duplicates,
+)
 
 
 class ResearchFinding(StrictModel):
@@ -25,7 +31,7 @@ class ResearcherOutput(StrictModel):
     conflicts: list[SourceConflict] = Field(default_factory=list, max_length=20)
 
     @model_validator(mode="after")
-    def _references_collected_evidence(self) -> "ResearcherOutput":
+    def _references_collected_evidence(self) -> ResearcherOutput:
         collected = set(self.evidence_ids)
         cited = {e for f in self.findings for e in f.evidence_ids}
         cited |= {e for c in self.conflicts for e in c.evidence_ids}
@@ -46,7 +52,7 @@ class Claim(StrictModel):
     evidence_ids: list[Identifier] = Field(default_factory=list, max_length=20)
 
     @model_validator(mode="after")
-    def _evidence_rules(self) -> "Claim":
+    def _evidence_rules(self) -> Claim:
         minimum = {"fact": 1, "inference": 1, "conflict": 2}.get(self.kind, 0)
         if len(self.evidence_ids) < minimum:
             raise ValueError(f"{self.kind} claims require at least {minimum} evidence_ids")
@@ -67,7 +73,7 @@ class WriterOutput(StrictModel):
     sections: list[ReportSection] = Field(min_length=1, max_length=20)
 
     @model_validator(mode="after")
-    def _unique_ids(self) -> "WriterOutput":
+    def _unique_ids(self) -> WriterOutput:
         if duplicates := find_duplicates([s.section_id for s in self.sections]):
             raise ValueError(f"duplicate section_id: {duplicates}")
         if duplicates := find_duplicates(self.claim_ids()):
@@ -110,7 +116,11 @@ class ReviewFinding(StrictModel):
     finding_id: Identifier
     severity: Literal["blocker", "major", "minor"]
     category: Literal[
-        "unsupported_claim", "contradiction", "missing_section", "citation_error", "other"
+        "unsupported_claim",
+        "contradiction",
+        "missing_section",
+        "citation_error",
+        "other",
     ]
     claim_ids: list[Identifier] = Field(default_factory=list, max_length=50)
     evidence_ids: list[Identifier] = Field(default_factory=list, max_length=50)
@@ -127,7 +137,7 @@ class ReviewerOutput(StrictModel):
     findings: list[ReviewFinding] = Field(default_factory=list, max_length=50)
 
     @model_validator(mode="after")
-    def _outcome_consistent(self) -> "ReviewerOutput":
+    def _outcome_consistent(self) -> ReviewerOutput:
         if duplicates := find_duplicates([f.finding_id for f in self.findings]):
             raise ValueError(f"duplicate finding_id: {duplicates}")
         severe = [f for f in self.findings if f.severity in ("blocker", "major")]

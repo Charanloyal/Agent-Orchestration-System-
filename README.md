@@ -1,164 +1,161 @@
 # Agent Orchestration System
 
-A production-oriented research/reporting pilot. Planner, researcher, writer and reviewer
-agents will be coordinated through one controlled, human-approved workflow.
+Evidence-backed research and report generation, with reliable multi-agent execution and
+human approval. Planner, researcher, writer and reviewer agents are coordinated by one
+controlled workflow:
 
-> **Current state (Week 2 complete):**
-> - The local React-to-FastAPI health-check skeleton.
-> - Typed workflow contracts with tests.
-> - Week-1 planning documents and 20 development evaluation briefs.
-> - A throwaway LangGraph + PostgreSQL persistence spike.
->
-> There is still no application database, authentication, real model or search provider, or
-> production agent code. This is a local development scaffold. **Do not deploy it as a
-> secure product.**
+brief → typed plan → **human plan approval** → bounded parallel research → cited draft →
+structured review (at most 2 rounds) → **human approval of the exact report version** →
+export.
+
+> **Status:** controlled-pilot build in progress. See [docs/README.md](docs/README.md) for
+> milestone status and [docs/handoff.md](docs/handoff.md) for the verified state. This is
+> a local, production-like pilot. **Do not expose it publicly**: the bundled dev identity
+> provider is for local use only.
 
 ## Repository layout
 
 ```text
-backend/                 FastAPI app (app/), typed contracts (app/contracts/), tests, pinned requirements
-frontend/                React + TypeScript + Vite app that calls the backend through a dev proxy
-docs/                    Product, evaluation, security and architecture docs, ADRs, JSON Schemas
-eval/briefs/dev/         20 development evaluation briefs (validated by backend tests)
-spikes/week2_persistence Throwaway persistence/approval spike (LangGraph + PostgreSQL)
+backend/                  FastAPI API, workers, agents, contracts, Alembic migrations, tests
+backend/devtools/         Local dev OIDC issuer (never used in prod)
+frontend/                 React + TypeScript + Vite single-page app (same-origin API proxy)
+docs/                     Product, evaluation, security and architecture docs; ADRs; JSON Schemas
+eval/                     Evaluation briefs (dev set; held-out procedure)
+spikes/week2_persistence/ Archived Week-2 spike (evidence for ADR 0007/0008)
+docker-compose.yml        Local production-like stack (Postgres, API, dev IdP, web)
+.github/workflows/ci.yml  Lint, type-check, tests on Postgres, frontend build, image builds
 ```
 
 ## Prerequisites
 
-| Tool    | Version used for verification | Notes                                          |
-| ------- | ----------------------------- | ---------------------------------------------- |
-| Python  | 3.14.7                        | Other versions are untested.                   |
-| Node.js | 24.21.0 LTS (npm 11.19.0)     | Vite 8 requires Node `^20.19.0 \|\| >=22.12.0`. |
-| Git     | 2.55                          |                                                |
-| PostgreSQL | 17.11                      | Only needed for the Week-2 spike. See below.   |
+| Tool | Version verified | Notes |
+| --- | --- | --- |
+| Python | 3.14.7 | |
+| Node.js | 24.21.0 LTS (npm 11.19.0) | Vite 8 needs Node `^20.19.0 \|\| >=22.12.0` |
+| PostgreSQL | 17.11 | Native install, portable zip, or Docker |
+| Docker (optional) | Compose v2 | Only for `docker compose up` |
 
-The commands below are for **Windows PowerShell**. macOS/Linux equivalents follow.
+Commands are for **Windows PowerShell**; macOS/Linux equivalents are at the end.
 
-> **Windows note:** the default PowerShell execution policy (`Restricted`) blocks the
-> `npm.ps1` shim. Use `npm.cmd`, as shown below, or run the commands from `cmd.exe`.
+> **Windows:** the default execution policy blocks `npm.ps1`, so use `npm.cmd`.
 
-## Backend (FastAPI)
+## 1. Database
+
+Any PostgreSQL 17 works. With the portable EnterpriseDB zip extracted to
+`%LOCALAPPDATA%\Programs\postgresql-17` (no admin rights or Windows service needed; see the
+[threat model](docs/security/threat-model.md#local-development-notes-current-state) about
+binary verification):
+
+```powershell
+$bin  = "$env:LOCALAPPDATA\Programs\postgresql-17\pgsql\bin"
+$data = "$env:LOCALAPPDATA\aos-pg\data"
+& "$bin\initdb.exe" -D $data -U postgres --pwprompt --auth=scram-sha-256 --encoding=UTF8 --locale=C
+Add-Content "$data\postgresql.conf" "`nlisten_addresses = '127.0.0.1'`nport = 54329`n"
+& "$bin\postgres.exe" -D $data                      # keep running in its own terminal
+& "$bin\psql.exe" -h 127.0.0.1 -p 54329 -U postgres -c "CREATE DATABASE aos" -c "CREATE DATABASE aos_test"
+```
+
+Create `backend/.env`. It is **git-ignored; never commit it**.
+
+```text
+AOS_DATABASE_URL=postgresql://postgres:<password>@127.0.0.1:54329/aos
+AOS_TEST_DATABASE_URL=postgresql://postgres:<password>@127.0.0.1:54329/aos_test
+```
+
+## 2. Backend
 
 ```powershell
 cd backend
 python -m venv .venv
 .\.venv\Scripts\python.exe -m pip install -r requirements-dev.txt
-
-# Run tests
-.\.venv\Scripts\python.exe -m pytest
-
-# Start the API on http://127.0.0.1:8000
+.\.venv\Scripts\python.exe -m alembic upgrade head          # create/upgrade the schema
+.\.venv\Scripts\python.exe -m app.cli seed-demo             # demo workspaces + users (dev only)
 .\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-Check it: open <http://127.0.0.1:8000/health>. It should return `{"status":"ok"}`.
-Interactive API docs are at <http://127.0.0.1:8000/docs>.
-
-### Contracts and JSON Schemas
-
-Workflow contracts live in `backend/app/contracts/` (see
-[ADR 0006](docs/decisions/0006-workflow-and-contracts.md)). Their JSON Schemas are checked in
-under `docs/contracts/`. After changing a contract, regenerate the schemas; otherwise the
-drift test fails:
+In a second terminal, start the **local dev identity provider** (sign-in for the demo users
+Alice/analyst, Bob/reviewer, Carol/admin and Mallory/other workspace):
 
 ```powershell
 cd backend
-.\.venv\Scripts\python.exe -m scripts.export_schemas
+.\.venv\Scripts\python.exe -m devtools.dev_oidc             # http://127.0.0.1:8001
 ```
 
-## Frontend (React + Vite)
+| Endpoint | Purpose |
+| --- | --- |
+| `GET /healthz` | Liveness |
+| `GET /readyz` | Readiness (database reachable and migrated) |
+| `GET /api/docs` | Interactive OpenAPI docs (disabled in prod) |
+| `GET /api/v1/auth/login` | Start OIDC sign-in |
 
-In a second terminal, with the backend still running:
+**Checks** (the same commands CI runs):
+
+```powershell
+.\.venv\Scripts\python.exe -m ruff check app devtools tests scripts migrations\env.py
+.\.venv\Scripts\python.exe -m ruff format --check app devtools tests scripts migrations\env.py
+.\.venv\Scripts\python.exe -m mypy
+.\.venv\Scripts\python.exe -m pytest -q
+```
+
+Database tests use `AOS_TEST_DATABASE_URL`. That database is **dropped and rebuilt** by the
+tests, so never point it at real data. Without it, database tests are skipped, not passed.
+
+After changing a contract in `app/contracts/`, regenerate the checked-in JSON Schemas:
+`.\.venv\Scripts\python.exe -m scripts.export_schemas`. A drift test enforces this.
+
+After changing a model in `app/db/models/`, create a migration with
+`.\.venv\Scripts\python.exe -m alembic revision --autogenerate -m "<what changed>"` and
+review it. A test fails if the models and migrations differ.
+
+## 3. Frontend
 
 ```powershell
 cd frontend
 npm.cmd ci
-
-# Start the dev server on http://127.0.0.1:5173
-npm.cmd run dev
+npm.cmd run dev        # http://127.0.0.1:5173 (proxies /api to the backend)
+npm.cmd run build      # type-check + production bundle
 ```
 
-Open <http://127.0.0.1:5173>. The page calls `GET /health`. The Vite dev server proxies
-that request to `http://127.0.0.1:8000`, and the page displays the real response. If the
-backend is not running, the page shows an error (typically `HTTP 502`) and a
-**Check again** button.
-
-Production build (type-check plus bundle into `frontend/dist/`):
+## 4. Docker Compose (optional, production-like)
 
 ```powershell
-npm.cmd run build
+Copy-Item .env.example .env        # set POSTGRES_PASSWORD; .env is git-ignored
+docker compose up --build          # http://localhost:8080 , dev IdP on http://localhost:8001
 ```
 
-## macOS / Linux equivalents
+Both ports bind to 127.0.0.1 only. CI builds these images on every push.
 
-```bash
-cd backend
-python3 -m venv .venv
-.venv/bin/python -m pip install -r requirements-dev.txt
-.venv/bin/python -m pytest
-.venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+## Configuration
 
-cd ../frontend
-npm ci
-npm run dev
-npm run build
-```
+All settings are environment variables prefixed with `AOS_`, defined in
+[backend/app/config.py](backend/app/config.py). Secrets are typed `SecretStr` and never
+logged. `AOS_ENV=prod` enforces secure cookies and HTTPS URLs for the public site and the
+issuer.
 
-## Corporate networks and package mirrors
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `AOS_DATABASE_URL` | none | PostgreSQL URL |
+| `AOS_PUBLIC_URL` | `http://127.0.0.1:5173` | Browser-facing origin (CSRF Origin check, OIDC redirect) |
+| `AOS_OIDC_ISSUER` | `http://127.0.0.1:8001` | OIDC issuer (dev issuer by default) |
+| `AOS_OIDC_CLIENT_ID` / `AOS_OIDC_CLIENT_SECRET` | `aos-local` / none | Client registration (the secret is for Google or Entra) |
+| `AOS_OIDC_BACKCHANNEL_URL` | none | Internal issuer URL for server-to-server calls |
+| `AOS_COOKIE_SECURE` | `false` | Must be `true` in prod |
 
-`pip` and `npm` cannot authenticate to proxies that require Windows-integrated
-(NTLM/Kerberos) authentication. If installs fail with `407 Proxy Authentication Required`,
-point both tools at your organization's approved package mirror:
+## Corporate proxies and package mirrors
+
+`pip` and `npm` cannot authenticate to NTLM/Kerberos proxies. If installs fail with
+`407 Proxy Authentication Required`, use your organization's package mirror:
 
 ```powershell
-.\.venv\Scripts\python.exe -m pip config --site set global.index-url <your-pypi-mirror-simple-url>
-npm.cmd config set registry <your-npm-mirror-url>
+.\.venv\Scripts\python.exe -m pip config --site set global.index-url <pypi-mirror-simple-url>
+npm.cmd config set registry <npm-mirror-url>
 ```
 
-`frontend/package-lock.json` records `https://registry.npmjs.org/` URLs. npm swaps that
-host for the configured registry by default (`replace-registry-host=npmjs`), and the
-integrity hashes are still verified.
+## macOS / Linux
 
-## Local PostgreSQL (Week-2 spike only)
-
-Any local PostgreSQL 17 works: an installer, Docker, or the portable binaries described here.
-The spike was verified with the EnterpriseDB "binaries" zip, extracted into
-`%LOCALAPPDATA%\Programs\postgresql-17`. No admin rights or Windows service are needed. EDB
-publishes no checksum for that zip; see the
-[threat model](docs/security/threat-model.md#local-development-notes-current-state).
-
-```powershell
-$bin  = "$env:LOCALAPPDATA\Programs\postgresql-17\pgsql\bin"
-$data = "$env:LOCALAPPDATA\aos-pg\data"
-
-# One-time setup: you will be prompted for a new superuser password.
-& "$bin\initdb.exe" -D $data -U postgres --pwprompt --auth=scram-sha-256 --encoding=UTF8 --locale=C
-Add-Content "$data\postgresql.conf" "`nlisten_addresses = '127.0.0.1'`nport = 54329`n"
-
-# Start in a dedicated terminal (Ctrl+C stops it).
-& "$bin\postgres.exe" -D $data
-
-# In another terminal: create the spike database (prompts for the password).
-& "$bin\psql.exe" -h 127.0.0.1 -p 54329 -U postgres -c "CREATE DATABASE aos_spike"
-```
-
-Then create `backend/.env`, which is git-ignored and must never be committed:
-
-```text
-AOS_DATABASE_URL=postgresql://postgres:<your-password>@127.0.0.1:54329/aos_spike
-```
-
-Spike setup and test commands are in
-[spikes/week2_persistence/README.md](spikes/week2_persistence/README.md).
-
-## Configuration and secrets
-
-The only secret so far is the local database URL in `backend/.env`. Never commit `.env`
-files, credentials or keys. `.gitignore` excludes them, along with virtual environments,
-`node_modules/` and build output. Model and search providers are still **undecided**. All
-code uses deterministic fake providers, and no paid calls are made
-([ADR 0005](docs/decisions/0005-spending-ceiling.md)).
+Replace `.\.venv\Scripts\python.exe` with `.venv/bin/python` and `npm.cmd` with `npm`.
 
 ## Documentation
 
-See [docs/README.md](docs/README.md) for project status, decisions and the next milestone.
+[docs/README.md](docs/README.md) indexes the product brief, evaluation plan, threat model,
+architecture and all decision records.

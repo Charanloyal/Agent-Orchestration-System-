@@ -33,9 +33,7 @@ def test_dev_brief_is_valid(path: Path) -> None:
 
 
 def test_dev_set_covers_every_category() -> None:
-    categories = {
-        json.loads(p.read_text(encoding="utf-8"))["category"] for p in DEV_FILES
-    }
+    categories = {json.loads(p.read_text(encoding="utf-8"))["category"] for p in DEV_FILES}
     assert categories == {
         "answerable",
         "conflicting_evidence",

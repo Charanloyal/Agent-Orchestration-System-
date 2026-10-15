@@ -1,0 +1,60 @@
+# Local, production-like stack. Not for public deployment as-is (dev OIDC issuer, HTTP).
+#   cp .env.example .env   # then set POSTGRES_PASSWORD
+#   docker compose up --build
+#   open http://localhost:8080
+name: aos
+
+x-backend-env: &backend-env
+  AOS_ENV: dev
+  AOS_DATABASE_URL: postgresql://aos:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/aos
+  AOS_PUBLIC_URL: http://localhost:8080
+  AOS_OIDC_ISSUER: http://localhost:8001
+  AOS_OIDC_BACKCHANNEL_URL: http://dev-oidc:8001
+
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: aos
+      POSTGRES_DB: aos
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aos -d aos"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  migrate:
+    build: ./backend
+    command: ["alembic", "upgrade", "head"]
+    environment: *backend-env
+    depends_on:
+      db: { condition: service_healthy }
+
+  api:
+    build: ./backend
+    environment: *backend-env
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+
+  dev-oidc:
+    build: ./backend
+    command: ["python", "-m", "devtools.dev_oidc"]
+    environment:
+      AOS_ENV: dev
+      AOS_DEV_OIDC_HOST: 0.0.0.0
+      AOS_DEV_OIDC_ISSUER: http://localhost:8001
+      AOS_PUBLIC_URL: http://localhost:8080
+    ports:
+      - "127.0.0.1:8001:8001"
+
+  web:
+    build: ./frontend
+    depends_on: [api]
+    ports:
+      - "127.0.0.1:8080:8080"
+
+volumes:
+  pgdata:

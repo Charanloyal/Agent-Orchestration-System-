@@ -1,2 +1,13 @@
+# Runtime dependencies, pinned exactly. Resolved together on Python 3.14.7.
 fastapi==0.143.0
 uvicorn[standard]==0.54.0
+pydantic==2.14.1
+pydantic-settings==2.16.0
+SQLAlchemy==2.1.4
+alembic==1.20.0
+psycopg[binary]==3.3.6
+psycopg-pool==3.3.3
+PyJWT[crypto]==2.15.1
+cryptography==50.0.2
+httpx==0.28.1
+python-multipart==0.0.32

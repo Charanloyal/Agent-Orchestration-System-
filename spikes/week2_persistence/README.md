@@ -25,8 +25,10 @@ Layout: `spike/db.py` (schema), `spike/leases.py` (claim, fence, heartbeat), `sp
 
 ## Run it (Windows PowerShell)
 
-Prerequisite: PostgreSQL running locally, with `AOS_DATABASE_URL` set in `backend/.env` (git-ignored)
-or in the environment. See the root README, "Local PostgreSQL".
+Prerequisite: PostgreSQL running locally, with `AOS_SPIKE_DATABASE_URL` set in `backend/.env`
+(git-ignored) or in the environment. The spike uses its own database (for example `aos_spike`),
+so its ad-hoc tables never collide with the application schema. See the root README section
+"1. Database".
 
 ```powershell
 cd spikes\week2_persistence
@@ -36,7 +38,7 @@ python -m venv .venv
 ```
 
 The tests create their tables if missing and use fresh random run IDs, so re-runs don't
-conflict. Without `AOS_DATABASE_URL` the database tests are **skipped**, not passed.
+conflict. Without a database URL the tests are **skipped**, not passed.
 
 Run one worker pass by hand:
 

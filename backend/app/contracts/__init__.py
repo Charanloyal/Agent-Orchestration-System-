@@ -6,8 +6,8 @@ cannot be bypassed by model output.
 """
 
 from app.contracts.agents import (
-    Claim,
     CitationError,
+    Claim,
     ReportSection,
     ResearcherOutput,
     ResearchFinding,
@@ -17,7 +17,11 @@ from app.contracts.agents import (
     WriterOutput,
     validate_citations,
 )
-from app.contracts.approval import ApprovalDecision, StaleApproval, check_decision_matches
+from app.contracts.approval import (
+    ApprovalDecision,
+    StaleApproval,
+    check_decision_matches,
+)
 from app.contracts.brief import Brief, Budget, RunLimits, SourcePolicy
 from app.contracts.common import artifact_digest, canonical_json
 from app.contracts.evaluation import EvalCase, EvalExpectation

@@ -40,7 +40,11 @@ class TestBrief:
 
     @pytest.mark.parametrize(
         "limits",
-        [{"max_review_rounds": 3}, {"max_parallel_tasks": 0}, {"deadline_minutes": 10_000}],
+        [
+            {"max_review_rounds": 3},
+            {"max_parallel_tasks": 0},
+            {"deadline_minutes": 10_000},
+        ],
     )
     def test_rejects_invalid_limits(self, limits: dict) -> None:
         with pytest.raises(ValidationError):
@@ -173,7 +177,14 @@ class TestAgentOutputs:
                 {
                     "section_id": "s",
                     "title": "S",
-                    "claims": [{"claim_id": "c1", "kind": kind, "text": "x", "evidence_ids": evidence}],
+                    "claims": [
+                        {
+                            "claim_id": "c1",
+                            "kind": kind,
+                            "text": "x",
+                            "evidence_ids": evidence,
+                        }
+                    ],
                 }
             ],
         }
@@ -193,8 +204,18 @@ class TestAgentOutputs:
                         "section_id": "s",
                         "title": "S",
                         "claims": [
-                            {"claim_id": "c1", "kind": "fact", "text": "x", "evidence_ids": ["e1"]},
-                            {"claim_id": "c2", "kind": "fact", "text": "y", "evidence_ids": ["e9"]},
+                            {
+                                "claim_id": "c1",
+                                "kind": "fact",
+                                "text": "x",
+                                "evidence_ids": ["e1"],
+                            },
+                            {
+                                "claim_id": "c2",
+                                "kind": "fact",
+                                "text": "y",
+                                "evidence_ids": ["e9"],
+                            },
                         ],
                     }
                 ],

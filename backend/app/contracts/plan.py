@@ -4,7 +4,13 @@ from typing import Literal
 
 from pydantic import Field, model_validator
 
-from app.contracts.common import Identifier, LongText, ShortText, StrictModel, find_duplicates
+from app.contracts.common import (
+    Identifier,
+    LongText,
+    ShortText,
+    StrictModel,
+    find_duplicates,
+)
 
 ToolName = Literal["web_search", "fetch_url", "search_uploads"]
 
@@ -32,7 +38,7 @@ class Plan(StrictModel):
     assumptions: list[ShortText] = Field(default_factory=list, max_length=20)
 
     @model_validator(mode="after")
-    def _structurally_valid(self) -> "Plan":
+    def _structurally_valid(self) -> Plan:
         task_ids = [t.task_id for t in self.tasks]
         if duplicates := find_duplicates(task_ids):
             raise ValueError(f"duplicate task_id: {duplicates}")
@@ -86,7 +92,7 @@ def _find_cycle(graph: dict[str, list[str]]) -> list[str] | None:
                 stack.append((node, index + 1))
                 dep = deps[index]
                 if state.get(dep) == 1:
-                    return path[path.index(dep) :] + [dep]
+                    return [*path[path.index(dep) :], dep]
                 if dep not in state:
                     stack.append((dep, 0))
             else:

@@ -1,0 +1,99 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: ci-only-ephemeral
+          POSTGRES_DB: aos_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 3s --health-retries 20
+    env:
+      AOS_TEST_DATABASE_URL: postgresql://postgres:ci-only-ephemeral@localhost:5432/aos_test
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: backend/requirements*.txt
+      - run: pip install -r requirements-dev.txt
+      - name: Lint
+        run: |
+          ruff check app devtools tests scripts migrations/env.py
+          ruff format --check app devtools tests scripts migrations/env.py
+      - name: Type-check
+        run: mypy
+      - name: Tests (contracts, schema drift, migrations, authz, OIDC)
+        run: pytest -q
+
+  spike:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: ci-only-ephemeral
+          POSTGRES_DB: aos_spike
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 3s --health-retries 20
+    env:
+      AOS_SPIKE_DATABASE_URL: postgresql://postgres:ci-only-ephemeral@localhost:5432/aos_spike
+    defaults:
+      run:
+        working-directory: spikes/week2_persistence
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+          cache: pip
+          cache-dependency-path: spikes/week2_persistence/requirements.txt
+      - run: pip install -r requirements.txt
+      - run: pytest -q
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npm run build
+
+  containers:
+    runs-on: ubuntu-latest
+    env:
+      POSTGRES_PASSWORD: ci-only-ephemeral
+    steps:
+      - uses: actions/checkout@v7
+      - name: Validate compose file
+        run: docker compose config --quiet
+      - name: Build images
+        run: docker compose build

@@ -1,6 +1,7 @@
 # 0005: Development spending ceiling
 
-- **Status:** Proposed. Ceiling **UNDECIDED**.
+- **Status:** Accepted (2026-10-14, project lead).
+- **Decision:** **USD 10.00 total** for all live LLM and search calls during the project, tracked by the estimated-vs-reconciled cost ledger. Every live session is approved before it runs.
 - **Date:** 2026-10-14
 
 ## Context

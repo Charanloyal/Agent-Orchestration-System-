@@ -1,18 +1,26 @@
-from typing import Literal
-
 from fastapi import FastAPI
-from pydantic import BaseModel
+
+from app.api import auth, health, workspaces
+from app.config import get_settings
+from app.errors import install_error_handlers
+from app.observability.logging import configure_logging
+from app.observability.middleware import RequestContextMiddleware
 
 
-class HealthResponse(BaseModel):
-    status: Literal["ok"]
+def create_app() -> FastAPI:
+    settings = get_settings()
+    configure_logging(settings.log_level, settings.log_json)
+    app = FastAPI(
+        title="Agent Orchestration System API",
+        version="0.3.0",
+        docs_url="/api/docs" if settings.env != "prod" else None,
+        openapi_url="/api/openapi.json",
+    )
+    app.add_middleware(RequestContextMiddleware)
+    install_error_handlers(app)
+    for router in (health.router, auth.router, workspaces.router):
+        app.include_router(router)
+    return app
 
 
-app = FastAPI(title="Agent Orchestration System API", version="0.1.0")
-
-
-# Liveness only: reports that the API process is serving requests. It does not check
-# dependencies yet because none exist in this milestone.
-@app.get("/health", response_model=HealthResponse, tags=["health"])
-def health() -> HealthResponse:
-    return HealthResponse(status="ok")
+app = create_app()

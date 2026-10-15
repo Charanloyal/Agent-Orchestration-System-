@@ -1,6 +1,7 @@
 # 0003: Search provider
 
-- **Status:** Proposed. Decision **UNDECIDED**.
+- **Status:** Accepted (2026-10-14, project lead).
+- **Decision:** **Tavily** search API adapter (free tier) for live runs, plus an **offline, versioned corpus** adapter for reproducible evaluation. Fake search for tests.
 - **Date:** 2026-10-14
 
 ## Context

@@ -42,7 +42,13 @@ ALLOWED_TRANSITIONS: dict[RunState, frozenset[RunState]] = {
     S.RESEARCHING: frozenset({S.WRITING, S.NEEDS_ATTENTION, S.FAILED}),
     S.WRITING: frozenset({S.REVIEWING, S.NEEDS_ATTENTION, S.FAILED}),
     S.REVIEWING: frozenset(
-        {S.AWAITING_REPORT_APPROVAL, S.WRITING, S.RESEARCHING, S.NEEDS_ATTENTION, S.FAILED}
+        {
+            S.AWAITING_REPORT_APPROVAL,
+            S.WRITING,
+            S.RESEARCHING,
+            S.NEEDS_ATTENTION,
+            S.FAILED,
+        }
     ),
     S.AWAITING_REPORT_APPROVAL: frozenset(
         # A rejected report is never exportable as approved; it needs attention.
@@ -53,7 +59,10 @@ ALLOWED_TRANSITIONS: dict[RunState, frozenset[RunState]] = {
     **{state: frozenset() for state in TERMINAL_STATES},
 }
 for _state in _ACTIVE:
-    ALLOWED_TRANSITIONS[_state] = ALLOWED_TRANSITIONS[_state] | {S.CANCEL_REQUESTED, S.EXPIRED}
+    ALLOWED_TRANSITIONS[_state] = ALLOWED_TRANSITIONS[_state] | {
+        S.CANCEL_REQUESTED,
+        S.EXPIRED,
+    }
 
 
 class InvalidTransition(ValueError):

@@ -5,7 +5,13 @@ from typing import Annotated, Literal
 
 from pydantic import AwareDatetime, HttpUrl, StringConstraints, model_validator
 
-from app.contracts.common import Identifier, Sha256Hex, ShortText, StrictModel, sha256_hex
+from app.contracts.common import (
+    Identifier,
+    Sha256Hex,
+    ShortText,
+    StrictModel,
+    sha256_hex,
+)
 
 
 class Source(StrictModel):
@@ -23,7 +29,7 @@ class Source(StrictModel):
     """Hash of the stored snapshot. Identifies content; does not prove it is true."""
 
     @model_validator(mode="after")
-    def _consistent(self) -> "Source":
+    def _consistent(self) -> Source:
         if self.kind == "web" and self.url is None:
             raise ValueError("web sources require url")
         if self.kind == "upload" and self.upload_ref is None:
@@ -56,7 +62,7 @@ class EvidencePassage(StrictModel):
     collected_at: AwareDatetime
 
     @model_validator(mode="after")
-    def _hash_matches(self) -> "EvidencePassage":
+    def _hash_matches(self) -> EvidencePassage:
         if sha256_hex(self.text) != self.text_sha256:
             raise ValueError("text_sha256 does not match text")
         return self

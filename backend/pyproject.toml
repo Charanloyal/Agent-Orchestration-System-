@@ -1,5 +1,45 @@
 [tool.pytest.ini_options]
 pythonpath = ["."]
 testpaths = ["tests"]
-addopts = "-ra --strict-markers"
-filterwarnings = ["error"]
+addopts = "-ra --strict-markers -p no:langsmith_plugin"
+filterwarnings = [
+    "error",
+    # Upstream langsmith (transitive via langgraph/langchain-core) on Python 3.14; not our code.
+    "ignore:'asyncio.iscoroutinefunction' is deprecated:DeprecationWarning",
+]
+markers = [
+    "live: calls a real paid provider; excluded by default and needs an approved budget",
+]
+
+[tool.ruff]
+line-length = 110
+target-version = "py314"
+extend-exclude = ["migrations/versions"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP", "S", "SIM", "RUF", "PT", "N", "C4", "PIE", "RET"]
+ignore = [
+    "S101",   # assert is fine in tests and for invariants
+    "S311",   # random is used only for jitter, not security
+    "RUF012", # pydantic/sqlalchemy class attributes
+    "B008",   # FastAPI Depends in defaults
+    "PT011",  # broad pytest.raises are narrowed with match= where useful
+    "N818",   # domain exception names (NotFound, Conflict) read better without an Error suffix
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**" = ["S105", "S106", "S108", "N802", "PT006"]
+"tests/conftest.py" = ["E402"]  # environment must be configured before importing the app
+"devtools/**" = ["S104", "E501"]
+
+[tool.mypy]
+python_version = "3.14"
+strict = true
+plugins = ["pydantic.mypy"]
+packages = ["app"]
+warn_unused_ignores = true
+
+[[tool.mypy.overrides]]
+module = ["langgraph.*", "langchain_core.*"]
+follow_imports = "skip"
+ignore_missing_imports = true

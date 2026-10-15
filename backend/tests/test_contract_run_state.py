@@ -1,3 +1,5 @@
+import itertools
+
 import pytest
 
 from app.contracts import (
@@ -44,7 +46,7 @@ def test_happy_path_is_allowed() -> None:
         S.AWAITING_REPORT_APPROVAL,
         S.SUCCEEDED,
     ]
-    for current, target in zip(path, path[1:]):
+    for current, target in itertools.pairwise(path):
         check_transition(current, target)
 
 

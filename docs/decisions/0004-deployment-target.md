@@ -1,6 +1,7 @@
 # 0004: Deployment target
 
-- **Status:** Proposed. Decision **UNDECIDED**.
+- **Status:** Accepted (2026-10-14, project lead).
+- **Decision:** **local demo only**, production-like. Docker Compose plus a native run, a deployment guide, runbooks, and a local backup/restore and rollback drill. No paid cloud. Option A remains the documented path for a future hosted pilot.
 - **Date:** 2026-10-14
 
 ## Context
