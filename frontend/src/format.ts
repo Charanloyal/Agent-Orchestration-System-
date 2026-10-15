@@ -104,12 +104,20 @@ export function describeEvent(event: RunEvent): string {
     }
     case "report_exported":
       return `Report v${num(p.version)} exported as ${p.kind === "approved" ? "approved" : "draft"} Markdown`;
+    case "run_retried":
+      return `Retry ${num(p.retry)} requested by ${str(p.role)}: resuming from ${
+        STATE_LABELS[p.resume_state as RunState]?.toLowerCase() ?? str(p.resume_state)
+      }`;
     case "retry_scheduled":
       return `Transient error; retry scheduled in ${num(p.delay_seconds)}s`;
     case "step_failed":
       return `Step ${str(p.step)} failed: ${str(p.reason)}`;
     case "tool_calls_abandoned":
-      return `${num(p.count)} interrupted tool call(s) from a previous worker were marked abandoned`;
+      return `Recovered from a stopped worker: ${num(p.count)} interrupted tool call(s)${
+        typeof p.reservations === "number" && p.reservations > 0
+          ? ` and ${num(p.reservations)} unsettled budget reservation(s)`
+          : ""
+      } recorded as possibly billed`;
     default:
       return event.type.replaceAll("_", " ");
   }

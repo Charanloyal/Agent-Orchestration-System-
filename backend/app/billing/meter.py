@@ -71,6 +71,7 @@ class BudgetMeter:
         rejected: tuple[Decimal, Decimal] | None = None
         with self.ctx.fenced() as session:
             session.execute(select(Run.id).where(Run.id == self.ctx.run_id).with_for_update())
+            self.ctx.check_continue(session)
             committed = Decimal(
                 session.scalar(
                     select(self.committed_expression()).where(BudgetReservation.run_id == self.ctx.run_id)
@@ -109,6 +110,7 @@ class BudgetMeter:
                 )
         if rejected:
             raise BudgetExhausted(step, *rejected)
+        self.ctx.crash_if("after_budget_reserve")
         return reservation_id
 
     def reconcile(

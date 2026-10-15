@@ -42,9 +42,9 @@ from app.tools.fetcher import Fetcher, FetchPolicy, SafeFetcher
 from app.workers import jobs
 from app.workers.checkpointer import FencedPostgresSaver, checkpoint_connection, setup_checkpointer
 from app.workers.jobs import Lease, StaleOwner
-from app.workers.maintenance import expire_overdue_waits
+from app.workers.maintenance import expire_overdue_waits, reap_exhausted_jobs
 from app.workflow.context import RunContext
-from app.workflow.errors import StepFailed, TransientError
+from app.workflow.errors import RunStopped, StepFailed, TransientError
 from app.workflow.graph import build_graph
 
 log = logging.getLogger("aos.worker")
@@ -157,20 +157,29 @@ def process_one(
     try:
         with ctx.fenced() as session:
             abandoned = jobs.abandon_unfinished_tool_executions(session, lease)
-            if abandoned:
+            settled = jobs.settle_stale_reservations(session, lease)
+            if abandoned or settled:
                 append_event(
                     session,
                     lease.run_id,
                     ctx.workspace_id,
                     "tool_calls_abandoned",
-                    {"count": abandoned, "note": "may have executed and incurred cost"},
+                    {
+                        "count": abandoned,
+                        "reservations": settled,
+                        "note": "may have executed and incurred cost",
+                    },
                 )
+        with ctx.fenced() as session:
+            ctx.check_continue(session)
         outcome = _advance(ctx)
         log.info("pass finished", extra={**log_extra, "outcome": outcome})
         return outcome
     except StaleOwner:
         log.warning("superseded by another worker; no further writes", extra=log_extra)
         return "stale"
+    except RunStopped as exc:
+        return _stop(ctx, exc)
     except TransientError as exc:
         return _retry_or_fail(ctx, exc)
     except StepFailed as exc:
@@ -219,7 +228,9 @@ def _advance(ctx: RunContext) -> str:
 
 
 def _release_to_wait(ctx: RunContext, kind: str) -> str:
+    ctx.crash_if("before_release_to_wait")
     with ctx.fenced() as session:
+        ctx.check_continue(session)
         set_run_state(session, ctx.run_id, WAIT_STATES[kind])
         jobs.release_to_wait(session, ctx.lease, kind, ctx.settings.approval_ttl_hours)
     return f"waiting_{kind}"
@@ -231,9 +242,26 @@ def _complete(ctx: RunContext) -> str:
     return "done"
 
 
+def _stop(ctx: RunContext, stop: RunStopped) -> str:
+    """Cancellation or deadline observed at a boundary: finish the run without new work."""
+    try:
+        with ctx.fenced() as session:
+            set_run_state(session, ctx.run_id, RunState(stop.target_state), stop.reason)
+            jobs.mark_done(session, ctx.lease)
+    except StaleOwner:
+        log.warning("could not record stop: lease superseded", extra={"run_id": str(ctx.run_id)})
+        return "stale"
+    return "cancelled" if stop.target_state == RunState.CANCELLED else "expired"
+
+
 def _needs_attention(ctx: RunContext, reason: str) -> None:
     with ctx.fenced() as session:
-        set_run_state(session, ctx.run_id, RunState.NEEDS_ATTENTION, reason)
+        target, why = RunState.NEEDS_ATTENTION, reason
+        try:
+            ctx.check_continue(session)
+        except RunStopped as stop:
+            target, why = RunState(stop.target_state), stop.reason
+        set_run_state(session, ctx.run_id, target, why)
         jobs.mark_done(session, ctx.lease)
 
 
@@ -302,6 +330,9 @@ def main(argv: list[str] | None = None) -> int:
             expired = expire_overdue_waits(sm)
             if expired:
                 log.info("expired overdue approval waits", extra={"count": expired})
+            reaped = reap_exhausted_jobs(sm)
+            if reaped:
+                log.warning("reaped jobs whose workers kept crashing", extra={"count": reaped})
         except Exception:
             log.exception("maintenance failed")
         outcome = process_one(settings, worker_id=worker_id, run_id=args.run_id)

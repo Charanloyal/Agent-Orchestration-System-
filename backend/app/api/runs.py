@@ -39,7 +39,16 @@ from app.db.session import get_sessionmaker
 from app.errors import NotFound
 from app.policy.permissions import Action
 from app.services.exports import export_report
-from app.services.runs import create_run, decide, edit_plan, get_run, latest_artifact, run_access
+from app.services.runs import (
+    cancel_run,
+    create_run,
+    decide,
+    edit_plan,
+    get_run,
+    latest_artifact,
+    retry_run,
+    run_access,
+)
 from app.storage import get_object_store
 
 router = APIRouter(prefix="/api/v1", tags=["runs"])
@@ -313,6 +322,27 @@ def plan_decision(
             comment=body.comment,
         ),
     )
+
+
+@router.post(
+    "/runs/{run_id}/cancel",
+    response_model=RunDetail,
+    dependencies=[Depends(run_access(Action.RUN_CANCEL))],
+)
+def cancel(run_id: uuid.UUID, principal: CurrentPrincipal, db: DbSession) -> RunDetail:
+    """Idempotent. Waiting or queued runs cancel immediately; running ones stop at the next
+    step boundary (state CANCEL_REQUESTED until the worker confirms)."""
+    return _detail(db, cancel_run(db, principal, run_id))
+
+
+@router.post(
+    "/runs/{run_id}/retry",
+    response_model=RunDetail,
+    dependencies=[Depends(run_access(Action.RUN_RETRY))],
+)
+def retry(run_id: uuid.UUID, principal: CurrentPrincipal, db: DbSession) -> RunDetail:
+    """Resume a failed run from its last checkpoint (bounded number of manual retries)."""
+    return _detail(db, retry_run(db, principal, run_id))
 
 
 @router.get("/reports/{report_id}/versions/{version}", response_model=ArtifactOut)

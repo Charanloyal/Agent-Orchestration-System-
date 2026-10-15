@@ -64,6 +64,11 @@ for _state in _ACTIVE:
         S.EXPIRED,
     }
 
+# Only a human retry (POST /runs/{id}/retry) re-opens a failed run, returning it to the state
+# it failed in so the workflow resumes from its last checkpoint. Workers never leave FAILED.
+RETRYABLE_FROM = frozenset({S.QUEUED, *_ACTIVE})
+ALLOWED_TRANSITIONS[S.FAILED] = RETRYABLE_FROM
+
 
 class InvalidTransition(ValueError):
     pass

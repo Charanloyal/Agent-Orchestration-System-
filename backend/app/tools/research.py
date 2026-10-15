@@ -251,6 +251,7 @@ class RunResearchTools:
         limit = self.ctx.brief.limits.max_tool_calls
         with self.ctx.fenced() as session:
             session.execute(select(Run.id).where(Run.id == self.ctx.run_id).with_for_update())
+            self.ctx.check_continue(session)
             used = session.scalar(
                 select(func.count()).select_from(ToolExecution).where(ToolExecution.run_id == self.ctx.run_id)
             )
@@ -266,6 +267,7 @@ class RunResearchTools:
                     fencing_token=self.ctx.lease.token,
                 )
             )
+        self.ctx.crash_if("after_tool_start")
         return execution_id
 
     def _finish(self, execution_id: uuid.UUID, status: str, error_class: str | None = None) -> None:

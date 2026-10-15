@@ -11,6 +11,7 @@ from app.contracts import (
     check_transition,
     route_after_review,
 )
+from app.contracts.run_state import RETRYABLE_FROM
 
 S = RunState
 
@@ -19,9 +20,11 @@ def test_every_state_has_a_transition_entry() -> None:
     assert set(ALLOWED_TRANSITIONS) == set(RunState)
 
 
-def test_terminal_states_have_no_exits() -> None:
-    for state in TERMINAL_STATES:
+def test_terminal_states_have_no_exits_except_human_retry_of_failures() -> None:
+    for state in TERMINAL_STATES - {S.FAILED}:
         assert ALLOWED_TRANSITIONS[state] == frozenset()
+    assert ALLOWED_TRANSITIONS[S.FAILED] == RETRYABLE_FROM
+    assert S.CANCEL_REQUESTED not in RETRYABLE_FROM and not RETRYABLE_FROM & WAITING_STATES
 
 
 def test_every_non_terminal_state_can_reach_a_terminal_state() -> None:

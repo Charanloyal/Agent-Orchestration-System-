@@ -44,6 +44,7 @@ from app.db.models import (
     PlanVersion,
     ReportVersion,
     ReviewFindingRow,
+    RunEvent,
     Source,
     TaskResult,
 )
@@ -151,6 +152,7 @@ def build_graph(
                     "plan_proposed",
                     {"version": version, "tasks": len(plan.tasks), **provenance(call.generation)},
                 )
+        ctx.crash_if("after_plan_commit")
         return {"plan_version": version, "plan_digest": stored.digest, "plan": stored.body}
 
     def await_plan(state: RunGraphState) -> RunGraphState:
@@ -193,6 +195,11 @@ def build_graph(
         plan = Plan.model_validate(state["plan"])
         evidence = load_evidence(ctx)
         findings = [ReviewFinding.model_validate(f) for f in state.get("review_findings") or []]
+        with ctx.sm() as session:
+            existing = session.get(ReportVersion, (run_id, version))
+        if existing is not None:
+            # Re-executed after a crash: the committed version wins; no second (paid) draft.
+            return {"report_version": version, "report_digest": existing.digest}
         call = ctx.agents.writer.write(brief, plan, evidence, report_version=version, findings=findings)
         draft = WriterOutput.model_validate(
             {
@@ -245,53 +252,26 @@ def build_graph(
             stored = session.get(ReportVersion, (run_id, state["report_version"]))
             assert stored is not None
         draft = WriterOutput.model_validate(stored.body)
-        call = ctx.agents.reviewer.review(brief, plan, draft, load_evidence(ctx), review_round=review_round)
-        review = ReviewerOutput.model_validate(
-            {
-                **call.output.model_dump(mode="json"),
-                "report_version": draft.report_version,
-                "review_round": review_round,
-            }
-        )
-        next_state = route_after_review(review.outcome, review_round)
-        severities = {s: sum(f.severity == s for f in review.findings) for s in ("blocker", "major", "minor")}
-        with ctx.fenced() as session:
-            if review.findings:
-                session.execute(
-                    insert(ReviewFindingRow)
-                    .values(
-                        [
-                            {
-                                "run_id": run_id,
-                                "report_version": draft.report_version,
-                                "finding_id": f.finding_id,
-                                "review_round": review_round,
-                                "severity": f.severity,
-                                "category": f.category,
-                                "source": "deterministic" if f.finding_id.startswith("d-") else "model",
-                                "claim_ids": list(f.claim_ids),
-                                "evidence_ids": list(f.evidence_ids),
-                                "requested_action": f.requested_action[:500],
-                            }
-                            for f in review.findings
-                        ]
-                    )
-                    .on_conflict_do_nothing()
-                )
-            append_event(
-                session,
-                run_id,
-                ctx.workspace_id,
-                "review_completed",
-                {
-                    "round": review_round,
-                    "report_version": draft.report_version,
-                    "outcome": review.outcome,
-                    "findings": severities,
-                    "next": next_state.value,
-                    **provenance(call.generation),
-                },
+        committed = committed_review(ctx, draft.report_version)
+        if committed is not None:
+            # Re-executed after a crash: the first committed review wins (no second call,
+            # which a model could answer differently).
+            review = committed
+        else:
+            call = ctx.agents.reviewer.review(
+                brief, plan, draft, load_evidence(ctx), review_round=review_round
             )
+            review = ReviewerOutput.model_validate(
+                {
+                    **call.output.model_dump(mode="json"),
+                    "report_version": draft.report_version,
+                    "review_round": review_round,
+                }
+            )
+        next_state = route_after_review(review.outcome, review_round)
+        if committed is None:
+            persist_review(ctx, review, next_state, call.generation)
+        ctx.crash_if("after_review_commit")
         supplementary: list[dict[str, Any]] = []
         if next_state == RunState.RESEARCHING:
             supplementary = [
@@ -323,6 +303,7 @@ def build_graph(
         return {"report_decision": approval.decision}
 
     def finalize(state: RunGraphState) -> RunGraphState:
+        ctx.crash_if("before_finalize")
         if state["report_decision"] == "approve":
             ctx.transition(RunState.SUCCEEDED)
         else:
@@ -376,6 +357,89 @@ def build_graph(
     return builder.compile(checkpointer=checkpointer)
 
 
+def committed_review(ctx: RunContext, report_version: int) -> ReviewerOutput | None:
+    """The review already committed for this report version, if any (crash recovery)."""
+    with ctx.sm() as session:
+        event = session.scalars(
+            select(RunEvent)
+            .where(
+                RunEvent.run_id == ctx.run_id,
+                RunEvent.event_type == "review_completed",
+                RunEvent.payload["report_version"].as_integer() == report_version,
+            )
+            .order_by(RunEvent.id)
+            .limit(1)
+        ).first()
+        if event is None:
+            return None
+        rows = session.scalars(
+            select(ReviewFindingRow).where(
+                ReviewFindingRow.run_id == ctx.run_id, ReviewFindingRow.report_version == report_version
+            )
+        ).all()
+    return ReviewerOutput(
+        report_version=report_version,
+        review_round=int(event.payload["round"]),
+        outcome=event.payload["outcome"],
+        findings=[
+            ReviewFinding(
+                finding_id=r.finding_id,
+                severity=r.severity,
+                category=r.category,
+                claim_ids=r.claim_ids,
+                evidence_ids=r.evidence_ids,
+                requested_action=r.requested_action,
+            )
+            for r in rows
+        ],
+    )
+
+
+def persist_review(
+    ctx: RunContext, review: ReviewerOutput, next_state: RunState, generation: dict[str, Any]
+) -> None:
+    """Findings and the review event commit together, fenced; the event marks the review as
+    committed, so a re-executed node reuses it instead of reviewing again."""
+    severities = {s: sum(f.severity == s for f in review.findings) for s in ("blocker", "major", "minor")}
+    with ctx.fenced() as session:
+        if review.findings:
+            session.execute(
+                insert(ReviewFindingRow)
+                .values(
+                    [
+                        {
+                            "run_id": ctx.run_id,
+                            "report_version": review.report_version,
+                            "finding_id": f.finding_id,
+                            "review_round": review.review_round,
+                            "severity": f.severity,
+                            "category": f.category,
+                            "source": "deterministic" if f.finding_id.startswith("d-") else "model",
+                            "claim_ids": list(f.claim_ids),
+                            "evidence_ids": list(f.evidence_ids),
+                            "requested_action": f.requested_action[:500],
+                        }
+                        for f in review.findings
+                    ]
+                )
+                .on_conflict_do_nothing()
+            )
+        append_event(
+            session,
+            ctx.run_id,
+            ctx.workspace_id,
+            "review_completed",
+            {
+                "round": review.review_round,
+                "report_version": review.report_version,
+                "outcome": review.outcome,
+                "findings": severities,
+                "next": next_state.value,
+                **provenance(generation),
+            },
+        )
+
+
 def run_levels(ctx: RunContext, levels: list[list[PlanTask]]) -> None:
     """Run tasks level by level (dependencies first), up to `max_parallel_tasks` at once.
     Exhausting the budget or tool-call limit stops scheduling; unfinished tasks are recorded
@@ -415,6 +479,8 @@ def _record_task(
                 "task_completed",
                 {"task_id": task.task_id, "status": status, **event},
             )
+    if inserted:
+        ctx.crash_if("after_task_commit")
 
 
 def run_research_task(ctx: RunContext, task: PlanTask, stop: threading.Event | None = None) -> None:

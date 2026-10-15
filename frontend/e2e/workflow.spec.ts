@@ -99,6 +99,22 @@ test("the reviewer catches a planted unsupported figure and the writer revises i
   expect(markdown).not.toContain("37 dollars");
 });
 
+test("an analyst cancels a run that is waiting for plan approval", async ({ page }) => {
+  await signIn(page, "Alice Analyst");
+  await page.getByRole("link", { name: "New brief", exact: true }).first().click();
+  await page.getByLabel("Topic").fill("A brief that will be cancelled");
+  await page.getByLabel("Intended audience").fill("Nobody");
+  await page.getByLabel("Research question 1").fill("Is cancellation immediate while waiting?");
+  await page.getByRole("button", { name: "Submit brief" }).click();
+  await expect(page.getByTestId("run-state")).toHaveText("Awaiting plan approval");
+
+  await page.getByRole("button", { name: "Cancel run" }).click();
+  await page.getByRole("button", { name: "Yes, cancel run" }).click();
+  await expect(page.getByTestId("run-state")).toHaveText("Cancelled");
+  await expect(page.getByRole("button", { name: "Approve plan v1" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Cancel run" })).toHaveCount(0);
+});
+
 test("a member of another workspace cannot open the run", async ({ page }) => {
   await signIn(page, "Alice Analyst");
   const firstRun = page.getByRole("table").getByRole("link").first();

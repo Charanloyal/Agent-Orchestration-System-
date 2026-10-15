@@ -77,6 +77,8 @@ code { font-family: var(--mono); font-size: 0.85em; background: var(--tone-neutr
 .btn-secondary:hover:not(:disabled) { background: var(--tone-neutral-bg); }
 .btn-ghost { background: transparent; color: var(--muted); }
 .btn-ghost:hover:not(:disabled) { background: var(--tone-neutral-bg); color: var(--text); }
+.btn-danger { background: var(--tone-danger-fg); color: #fff; }
+.btn-danger:hover:not(:disabled) { background: #861217; }
 .btn-block { width: 100%; }
 
 /* Badges, banners, dots */

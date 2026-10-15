@@ -18,6 +18,10 @@ describe("describeEvent", () => {
                                  findings: { blocker: 1, major: 0, minor: 2 } }),
       "Review round 1 of report v1: revision requested (1 blocker, 2 minor)"],
     [event("report_exported", { version: 3, kind: "approved" }), "Report v3 exported as approved Markdown"],
+    [event("run_retried", { retry: 1, role: "analyst", resume_state: "WRITING" }),
+      "Retry 1 requested by analyst: resuming from writing"],
+    [event("tool_calls_abandoned", { count: 1, reservations: 2 }),
+      "Recovered from a stopped worker: 1 interrupted tool call(s) and 2 unsettled budget reservation(s) recorded as possibly billed"],
     [event("something_new", {}), "something new"],
   ])("describes %o", (input, expected) => {
     expect(describeEvent(input)).toBe(expected);

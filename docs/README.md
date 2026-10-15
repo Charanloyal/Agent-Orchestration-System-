@@ -13,7 +13,8 @@
 | **M6: LLM planner and plan editing** | **Done** | ADR 0012; `test_planner_llm.py` |
 | **M7: parallel research and budgets** | **Done** | ADR 0013; `test_research_budgets.py` |
 | **M8: writer, reviewer loop, export** | **Done** | ADR 0014; `test_review_export.py`, `e2e/workflow.spec.ts` |
-| M9–M16 | Not started | see the plan in [handoff.md](handoff.md) |
+| **M9: recovery and cancellation** | **Done** | ADR 0015; `test_cancel_retry.py`, 10-scenario crash suite in `test_worker_recovery.py` |
+| M10–M16 | Not started | see the plan in [handoff.md](handoff.md) |
 
 ### Implemented behavior (verified by tests)
 
@@ -41,6 +42,14 @@
   - Version- and digest-bound decisions.
   - Persisted timeline with SSE replay.
   - Evidence with provenance.
+- **Recovery and cancellation (M9):**
+  - Cancel: stops at the next step, tool-call or billable boundary, or immediately when no
+    worker is executing.
+  - Retry: resumes a failed run from its last checkpoint without redoing research; capped
+    at 3.
+  - Attempts reaper; per-segment deadlines.
+  - On takeover, settles abandoned calls and reservations as possibly billed.
+  - A 10-scenario OS-level crash suite.
 - **Writer, reviewer and export (M8):**
   - Evidence-only LLM writer.
   - Two-layer review: deterministic numeric and lexical checks, plus an optional model
@@ -64,8 +73,8 @@
 
 ### Not implemented yet
 
-- Cancellation and retry APIs, observability beyond logs and cost views, and evaluation
-  runs. All four agents are LLM-backed when `AOS_AGENT_MODE=llm`; fakes are the default.
+- Observability beyond logs and cost views, rate limits, and evaluation runs. All four
+  agents are LLM-backed when `AOS_AGENT_MODE=llm`; fakes are the default.
 
 ## Product and planning
 
@@ -96,6 +105,7 @@
 | [0012](decisions/0012-llm-structured-output-plan-editing.md) | LLM adapter, structured output, prompt versioning, plan editing, expiry | Accepted |
 | [0013](decisions/0013-parallel-research-budgets.md) | Bounded parallel research, tool-call limits, budget reservations | Accepted |
 | [0014](decisions/0014-writer-reviewer-export.md) | Writer, reviewer loop, persisted findings, report export | Accepted |
+| [0015](decisions/0015-cancel-retry-recovery.md) | Cancellation, retry, reaper, segment deadlines, crash suite | Accepted |
 
 ## Session handoff
 

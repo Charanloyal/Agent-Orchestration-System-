@@ -15,7 +15,7 @@ from typing import Any
 from sqlalchemy import func, select, text, update
 from sqlalchemy.orm import Session, sessionmaker
 
-from app.db.models import RunJob, ToolExecution
+from app.db.models import BudgetReservation, RunJob, ToolExecution
 
 
 class StaleOwner(RuntimeError):
@@ -154,5 +154,26 @@ def abandon_unfinished_tool_executions(session: Session, lease: Lease) -> int:
         )
         .values(status="abandoned", finished_at=func.now())
         .returning(ToolExecution.id)
+    )
+    return len(result.all())
+
+
+def settle_stale_reservations(session: Session, lease: Lease) -> int:
+    """Budget reserved by an earlier owner that never reconciled: the call may have been
+    billed, so the estimate becomes the actual, flagged uncertain (never silently released)."""
+    result = session.execute(
+        update(BudgetReservation)
+        .where(
+            BudgetReservation.run_id == lease.run_id,
+            BudgetReservation.status == "reserved",
+            BudgetReservation.fencing_token < lease.token,
+        )
+        .values(
+            status="reconciled",
+            actual_cost=BudgetReservation.estimated_cost,
+            uncertain=True,
+            reconciled_at=func.now(),
+        )
+        .returning(BudgetReservation.id)
     )
     return len(result.all())

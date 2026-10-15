@@ -78,6 +78,32 @@ describe("RunPage", () => {
     renderRun("reviewer", run());
     expect(await screen.findByText(/Waiting for an analyst to approve plan v1/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Approve plan/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Cancel run" })).not.toBeInTheDocument();
+  });
+
+  it("asks for confirmation before cancelling and shows the stopping state", async () => {
+    const calls = renderRun("analyst", run({ state: "RESEARCHING", pending_decision: null }), [
+      { method: "POST", path: `/api/v1/runs/${RUN}/cancel`,
+        body: run({ state: "CANCEL_REQUESTED", pending_decision: null }) },
+    ]);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Cancel run" }));
+    expect(calls.some((c) => c.method === "POST")).toBe(false);
+    await user.click(screen.getByRole("button", { name: "Yes, cancel run" }));
+    expect(await screen.findByText(/No new steps, tool calls or model calls will start/)).toBeInTheDocument();
+    expect(calls.filter((c) => c.method === "POST").map((c) => c.url)).toEqual([`/api/v1/runs/${RUN}/cancel`]);
+    expect(screen.queryByRole("button", { name: "Cancel run" })).not.toBeInTheDocument();
+  });
+
+  it("offers a retry for failed runs", async () => {
+    const calls = renderRun("analyst", run({ state: "FAILED", pending_decision: null, outcome_reason: "writer: invalid" }), [
+      { method: "POST", path: `/api/v1/runs/${RUN}/retry`, body: run({ state: "WRITING", pending_decision: null }) },
+    ]);
+    expect(await screen.findByText(/writer: invalid/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Cancel run" })).not.toBeInTheDocument();
+    await userEvent.setup().click(screen.getByRole("button", { name: "Retry from last checkpoint" }));
+    expect(await screen.findByTestId("run-state")).toHaveTextContent("Writing");
+    expect(calls.some((c) => c.method === "POST" && c.url.endsWith("/retry"))).toBe(true);
   });
 
   it("renders claims with kinds and opens cited evidence; unsafe URLs are not linked", async () => {

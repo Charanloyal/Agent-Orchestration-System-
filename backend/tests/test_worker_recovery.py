@@ -1,6 +1,8 @@
-"""Production worker recovery and fencing (ADR 0007/0008), using real OS processes for crashes.
+"""Production worker recovery and fencing (ADR 0007/0008/0015), using real OS processes.
 
-The full 10-scenario crash suite is completed in M9; these are the core guarantees.
+The crash suite kills a worker (os._exit) at 10 boundaries across the workflow, restarts a
+fresh worker, and checks that committed work is neither lost nor duplicated, that calls
+which may have executed are recorded honestly, and that the run reaches the expected state.
 """
 
 import os
@@ -25,9 +27,12 @@ from app.agents.fake import FakePlanner, fake_agents
 from app.config import get_settings
 from app.contracts import Brief, Plan, PlanTask, ResearcherOutput
 from app.db.models import (
+    BudgetReservation,
     EvidencePassage,
+    PlanVersion,
     ReportVersion,
     Role,
+    RunEvent,
     RunJob,
     TaskResult,
     ToolExecution,
@@ -112,27 +117,133 @@ def approved_plan_run(client: TestClient, team: dict[str, Any], login: Callable[
     return run_id
 
 
-@pytest.mark.parametrize("crash_at", ["after_research", "before_writer", "after_report_commit"])
-def test_crash_and_restart_never_duplicates_committed_work(
+def crash_then_recover(run_id: str, crash_at: str) -> str:
+    rc, _ = worker_process(run_id, crash_at=crash_at)
+    assert rc == 137, f"worker must die abruptly at {crash_at}"
+    assert worker_process(run_id) == (0, "no_job"), "an unexpired lease blocks takeover"
+    expire_lease(run_id)
+    return worker_process(run_id)[1]
+
+
+def events(db: Session, run_id: str, event_type: str) -> int:
+    return (
+        db.scalar(
+            select(func.count())
+            .select_from(RunEvent)
+            .where(RunEvent.run_id == uuid.UUID(run_id), RunEvent.event_type == event_type)
+        )
+        or 0
+    )
+
+
+def tool_calls_by_task(db: Session, run_id: str) -> dict[str, int]:
+    rows = db.execute(
+        select(ToolExecution.task_id, func.count())
+        .where(ToolExecution.run_id == uuid.UUID(run_id))
+        .group_by(ToolExecution.task_id)
+    ).all()
+    return dict(rows)  # type: ignore[arg-type]
+
+
+def status_counts(db: Session, model: Any, run_id: str) -> dict[str, int]:
+    rows = db.execute(
+        select(model.status, func.count()).where(model.run_id == uuid.UUID(run_id)).group_by(model.status)
+    ).all()
+    return dict(rows)  # type: ignore[arg-type]
+
+
+RESEARCH_PHASE_CRASHES = [
+    "after_tool_start",  # call recorded as started, never finished
+    "after_budget_reserve",  # money reserved, call not made
+    "after_task_commit",  # one task committed, siblings not
+    "after_research",  # every task committed, checkpoint not yet written
+    "before_writer",
+    "after_report_commit",  # report version committed, checkpoint not yet written
+    "after_review_commit",  # findings + review event committed, checkpoint not yet written
+]
+
+
+@pytest.mark.parametrize("crash_at", RESEARCH_PHASE_CRASHES)
+def test_research_phase_crash_never_loses_or_duplicates_committed_work(
     client: TestClient, db: Session, team: dict[str, Any], login: Callable[[User], LoggedIn], crash_at: str
 ) -> None:
     run_id = approved_plan_run(client, team, login)
     rc, _ = worker_process(run_id, crash_at=crash_at)
-    assert rc == 137, "worker must die abruptly"
+    assert rc == 137
+    db.expire_all()
     after_crash = counts(db, run_id)
-    assert after_crash["tasks"] > 0 and after_crash["evidence"] > 0
+    committed_tasks = set(
+        db.scalars(select(TaskResult.task_id).where(TaskResult.run_id == uuid.UUID(run_id))).all()
+    )
+    calls_at_crash = tool_calls_by_task(db, run_id)
+    started_at_crash = status_counts(db, ToolExecution, run_id).get("started", 0)
+    reserved_at_crash = status_counts(db, BudgetReservation, run_id).get("reserved", 0)
 
-    assert worker_process(run_id) == (0, "no_job"), "unexpired lease blocks takeover"
+    assert worker_process(run_id) == (0, "no_job"), "an unexpired lease blocks takeover"
     expire_lease(run_id)
     assert worker_process(run_id) == (0, "waiting_report")
 
+    db.expire_all()
     recovered = counts(db, run_id)
-    assert recovered["evidence"] == after_crash["evidence"]
-    assert recovered["tasks"] == after_crash["tasks"]
-    assert recovered["tool_calls"] == after_crash["tool_calls"], "committed tasks are not re-executed"
-    assert recovered["reports"] == 1
-    if crash_at == "after_report_commit":
-        assert after_crash["reports"] == 1, "first committed report version wins"
+    calls_after = tool_calls_by_task(db, run_id)
+    for task in committed_tasks:
+        assert calls_after.get(task, 0) == calls_at_crash.get(task, 0), f"committed task {task} re-ran"
+    assert recovered["evidence"] >= after_crash["evidence"] and recovered["tasks"] >= len(committed_tasks)
+    assert recovered["reports"] == 1, "first committed report version wins"
+    assert events(db, run_id, "report_drafted") == 1
+    assert events(db, run_id, "review_completed") == 1, "a committed review is reused, not repeated"
+
+    tools = status_counts(db, ToolExecution, run_id)
+    reservations = status_counts(db, BudgetReservation, run_id)
+    assert "started" not in tools and "reserved" not in reservations, "nothing left dangling"
+    assert tools.get("abandoned", 0) == started_at_crash, "interrupted calls are recorded as abandoned"
+    if started_at_crash or reserved_at_crash:
+        assert events(db, run_id, "tool_calls_abandoned") == 1
+    if reserved_at_crash:
+        uncertain = db.scalar(
+            select(func.count())
+            .select_from(BudgetReservation)
+            .where(BudgetReservation.run_id == uuid.UUID(run_id), BudgetReservation.uncertain.is_(True))
+        )
+        assert uncertain == reserved_at_crash, "stale reservations settle as uncertain, never vanish"
+    if crash_at in ("after_tool_start", "after_budget_reserve"):
+        assert started_at_crash + reserved_at_crash >= 1, "the crash happened mid-call"
+
+
+@pytest.mark.parametrize("crash_at", ["after_plan_commit", "before_release_to_wait"])
+def test_planning_crash_recovers_to_exactly_one_plan_awaiting_approval(
+    client: TestClient, db: Session, team: dict[str, Any], login: Callable[[User], LoggedIn], crash_at: str
+) -> None:
+    analyst = login(team["analyst"])
+    run_id = start_run(client, analyst, team["workspace"])
+    assert crash_then_recover(run_id, crash_at) == "waiting_plan"
+    detail = client.get(f"/api/v1/runs/{run_id}").json()
+    assert detail["state"] == "AWAITING_PLAN_APPROVAL" and detail["plan"]["version"] == 1
+    db.expire_all()
+    assert events(db, run_id, "plan_proposed") == 1
+    assert (
+        db.scalar(
+            select(func.count()).select_from(PlanVersion).where(PlanVersion.run_id == uuid.UUID(run_id))
+        )
+        == 1
+    )
+
+
+def test_crash_before_finalize_completes_the_approved_run_once(
+    client: TestClient, db: Session, team: dict[str, Any], login: Callable[[User], LoggedIn]
+) -> None:
+    run_id = approved_plan_run(client, team, login)
+    assert worker_process(run_id) == (0, "waiting_report")
+    reviewer = login(team["reviewer"])
+    assert decide(client, reviewer, run_id, "report").status_code == 201
+    assert crash_then_recover(run_id, "before_finalize") == "done"
+    detail = client.get(f"/api/v1/runs/{run_id}").json()
+    assert detail["state"] == "SUCCEEDED" and [d["kind"] for d in detail["decisions"]] == ["plan", "report"]
+    db.expire_all()
+    succeeded = db.scalars(
+        select(RunEvent).where(RunEvent.run_id == uuid.UUID(run_id), RunEvent.event_type == "state_changed")
+    ).all()
+    assert [e.payload["to"] for e in succeeded].count("SUCCEEDED") == 1
 
 
 class Counter(TypedDict):

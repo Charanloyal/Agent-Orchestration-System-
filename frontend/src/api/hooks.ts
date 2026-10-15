@@ -219,13 +219,23 @@ export function useDecide(runId: string) {
   });
 }
 
+export function useRunAction(runId: string, action: "cancel" | "retry") {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: () => api<RunDetail>(`/api/v1/runs/${runId}/${action}`, { method: "POST" }),
+    onSuccess: (run) => client.setQueryData(keys.run(runId), run),
+    onError: () => client.invalidateQueries({ queryKey: keys.run(runId) }),
+  });
+}
+
 export type StreamStatus = "connecting" | "live" | "reconnecting" | "ended";
 
 const EVIDENCE_EVENTS = new Set(["source_collected", "source_failed", "task_completed"]);
 
 /** Live run timeline over server-sent events. EventSource reconnects automatically and
- *  sends Last-Event-ID, so the server replays anything missed (FR-10). */
-export function useRunEvents(runId: string): { events: RunEvent[]; status: StreamStatus } {
+ *  sends Last-Event-ID, so the server replays anything missed (FR-10). The stream of a
+ *  finished run closes; bump `epoch` (e.g. after a retry) to subscribe again. */
+export function useRunEvents(runId: string, epoch = 0): { events: RunEvent[]; status: StreamStatus } {
   const client = useQueryClient();
   const [events, setEvents] = useState<RunEvent[]>([]);
   const [status, setStatus] = useState<StreamStatus>("connecting");
@@ -275,7 +285,7 @@ export function useRunEvents(runId: string): { events: RunEvent[]; status: Strea
       source.close();
       if (timer) clearTimeout(timer);
     };
-  }, [runId, client]);
+  }, [runId, client, epoch]);
 
   return { events, status };
 }

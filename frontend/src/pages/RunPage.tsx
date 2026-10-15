@@ -9,6 +9,7 @@ import {
   useReportVersion,
   useReviews,
   useRun,
+  useRunAction,
   useRunEvents,
   useSources,
   useUsage,
@@ -43,7 +44,8 @@ export function RunPage() {
   const { runId = "" } = useParams();
   const me = useOutletContext<Me>();
   const run = useRun(runId);
-  const stream = useRunEvents(runId);
+  const [epoch, setEpoch] = useState(0);
+  const stream = useRunEvents(runId, epoch);
   const [tab, setTab] = useState<Tab | null>(null);
 
   if (run.isPending) return <Spinner label="Loading run…" />;
@@ -65,9 +67,18 @@ export function RunPage() {
             For {detail.brief.audience} · started by {detail.created_by} on {formatDateTime(detail.created_at)}
           </p>
         </div>
-        <StateBadge state={detail.state} />
+        <div className="row wrap end">
+          <RunActions run={detail} role={role} onRetried={() => setEpoch((e) => e + 1)} />
+          <StateBadge state={detail.state} />
+        </div>
       </div>
 
+      {detail.state === "CANCEL_REQUESTED" && (
+        <div className="banner banner-warning" role="status">
+          <strong>Stopping.</strong> No new steps, tool calls or model calls will start; calls already in flight
+          finish and are recorded.
+        </div>
+      )}
       {detail.outcome_reason && (detail.state === "FAILED" || detail.state === "NEEDS_ATTENTION") && (
         <div className={`banner ${detail.state === "FAILED" ? "banner-danger" : "banner-warning"}`} role="status">
           <strong>{detail.state === "FAILED" ? "Run failed." : "Needs attention."}</strong> {detail.outcome_reason}
@@ -102,6 +113,53 @@ export function RunPage() {
           <Timeline events={stream.events} status={stream.status} terminal={isTerminal(detail.state)} />
         </div>
       </div>
+    </div>
+  );
+}
+
+function RunActions({ run, role, onRetried }: { run: RunDetail; role: string | undefined; onRetried: () => void }) {
+  const cancel = useRunAction(run.id, "cancel");
+  const retry = useRunAction(run.id, "retry");
+  const [confirming, setConfirming] = useState(false);
+  const canAct = role === "analyst" || role === "admin";
+  if (!canAct) return null;
+  const cancellable = !isTerminal(run.state) && run.state !== "CANCEL_REQUESTED";
+  const error = cancel.error ?? retry.error;
+
+  return (
+    <div className="run-actions row wrap">
+      {cancellable && !confirming && (
+        <button type="button" className="btn btn-secondary" onClick={() => setConfirming(true)}>
+          Cancel run
+        </button>
+      )}
+      {cancellable && confirming && (
+        <div className="row wrap" role="group" aria-label="Confirm cancellation">
+          <span className="small">Stop this run? This cannot be undone.</span>
+          <button type="button" className="btn btn-ghost" onClick={() => setConfirming(false)}>
+            Keep running
+          </button>
+          <button
+            type="button"
+            className="btn btn-danger"
+            disabled={cancel.isPending}
+            onClick={() => cancel.mutate(undefined, { onSettled: () => setConfirming(false) })}
+          >
+            Yes, cancel run
+          </button>
+        </div>
+      )}
+      {run.state === "FAILED" && (
+        <button
+          type="button"
+          className="btn btn-primary"
+          disabled={retry.isPending}
+          onClick={() => retry.mutate(undefined, { onSuccess: onRetried })}
+        >
+          Retry from last checkpoint
+        </button>
+      )}
+      {error && <ErrorBanner error={error} title="Action failed" />}
     </div>
   );
 }
