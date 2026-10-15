@@ -37,6 +37,19 @@ class Settings(BaseSettings):
     # (for example inside Docker Compose). The `iss` claim is still checked against oidc_issuer.
     oidc_backchannel_url: str | None = None
 
+    # Workflow execution
+    agent_mode: Literal["fake", "llm"] = "fake"
+    worker_lease_seconds: float = 30.0
+    worker_heartbeat_seconds: float = 10.0
+    worker_poll_seconds: float = 1.0
+    job_max_attempts: int = 5
+    retry_backoff_base_seconds: float = 2.0
+    retry_backoff_max_seconds: float = 60.0
+    approval_ttl_hours: float = 72.0
+    sse_poll_seconds: float = 1.0
+    # Test-only fault injection (ignored unless env is dev/test).
+    crash_at: str | None = None
+
     @field_validator("public_url", "oidc_issuer")
     @classmethod
     def _strip_trailing_slash(cls, value: str) -> str:

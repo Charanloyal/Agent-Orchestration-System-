@@ -152,6 +152,96 @@ def free_port() -> int:
         return int(sock.getsockname()[1])
 
 
+REPO_ROOT = BACKEND_DIR.parent
+SAMPLE_BRIEF: dict[str, object] = __import__("json").loads(
+    (REPO_ROOT / "eval" / "briefs" / "dev" / "dev-01.json").read_text(encoding="utf-8")
+)["brief"]
+
+
+@pytest.fixture
+def checkpointer_ready(migrated_database: None) -> None:
+    from app.workers.checkpointer import setup_checkpointer
+
+    setup_checkpointer(get_settings())
+
+
+@pytest.fixture
+def make_run(db: Session) -> Callable[..., uuid.UUID]:
+    """Insert a run directly (no worker), waiting for a plan decision on version 1."""
+    from app.contracts import Plan, WriterOutput, artifact_digest
+    from app.db.models import Brief, PlanVersion, ReportVersion, Run, RunJob
+
+    def make(workspace: Workspace, user: User) -> uuid.UUID:
+        from datetime import UTC, datetime, timedelta
+
+        brief = Brief(
+            workspace_id=workspace.id,
+            created_by=user.id,
+            body=SAMPLE_BRIEF,
+            idempotency_key=uuid.uuid4().hex,
+            request_sha256="0" * 64,
+        )
+        db.add(brief)
+        db.flush()
+        run = Run(
+            workspace_id=workspace.id,
+            brief_id=brief.id,
+            created_by=user.id,
+            state="AWAITING_PLAN_APPROVAL",
+            deadline_at=datetime.now(UTC) + timedelta(hours=1),
+        )
+        db.add(run)
+        db.flush()
+        plan = Plan.model_validate(
+            {
+                "plan_version": 1,
+                "source_strategy": "s",
+                "outline": [{"section_id": "s", "title": "S", "purpose": "p"}],
+                "tasks": [
+                    {
+                        "task_id": "t1",
+                        "question": "q",
+                        "tools": ["web_search"],
+                        "expected_evidence": "e",
+                        "section_ids": ["s"],
+                    }
+                ],
+            }
+        )
+        report = WriterOutput.model_validate(
+            {
+                "report_version": 1,
+                "plan_version": 1,
+                "sections": [
+                    {
+                        "section_id": "s",
+                        "title": "S",
+                        "claims": [{"claim_id": "c1", "kind": "unknown", "text": "t"}],
+                    }
+                ],
+            }
+        )
+        db.add_all(
+            [
+                RunJob(run_id=run.id, state="WAITING", waiting_for="plan"),
+                PlanVersion(
+                    run_id=run.id, version=1, digest=artifact_digest(plan), body=plan.model_dump(mode="json")
+                ),
+                ReportVersion(
+                    run_id=run.id,
+                    version=1,
+                    plan_version=1,
+                    digest=artifact_digest(report),
+                    body=report.model_dump(mode="json"),
+                ),
+            ]
+        )
+        db.commit()
+        return run.id
+
+    return make
+
+
 @pytest.fixture(scope="session")
 def dev_issuer() -> Iterator[str]:
     """The real dev OIDC issuer, served by uvicorn on a free localhost port."""

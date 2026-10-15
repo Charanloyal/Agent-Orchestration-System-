@@ -39,6 +39,14 @@ services:
     depends_on:
       migrate: { condition: service_completed_successfully }
 
+  worker:
+    build: ./backend
+    command: ["python", "-m", "app.workers.runner"]
+    environment: *backend-env
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+    stop_grace_period: 30s
+
   dev-oidc:
     build: ./backend
     command: ["python", "-m", "devtools.dev_oidc"]

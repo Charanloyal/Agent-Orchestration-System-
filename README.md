@@ -81,6 +81,17 @@ cd backend
 .\.venv\Scripts\python.exe -m devtools.dev_oidc             # http://127.0.0.1:8001
 ```
 
+In a third terminal, start a **workflow worker**. Add more workers for parallelism; they
+coordinate through PostgreSQL leases.
+
+```powershell
+cd backend
+.\.venv\Scripts\python.exe -m app.workers.runner
+```
+
+Agents are deterministic fakes by default (`AOS_AGENT_MODE=fake`), so the whole workflow runs
+without any model provider or cost.
+
 | Endpoint | Purpose |
 | --- | --- |
 | `GET /healthz` | Liveness |
@@ -113,7 +124,25 @@ review it. A test fails if the models and migrations differ.
 cd frontend
 npm.cmd ci
 npm.cmd run dev        # http://127.0.0.1:5173 (proxies /api to the backend)
-npm.cmd run build      # type-check + production bundle
+npm.cmd run typecheck  # app + end-to-end test sources
+npm.cmd test           # Vitest unit tests
+npm.cmd run build      # production bundle
+```
+
+Open <http://127.0.0.1:5173> and sign in as Alice to submit a brief. Approve the plan as
+Alice, then sign in as Bob to review the cited report and approve it.
+
+### End-to-end tests (Playwright)
+
+The E2E suite starts an **isolated stack** (dev IdP on 8101, API on 8100, a worker, Vite on
+5180) against a dedicated database, which it **wipes and re-seeds**. Add it to `backend/.env`:
+
+```text
+AOS_E2E_DATABASE_URL=postgresql://postgres:<password>@127.0.0.1:54329/aos_e2e
+```
+
+```powershell
+npm.cmd run e2e        # uses installed Microsoft Edge locally; CI uses Playwright's Chromium
 ```
 
 ## 4. Docker Compose (optional, production-like)
@@ -140,6 +169,10 @@ issuer.
 | `AOS_OIDC_CLIENT_ID` / `AOS_OIDC_CLIENT_SECRET` | `aos-local` / none | Client registration (the secret is for Google or Entra) |
 | `AOS_OIDC_BACKCHANNEL_URL` | none | Internal issuer URL for server-to-server calls |
 | `AOS_COOKIE_SECURE` | `false` | Must be `true` in prod |
+| `AOS_AGENT_MODE` | `fake` | `fake` (deterministic, free) or `llm` (from M6) |
+| `AOS_WORKER_LEASE_SECONDS` / `AOS_WORKER_HEARTBEAT_SECONDS` | `30` / `10` | Job lease and heartbeat |
+| `AOS_JOB_MAX_ATTEMPTS` | `5` | Transient-retry budget per segment |
+| `AOS_APPROVAL_TTL_HOURS` | `72` | How long a plan or report waits for a human |
 
 ## Corporate proxies and package mirrors
 

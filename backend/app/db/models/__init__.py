@@ -7,13 +7,37 @@ from app.db.models.identity import (
     User,
     Workspace,
 )
+from app.db.models.runs import (
+    Approval,
+    Brief,
+    EvidencePassage,
+    PlanVersion,
+    ReportVersion,
+    Run,
+    RunEvent,
+    RunJob,
+    Source,
+    TaskResult,
+    ToolExecution,
+)
 
 __all__ = [
+    "Approval",
     "AuditEvent",
     "AuthSession",
+    "Brief",
+    "EvidencePassage",
     "Membership",
     "OidcLoginState",
+    "PlanVersion",
+    "ReportVersion",
     "Role",
+    "Run",
+    "RunEvent",
+    "RunJob",
+    "Source",
+    "TaskResult",
+    "ToolExecution",
     "User",
     "Workspace",
 ]

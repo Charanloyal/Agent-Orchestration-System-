@@ -1,0 +1,7 @@
+# Normalise line endings so generated artifacts (JSON Schemas, migrations) are byte-identical
+# on every OS; the schema drift test compares exact bytes.
+* text=auto eol=lf
+*.png binary
+*.jpg binary
+*.pdf binary
+*.zip binary

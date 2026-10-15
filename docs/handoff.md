@@ -4,42 +4,45 @@ Uses the template from the context prompt (§4). Contains no secrets or private 
 
 ```text
 Project: Agent Orchestration System
-Current milestone: M3 (PRD Week 3), backend foundation: DONE. Next: M4 thin end-to-end slice.
+Current milestone: M4 (PRD Week 4), thin end-to-end slice: DONE. Next: M5 ingestion & evidence.
 
 Last completed vertical slice:
-  Browser → Vite proxy → FastAPI → dev OIDC issuer (code + PKCE) → callback → server-side
-  session → /api/v1/auth/me shows the seeded workspace role. Verified in a real browser.
+  Analyst signs in → submits a brief → worker plans (fake planner) → analyst approves the exact
+  plan version → worker researches (fake search, evidence stored with provenance), drafts a
+  cited report, reviews it → reviewer signs in, inspects cited passages, approves the exact
+  report version → SUCCEEDED. Live SSE timeline survives reloads (Last-Event-ID replay).
+  Verified in a real browser and by Playwright.
 
 Architecture decisions accepted:
-  0002 OpenAI-compatible LLM adapter; 0003 Tavily + offline corpus; 0004 local
-  production-like deployment; 0005 USD 10 ceiling; 0009 identity/sessions/authorization.
+  0010 workflow runtime, live events, frontend architecture (adds to 0002-0009).
 
 Database migrations added/applied:
-  0001_identity_and_tenancy (workspaces, users, memberships, auth_sessions,
-  oidc_login_states, audit_events). Applied to local dev DB `aos`; test DB rebuilt per run.
+  0002_runs_jobs_events_artifacts_evidence (briefs, runs, run_jobs, run_events, plan_versions,
+  report_versions, approvals, tool_executions, sources, evidence_passages, task_results; schema
+  `lg` for LangGraph checkpoints). Applied to dev DB `aos`; test/e2e DBs rebuilt per run.
 
-Tests actually run and results (2026-10-15, Windows, Python 3.14.7, PostgreSQL 17.11):
-  backend: ruff check + format clean; mypy --strict: no issues (39 files);
-           pytest: 150 passed (contracts, schema drift, migrations up/down + model drift,
-           OIDC end-to-end against the real dev issuer + ID-token negatives,
-           route-generated authz matrix, CSRF/Origin, logging redaction)
-  spike:   22 passed (now uses its own database, AOS_SPIKE_DATABASE_URL)
-  manual:  browser sign-in as Alice through the Vite proxy; JSON request logs show route
-           templates only (no codes/state)
+Tests actually run and results (2026-10-15, Windows, Python 3.14.7, PostgreSQL 17.11, Node 24.21):
+  backend:  ruff + format clean; mypy --strict clean (55 files); pytest 192 passed
+            (incl. route-generated authz matrix now covering run/report routes, workflow API
+            tests driving the real worker, 3 subprocess crash windows, stale-owner checkpoint
+            fencing with negative control, retry/fail classification, tool-allowlist policy)
+  frontend: tsc (app + e2e) clean; vitest 15 passed; vite build OK
+  e2e:      Playwright (installed Edge) 2 passed: full analyst→reviewer journey with reload,
+            and cross-workspace 404, against an isolated dev IdP + API + worker + Vite + Postgres
+  CI:       M3 run green on GitHub (backend, spike, frontend, container builds)
 
 Checks not run:
-  docker compose up (Docker not installed locally); images are built in CI instead.
+  docker compose up locally (no Docker); images are built in CI.
   User interviews; blind human scoring (project lead).
 
-Observed performance/cost: none measured; no provider cost incurred (fake providers only).
+Observed performance/cost: none measured; no provider cost (fake agents only).
 
-Known gaps:
-  - Members can be added only after their first sign-in (no invitations).
-  - Rate limiting arrives in M10.
+Known gaps (planned):
+  Real LLM agents (M6/M8), real search + safe fetch + uploads (M5), budgets (M7), cancel/retry
+  APIs + 10-scenario crash suite + reaper + approval expiry (M9), observability (M10),
+  export (M8), evaluation (M11).
 
-Unresolved choices: none blocking M4.
-
-Next bounded task: M4. Idempotent runs API, production worker (claim, heartbeat,
-  fenced checkpointer, reconcile), fake-agent graph, persisted events + SSE replay,
-  frontend shell (sign-in, workspace, brief form, run timeline), Playwright E2E.
+Next bounded task: M5. Tavily + offline-corpus search adapters, SSRF-safe fetcher (pinned DNS,
+  redirect re-validation, size/time/type limits), HTML/text-PDF extraction in an isolated
+  subprocess, uploads, workspace-scoped full-text retrieval, provenance viewer.
 ```

@@ -11,3 +11,6 @@ PyJWT[crypto]==2.15.1
 cryptography==50.0.2
 httpx==0.28.1
 python-multipart==0.0.32
+langgraph==1.2.15
+langgraph-checkpoint==4.3.0
+langgraph-checkpoint-postgres==3.1.3

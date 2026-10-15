@@ -28,7 +28,7 @@ ignore = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["S105", "S106", "S108", "N802", "PT006"]
+"tests/**" = ["S105", "S106", "S108", "N802", "PT006", "PT018", "S603"]
 "tests/conftest.py" = ["E402"]  # environment must be configured before importing the app
 "devtools/**" = ["S104", "E501"]
 

@@ -15,7 +15,7 @@ from fastapi.testclient import TestClient
 from app.db.models import Role, User, Workspace
 from app.main import app
 from app.policy.permissions import ROLE_PERMISSIONS, Action
-from tests.conftest import LoggedIn
+from tests.conftest import SAMPLE_BRIEF, LoggedIn
 
 PUBLIC_ROUTES = {("GET", "/api/v1/auth/login"), ("GET", "/api/v1/auth/callback")}
 UNSAFE = {"POST", "PUT", "PATCH", "DELETE"}
@@ -41,7 +41,7 @@ def test_route_discovery_is_not_empty() -> None:
     assert set(ALL_ROUTES) >= PUBLIC_ROUTES
 
 
-def fill(path: str, ids: dict[str, uuid.UUID]) -> str:
+def fill(path: str, ids: dict[str, object]) -> str:
     def sub(match: re.Match[str]) -> str:
         name = match.group(1)
         return str(ids.get(name, uuid.uuid4()))
@@ -49,6 +49,7 @@ def fill(path: str, ids: dict[str, uuid.UUID]) -> str:
     return re.sub(r"\{(\w+)\}", sub, path)
 
 
+DECISION = {"version": 1, "digest": "0" * 64, "decision": "approve"}
 BODIES: dict[tuple[str, str], dict[str, object]] = {
     ("POST", "/api/v1/workspaces"): {"name": "X"},
     ("POST", "/api/v1/workspaces/{workspace_id}/members"): {
@@ -56,21 +57,50 @@ BODIES: dict[tuple[str, str], dict[str, object]] = {
         "role": "analyst",
     },
     ("PATCH", "/api/v1/workspaces/{workspace_id}/members/{user_id}"): {"role": "analyst"},
+    ("POST", "/api/v1/runs/{run_id}/plan-decisions"): DECISION,
+    ("POST", "/api/v1/reports/{report_id}/decisions"): DECISION,
 }
+
+
+def body_for(method: str, path: str, world: dict[str, object] | None = None) -> dict[str, object] | None:
+    if (method, path) == ("POST", "/api/v1/runs"):
+        workspace = world["home"].id if world else uuid.uuid4()  # type: ignore[attr-defined]
+        return {"workspace_id": str(workspace), "brief": SAMPLE_BRIEF}
+    return BODIES.get((method, path))
+
+
+def victim_ids(world: dict[str, object]) -> dict[str, object]:
+    return {
+        "workspace_id": world["home"].id,  # type: ignore[attr-defined]
+        "user_id": world["analyst"].id,  # type: ignore[attr-defined]
+        "run_id": world["run_id"],
+        "report_id": world["run_id"],
+        "version": 1,
+    }
+
+
+IDEMPOTENCY = {"Idempotency-Key": "authz-test-key-1"}
 
 
 @pytest.mark.parametrize(("method", "path"), PROTECTED)
 def test_unauthenticated_requests_get_401(client: TestClient, db: object, method: str, path: str) -> None:
-    response = client.request(method, fill(path, {}), json=BODIES.get((method, path)))
+    response = client.request(
+        method, fill(path, {"version": 1}), json=body_for(method, path), headers=IDEMPOTENCY
+    )
     assert response.status_code == 401, response.text
 
 
 @pytest.fixture
-def world(make_user: Callable[..., User], make_workspace: Callable[..., Workspace]) -> dict[str, object]:
+def world(
+    make_user: Callable[..., User],
+    make_workspace: Callable[..., Workspace],
+    make_run: Callable[..., uuid.UUID],
+) -> dict[str, object]:
     analyst, reviewer, admin, outsider = (make_user(n) for n in ("Ana", "Rev", "Adm", "Out"))
     home = make_workspace("Home", {analyst: Role.ANALYST, reviewer: Role.REVIEWER, admin: Role.ADMIN})
     other = make_workspace("Other", {outsider: Role.ADMIN})
     return {
+        "run_id": make_run(home, analyst),
         "analyst": analyst,
         "reviewer": reviewer,
         "admin": admin,
@@ -89,16 +119,18 @@ def test_unsafe_methods_require_csrf_and_same_origin(
     path: str,
 ) -> None:
     session = login(world["admin"])  # type: ignore[arg-type]
-    ids = {"workspace_id": world["home"].id, "user_id": world["analyst"].id}  # type: ignore[attr-defined]
-    url, body = fill(path, ids), BODIES.get((method, path))
+    url, body = fill(path, victim_ids(world)), body_for(method, path, world)
 
-    assert client.request(method, url, json=body).status_code == 403
-    assert client.request(method, url, json=body, headers={"X-CSRF-Token": "wrong"}).status_code == 403
+    assert client.request(method, url, json=body, headers=IDEMPOTENCY).status_code == 403
+    assert (
+        client.request(method, url, json=body, headers={**IDEMPOTENCY, "X-CSRF-Token": "wrong"}).status_code
+        == 403
+    )
     cross = client.request(
         method,
         url,
         json=body,
-        headers={**session.headers, "Origin": "https://evil.example"},
+        headers={**session.headers, **IDEMPOTENCY, "Origin": "https://evil.example"},
     )
     assert cross.status_code == 403
 
@@ -115,14 +147,27 @@ def test_other_workspace_members_get_404(
     path: str,
 ) -> None:
     session = login(world["outsider"])  # type: ignore[arg-type]
-    ids = {"workspace_id": world["home"].id, "user_id": world["analyst"].id}  # type: ignore[attr-defined]
     response = client.request(
         method,
-        fill(path, ids),
-        json=BODIES.get((method, path)),
-        headers=session.headers,
+        fill(path, victim_ids(world)),
+        json=body_for(method, path, world),
+        headers={**session.headers, **IDEMPOTENCY},
     )
     assert response.status_code == 404, f"{method} {path}: {response.status_code} {response.text}"
+
+
+def test_other_workspace_members_cannot_create_or_list_runs(
+    client: TestClient, world: dict[str, object], login: Callable[[User], LoggedIn]
+) -> None:
+    session = login(world["outsider"])  # type: ignore[arg-type]
+    home = world["home"].id  # type: ignore[attr-defined]
+    created = client.post(
+        "/api/v1/runs",
+        json=body_for("POST", "/api/v1/runs", world),
+        headers={**session.headers, **IDEMPOTENCY},
+    )
+    assert created.status_code == 404
+    assert client.get("/api/v1/runs", params={"workspace_id": str(home)}).status_code == 404
 
 
 def test_workspace_list_shows_only_own_workspaces(

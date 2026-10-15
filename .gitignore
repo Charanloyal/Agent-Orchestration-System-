@@ -15,6 +15,9 @@ dist/
 .vite/
 *.tsbuildinfo
 npm-debug.log*
+test-results/
+playwright-report/
+blob-report/
 
 # Secrets and local environment
 .env

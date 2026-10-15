@@ -8,7 +8,7 @@
 | W1: scope and evaluation planning | Documents done. **User interviews NOT DONE** (project lead) | [product/](product/) |
 | W2: contracts and architecture spikes | Done. OIDC is now covered by M3; search/fetch and PDF move to M5 | ADR 0006–0008 |
 | **M3 / W3: backend foundation** | **Done** | ADR 0009; `backend/tests/test_authz.py`, `test_auth_oidc.py`, `test_migrations.py` |
-| M4 / W4: thin end-to-end slice | Not started | |
+| **M4 / W4: thin end-to-end slice** | **Done** (fake agents) | ADR 0010; `test_workflow.py`, `test_worker_recovery.py`, `frontend/e2e/` |
 | M5–M16 | Not started | see the plan in [handoff.md](handoff.md) |
 
 ### Implemented behavior (verified by tests)
@@ -29,14 +29,29 @@
   - Consistent error envelope that never echoes input.
 - **Contracts:** typed workflow contracts (`backend/app/contracts/`) with drift-checked JSON
   Schemas.
-- **Delivery:** ruff and `mypy --strict`; GitHub Actions (backend on Postgres, spike, frontend
-  build, container builds); Dockerfiles and `docker-compose.yml`.
+- **Workflow (fake agents):**
+  - Idempotent brief submission.
+  - LangGraph workflow: plan approval → research → writer → bounded review → report
+    approval.
+  - Leased, fenced, heartbeating workers with crash recovery.
+  - Version- and digest-bound decisions.
+  - Persisted timeline with SSE replay.
+  - Evidence with provenance.
+- **Frontend:**
+  - Sign-in, workspace shell, runs list, brief form.
+  - Run page with live timeline, plan view, cited structured report with evidence panel,
+    and role-gated approvals.
+- **Delivery:**
+  - ruff and `mypy --strict`.
+  - GitHub Actions: backend on Postgres, spike, frontend typecheck/test/build, Playwright
+    E2E, container builds.
+  - Dockerfiles and `docker-compose.yml` (API, worker, dev IdP, web, Postgres).
 
 ### Not implemented yet
 
-- Runs, workers and agents.
-- Search and fetch, evidence, budgets, the report workflow, observability beyond logs,
-  evaluation runs.
+- Real LLM agents and search/fetch (the fakes are deterministic).
+- Uploads, budgets and reservations, cancellation and retry APIs, the export, observability
+  beyond logs, evaluation runs.
 
 ## Product and planning
 
@@ -62,6 +77,7 @@
 | [0007](decisions/0007-checkpoint-persistence-and-fencing.md) | Checkpoint persistence and fencing | Accepted |
 | [0008](decisions/0008-job-leasing-and-dispatch.md) | Job leasing, dispatch and approval resumption | Accepted |
 | [0009](decisions/0009-identity-sessions-authorization.md) | Identity, sessions and workspace authorization | Accepted |
+| [0010](decisions/0010-workflow-runtime-events-frontend.md) | Workflow runtime, live events and frontend architecture | Accepted |
 
 ## Session handoff
 

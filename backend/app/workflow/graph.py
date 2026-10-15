@@ -1,0 +1,383 @@
+"""The controlled research workflow as a LangGraph state graph (ADR 0006, 0007).
+
+    planner → await_plan ─approve→ research → writer → reviewer ─pass→ await_report → finalize
+                 └─reject→ planner          ↑         ├─revise──────┘(writer)
+                                            └─────────┴─insufficient evidence (research)
+    Exhausted review rounds, or no evidence at all → needs_attention.
+
+Nodes may run more than once (crash recovery; LangGraph re-executes a node from its start
+when an interrupt is resumed). Every side effect is idempotent: versions are derived from
+checkpointed state, inserts use deterministic keys with ON CONFLICT DO NOTHING, and the
+first committed result wins.
+"""
+
+from typing import Any, TypedDict
+
+from langgraph.checkpoint.base import BaseCheckpointSaver
+from langgraph.graph import END, START, StateGraph
+from langgraph.graph.state import CompiledStateGraph
+from langgraph.types import interrupt
+from sqlalchemy import func, select
+from sqlalchemy.dialects.postgresql import insert
+
+from app.agents.base import EvidenceView
+from app.contracts import (
+    Plan,
+    PlanPolicy,
+    PlanPolicyViolation,
+    PlanTask,
+    ReviewerOutput,
+    ReviewFinding,
+    WriterOutput,
+    artifact_digest,
+    enforce_plan_policy,
+    route_after_review,
+    validate_citations,
+)
+from app.contracts.run_state import RunState
+from app.db.models import Approval, EvidencePassage, PlanVersion, ReportVersion, Source, TaskResult
+from app.services.events import append_event
+from app.services.runs import latest_artifact
+from app.tools.research import RunResearchTools
+from app.workflow.context import RunContext
+from app.workflow.errors import StepFailed
+
+SERVER_TOOLS = frozenset({"web_search", "fetch_url"})
+
+
+class RunGraphState(TypedDict, total=False):
+    plan_version: int
+    plan_digest: str
+    plan: dict[str, Any]
+    plan_decision: str
+    plan_feedback: str | None
+    report_version: int
+    report_digest: str
+    review_round: int
+    review_next: str
+    review_findings: list[dict[str, Any]]
+    supplementary_tasks: list[dict[str, Any]]
+    report_decision: str
+    attention_reason: str | None
+
+
+def load_evidence(ctx: RunContext) -> list[EvidenceView]:
+    with ctx.sm() as session:
+        rows = session.execute(
+            select(EvidencePassage, Source.title, Source.url, Source.published_on)
+            .join(
+                Source,
+                (Source.run_id == EvidencePassage.run_id) & (Source.source_id == EvidencePassage.source_id),
+            )
+            .where(EvidencePassage.run_id == ctx.run_id, Source.fetch_status == "fetched")
+            .order_by(EvidencePassage.task_id, EvidencePassage.evidence_id)
+        ).all()
+    return [
+        EvidenceView(e.evidence_id, e.source_id, e.task_id, title, url, published, e.text)
+        for e, title, url, published in rows
+    ]
+
+
+def build_graph(
+    ctx: RunContext, checkpointer: BaseCheckpointSaver[Any]
+) -> CompiledStateGraph[Any, Any, Any, Any]:
+    run_id = ctx.run_id
+    brief = ctx.brief
+
+    def verified_approval(resume: Any, kind: str) -> Approval:
+        """Defence in depth: the decision service already bound the approval to the latest
+        version and digest; re-check against immutable stored artifacts before acting."""
+        with ctx.sm() as session:
+            approval = session.get(Approval, resume["approval_id"]) if isinstance(resume, dict) else None
+            latest = latest_artifact(session, run_id, kind)
+        if (
+            approval is None
+            or approval.run_id != run_id
+            or approval.artifact_kind != kind
+            or latest is None
+            or approval.artifact_version != latest.version
+            or approval.artifact_digest != latest.digest
+        ):
+            raise StepFailed(f"await_{kind}", "approval does not bind to the current artifact")
+        return approval
+
+    def planner(state: RunGraphState) -> RunGraphState:
+        ctx.transition(RunState.PLANNING)
+        version = state.get("plan_version", 0) + 1
+        call = ctx.agents.planner.plan(brief, version=version, feedback=state.get("plan_feedback"))
+        # The server assigns versions and limits; the model cannot widen the tool allowlist.
+        plan = Plan.model_validate({**call.output.model_dump(mode="json"), "plan_version": version})
+        try:
+            enforce_plan_policy(
+                plan, PlanPolicy(allowed_tools=SERVER_TOOLS, max_tasks=brief.limits.max_tasks)
+            )
+        except PlanPolicyViolation as exc:
+            raise StepFailed("planner", f"plan violates policy: {exc}") from exc
+        with ctx.fenced() as session:
+            inserted = session.execute(
+                insert(PlanVersion)
+                .values(
+                    run_id=run_id,
+                    version=version,
+                    digest=artifact_digest(plan),
+                    body=plan.model_dump(mode="json"),
+                    author="agent",
+                )
+                .on_conflict_do_nothing()
+                .returning(PlanVersion.version)
+            ).first()
+            stored = session.get(PlanVersion, (run_id, version))
+            assert stored is not None
+            if inserted:
+                append_event(
+                    session,
+                    run_id,
+                    ctx.workspace_id,
+                    "plan_proposed",
+                    {"version": version, "tasks": len(plan.tasks), "model_attempts": call.attempts},
+                )
+        return {"plan_version": version, "plan_digest": stored.digest, "plan": stored.body}
+
+    def await_plan(state: RunGraphState) -> RunGraphState:
+        resume = interrupt({"kind": "plan", "version": state["plan_version"], "digest": state["plan_digest"]})
+        approval = verified_approval(resume, "plan")
+        with ctx.sm() as session:
+            stored = session.get(PlanVersion, (run_id, approval.artifact_version))
+            assert stored is not None
+        return {
+            "plan_decision": approval.decision,
+            "plan_version": stored.version,
+            "plan_digest": stored.digest,
+            "plan": stored.body,
+            "plan_feedback": approval.comment,
+        }
+
+    def research(state: RunGraphState) -> RunGraphState:
+        ctx.transition(RunState.RESEARCHING)
+        plan = Plan.model_validate(state["plan"])
+        supplementary = [PlanTask.model_validate(t) for t in state.get("supplementary_tasks") or []]
+        tasks_by_id = {t.task_id: t for t in (supplementary or plan.tasks)}
+        levels = [[t.task_id for t in supplementary]] if supplementary else plan.execution_order()
+        for level in levels:
+            for task_id in level:
+                run_research_task(ctx, tasks_by_id[task_id])
+        ctx.crash_if("after_research")
+        with ctx.sm() as session:
+            evidence_count = session.scalar(
+                select(func.count()).select_from(EvidencePassage).where(EvidencePassage.run_id == run_id)
+            )
+        if not evidence_count:
+            return {
+                "supplementary_tasks": [],
+                "attention_reason": "No evidence could be collected for any task",
+            }
+        return {"supplementary_tasks": [], "attention_reason": None}
+
+    def writer(state: RunGraphState) -> RunGraphState:
+        ctx.crash_if("before_writer")
+        ctx.transition(RunState.WRITING)
+        version = state.get("report_version", 0) + 1
+        plan = Plan.model_validate(state["plan"])
+        evidence = load_evidence(ctx)
+        findings = [ReviewFinding.model_validate(f) for f in state.get("review_findings") or []]
+        call = ctx.agents.writer.write(brief, plan, evidence, report_version=version, findings=findings)
+        draft = WriterOutput.model_validate(
+            {
+                **call.output.model_dump(mode="json"),
+                "report_version": version,
+                "plan_version": plan.plan_version,
+            }
+        )
+        if errors := validate_citations(draft, {e.evidence_id for e in evidence}):
+            raise StepFailed("writer", f"{len(errors)} citation(s) do not resolve to run evidence")
+        with ctx.fenced() as session:
+            inserted = session.execute(
+                insert(ReportVersion)
+                .values(
+                    run_id=run_id,
+                    version=version,
+                    plan_version=plan.plan_version,
+                    digest=artifact_digest(draft),
+                    body=draft.model_dump(mode="json"),
+                )
+                .on_conflict_do_nothing()
+                .returning(ReportVersion.version)
+            ).first()
+            stored = session.get(ReportVersion, (run_id, version))
+            assert stored is not None
+            if inserted:
+                claims = [c for s in draft.sections for c in s.claims]
+                append_event(
+                    session,
+                    run_id,
+                    ctx.workspace_id,
+                    "report_drafted",
+                    {
+                        "version": version,
+                        "sections": len(draft.sections),
+                        "claims": len(claims),
+                        "citations": sum(len(c.evidence_ids) for c in claims),
+                        "model_attempts": call.attempts,
+                    },
+                )
+        ctx.crash_if("after_report_commit")
+        return {"report_version": version, "report_digest": stored.digest}
+
+    def reviewer(state: RunGraphState) -> RunGraphState:
+        ctx.transition(RunState.REVIEWING)
+        review_round = state.get("review_round", 0) + 1
+        plan = Plan.model_validate(state["plan"])
+        with ctx.sm() as session:
+            stored = session.get(ReportVersion, (run_id, state["report_version"]))
+            assert stored is not None
+        draft = WriterOutput.model_validate(stored.body)
+        call = ctx.agents.reviewer.review(brief, plan, draft, load_evidence(ctx), review_round=review_round)
+        review = ReviewerOutput.model_validate(
+            {
+                **call.output.model_dump(mode="json"),
+                "report_version": draft.report_version,
+                "review_round": review_round,
+            }
+        )
+        next_state = route_after_review(review.outcome, review_round)
+        severities = {s: sum(f.severity == s for f in review.findings) for s in ("blocker", "major", "minor")}
+        ctx.event(
+            "review_completed",
+            {
+                "round": review_round,
+                "report_version": draft.report_version,
+                "outcome": review.outcome,
+                "findings": severities,
+                "next": next_state.value,
+            },
+        )
+        supplementary: list[dict[str, Any]] = []
+        if next_state == RunState.RESEARCHING:
+            supplementary = [
+                PlanTask(
+                    task_id=f"r{review_round}-{i}",
+                    question=f.requested_action,
+                    tools=["web_search", "fetch_url"],
+                    expected_evidence="Evidence requested by review",
+                    section_ids=[plan.outline[0].section_id],
+                ).model_dump(mode="json")
+                for i, f in enumerate(review.findings_by_severity()[: brief.limits.max_tasks], 1)
+            ]
+        attention = None
+        if next_state == RunState.NEEDS_ATTENTION:
+            attention = f"Review round {review_round} ended '{review.outcome}' with unresolved findings"
+        return {
+            "review_round": review_round,
+            "review_next": next_state.value,
+            "review_findings": [f.model_dump(mode="json") for f in review.findings_by_severity()],
+            "supplementary_tasks": supplementary,
+            "attention_reason": attention,
+        }
+
+    def await_report(state: RunGraphState) -> RunGraphState:
+        resume = interrupt(
+            {"kind": "report", "version": state["report_version"], "digest": state["report_digest"]}
+        )
+        approval = verified_approval(resume, "report")
+        return {"report_decision": approval.decision}
+
+    def finalize(state: RunGraphState) -> RunGraphState:
+        if state["report_decision"] == "approve":
+            ctx.transition(RunState.SUCCEEDED)
+        else:
+            ctx.transition(
+                RunState.NEEDS_ATTENTION, "Report rejected by reviewer; it is not exportable as approved"
+            )
+        return {}
+
+    def needs_attention(state: RunGraphState) -> RunGraphState:
+        ctx.transition(RunState.NEEDS_ATTENTION, state.get("attention_reason") or "Needs attention")
+        return {}
+
+    review_routes = {
+        RunState.AWAITING_REPORT_APPROVAL.value: "await_report",
+        RunState.WRITING.value: "writer",
+        RunState.RESEARCHING.value: "research",
+        RunState.NEEDS_ATTENTION.value: "needs_attention",
+    }
+
+    builder: StateGraph[Any, Any, Any, Any] = StateGraph(RunGraphState)
+    for name, node in (
+        ("planner", planner),
+        ("await_plan", await_plan),
+        ("research", research),
+        ("writer", writer),
+        ("reviewer", reviewer),
+        ("await_report", await_report),
+        ("finalize", finalize),
+        ("needs_attention", needs_attention),
+    ):
+        builder.add_node(name, node)
+    builder.add_edge(START, "planner")
+    builder.add_edge("planner", "await_plan")
+    builder.add_conditional_edges(
+        "await_plan",
+        lambda s: "research" if s["plan_decision"] == "approve" else "planner",
+        ["research", "planner"],
+    )
+    builder.add_conditional_edges(
+        "research",
+        lambda s: "needs_attention" if s.get("attention_reason") else "writer",
+        ["writer", "needs_attention"],
+    )
+    builder.add_edge("writer", "reviewer")
+    builder.add_conditional_edges(
+        "reviewer", lambda s: review_routes[s["review_next"]], list(review_routes.values())
+    )
+    builder.add_edge("await_report", "finalize")
+    builder.add_edge("finalize", END)
+    builder.add_edge("needs_attention", END)
+    return builder.compile(checkpointer=checkpointer)
+
+
+def run_research_task(ctx: RunContext, task: PlanTask) -> None:
+    """Run one task unless its result is already committed (at-least-once, idempotent)."""
+    with ctx.sm() as session:
+        if session.get(TaskResult, (ctx.run_id, task.task_id)) is not None:
+            return
+    call = ctx.agents.researcher.research(ctx.brief, task, RunResearchTools(ctx, task.task_id))
+    output = call.output
+    if output.task_id != task.task_id:
+        raise StepFailed(
+            "research", f"researcher answered task {output.task_id!r}, expected {task.task_id!r}"
+        )
+    with ctx.sm() as session:
+        known = set(
+            session.scalars(select(EvidencePassage.evidence_id).where(EvidencePassage.run_id == ctx.run_id))
+        )
+    if unknown := sorted(set(output.evidence_ids) - known):
+        raise StepFailed("research", f"researcher cited {len(unknown)} evidence id(s) it did not collect")
+    status = "succeeded" if output.evidence_ids else "no_evidence"
+    with ctx.fenced() as session:
+        inserted = session.execute(
+            insert(TaskResult)
+            .values(
+                run_id=ctx.run_id,
+                task_id=task.task_id,
+                status=status,
+                output=output.model_dump(mode="json"),
+                fencing_token=ctx.lease.token,
+            )
+            .on_conflict_do_nothing()
+            .returning(TaskResult.task_id)
+        ).first()
+        if inserted:
+            append_event(
+                session,
+                ctx.run_id,
+                ctx.workspace_id,
+                "task_completed",
+                {
+                    "task_id": task.task_id,
+                    "status": status,
+                    "evidence": len(output.evidence_ids),
+                    "unresolved": len(output.unresolved_questions),
+                    "conflicts": len(output.conflicts),
+                    "model_attempts": call.attempts,
+                },
+            )
