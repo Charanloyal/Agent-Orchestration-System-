@@ -25,6 +25,7 @@ from app.agents.base import AgentSuite
 from app.agents.fake import fake_agents
 from app.agents.llm_planner import LlmPlanner
 from app.agents.llm_researcher import LlmResearcher
+from app.agents.llm_writer_reviewer import LlmReviewer, LlmWriter
 from app.billing.meter import BudgetExhausted, MeteredLlm, MeteredSearch
 from app.config import Settings, get_settings
 from app.contracts import Brief as BriefSpec
@@ -52,8 +53,8 @@ WAIT_STATES = {"plan": RunState.AWAITING_PLAN_APPROVAL, "report": RunState.AWAIT
 
 
 def build_agents(settings: Settings, ctx: RunContext, llm: LlmProvider | None = None) -> AgentSuite:
-    """Fake agents by default; LLM agents (metered against the run budget) when configured.
-    Agents switch to LLM implementations milestone by milestone."""
+    """Fake agents by default; every role is an LLM agent (metered against the run budget)
+    when configured."""
     if settings.agent_mode == "fake" and llm is None:
         return fake_agents()
     base = llm or OpenAICompatibleLlm(settings)
@@ -64,6 +65,8 @@ def build_agents(settings: Settings, ctx: RunContext, llm: LlmProvider | None = 
         researcher=LlmResearcher(
             MeteredLlm(base, ctx.meter, "research"), max_output_tokens=min(tokens, 1500)
         ),
+        writer=LlmWriter(MeteredLlm(base, ctx.meter, "writer"), max_output_tokens=tokens),
+        reviewer=LlmReviewer(MeteredLlm(base, ctx.meter, "reviewer"), max_output_tokens=min(tokens, 1500)),
     )
 
 

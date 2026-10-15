@@ -1,7 +1,7 @@
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Outlet } from "react-router";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import type { Me, RunDetail } from "../api/types";
 import { mockFetch, renderRoutes } from "../test/utils";
@@ -109,5 +109,60 @@ describe("RunPage", () => {
     expect(await within(panel).findByText("SSO via SAML is supported.")).toBeInTheDocument();
     expect(within(panel).getByText("Malicious page").closest("a")).toBeNull();
     expect(within(panel).getByText(/publication date unknown/)).toBeInTheDocument();
+  });
+
+  it("shows review rounds, jumps to the flagged claim in the earlier version, and exports a draft", async () => {
+    const section = (claims: { claim_id: string; kind: "fact" | "unknown"; text: string; evidence_ids: string[] }[]) =>
+      ({ report_version: 1, plan_version: 1, sections: [{ section_id: "findings", title: "Findings", claims }] });
+    const v1 = section([
+      { claim_id: "f1", kind: "fact", text: "Exports run nightly.", evidence_ids: ["ev-1"] },
+      { claim_id: "planted", kind: "fact", text: "It costs 37 dollars.", evidence_ids: ["ev-1"] },
+    ]);
+    const v2 = section([
+      { claim_id: "f1", kind: "fact", text: "Exports run nightly.", evidence_ids: ["ev-1"] },
+      { claim_id: "l2", kind: "unknown", text: "Removed 1 claim(s) the reviewer found unsupported.", evidence_ids: [] },
+    ]);
+    const detail = run({
+      state: "AWAITING_REPORT_APPROVAL",
+      pending_decision: { kind: "report", version: 2, digest: "d".repeat(64) },
+      report: { version: 2, digest: "d".repeat(64), created_at: "2026-10-15T10:06:00Z", body: v2 },
+    });
+    const reviews = [
+      { report_version: 1, review_round: 1, outcome: "revise", next: "WRITING", reviewed_at: "2026-10-15T10:05:00Z",
+        findings: [{ finding_id: "d-num-planted", severity: "blocker", category: "unsupported_claim",
+                     source: "deterministic", claim_ids: ["planted"], evidence_ids: ["ev-1"],
+                     requested_action: "The figure(s) 37 do not appear in its cited passages." }] },
+      { report_version: 2, review_round: 2, outcome: "pass", next: "AWAITING_REPORT_APPROVAL",
+        reviewed_at: "2026-10-15T10:06:30Z", findings: [] },
+    ];
+    const calls = renderRun("reviewer", detail, [
+      { path: `/api/v1/runs/${RUN}/reviews`, body: reviews },
+      { path: `/api/v1/reports/${RUN}/versions/1`, body: { version: 1, digest: "e".repeat(64),
+                                                           created_at: "2026-10-15T10:04:00Z", body: v1 } },
+      { method: "POST", path: `/api/v1/reports/${RUN}/versions/2/export`, body: "# report" },
+    ]);
+    const user = userEvent.setup();
+
+    const review = await screen.findByRole("heading", { name: "Review" });
+    const card = review.closest("section, div.card, .card") as HTMLElement;
+    expect(within(card).getByText("revision requested")).toBeInTheDocument();
+    expect(within(card).getByText("passed")).toBeInTheDocument();
+    expect(within(card).getByText(/automatic check/)).toBeInTheDocument();
+    expect(document.getElementById("claim-planted")).toBeNull();
+
+    await user.click(within(card).getByRole("button", { name: "planted" }));
+    const flagged = await screen.findByText("It costs 37 dollars.");
+    expect(flagged.closest("li")).toHaveAttribute("data-flag", "blocker");
+    expect(screen.getByText("Superseded")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "v1" })).toHaveAttribute("aria-pressed", "true");
+
+    await user.click(screen.getByRole("button", { name: "v2" }));
+    URL.createObjectURL = vi.fn(() => "blob:report");
+    URL.revokeObjectURL = vi.fn();
+    const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
+    await user.click(await screen.findByRole("button", { name: "Download draft (v2)" }));
+    expect(await screen.findByTestId("export-status")).toHaveTextContent("Saved report.md");
+    expect(calls.some((c) => c.method === "POST" && c.url.endsWith("/versions/2/export"))).toBe(true);
+    expect(click).toHaveBeenCalledOnce();
   });
 });

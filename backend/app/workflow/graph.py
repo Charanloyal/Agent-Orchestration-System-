@@ -38,7 +38,15 @@ from app.contracts import (
     validate_citations,
 )
 from app.contracts.run_state import RunState
-from app.db.models import Approval, EvidencePassage, PlanVersion, ReportVersion, Source, TaskResult
+from app.db.models import (
+    Approval,
+    EvidencePassage,
+    PlanVersion,
+    ReportVersion,
+    ReviewFindingRow,
+    Source,
+    TaskResult,
+)
 from app.policy.tools import allowed_tools, plan_policy_for
 from app.services.events import append_event
 from app.services.runs import latest_artifact
@@ -247,16 +255,43 @@ def build_graph(
         )
         next_state = route_after_review(review.outcome, review_round)
         severities = {s: sum(f.severity == s for f in review.findings) for s in ("blocker", "major", "minor")}
-        ctx.event(
-            "review_completed",
-            {
-                "round": review_round,
-                "report_version": draft.report_version,
-                "outcome": review.outcome,
-                "findings": severities,
-                "next": next_state.value,
-            },
-        )
+        with ctx.fenced() as session:
+            if review.findings:
+                session.execute(
+                    insert(ReviewFindingRow)
+                    .values(
+                        [
+                            {
+                                "run_id": run_id,
+                                "report_version": draft.report_version,
+                                "finding_id": f.finding_id,
+                                "review_round": review_round,
+                                "severity": f.severity,
+                                "category": f.category,
+                                "source": "deterministic" if f.finding_id.startswith("d-") else "model",
+                                "claim_ids": list(f.claim_ids),
+                                "evidence_ids": list(f.evidence_ids),
+                                "requested_action": f.requested_action[:500],
+                            }
+                            for f in review.findings
+                        ]
+                    )
+                    .on_conflict_do_nothing()
+                )
+            append_event(
+                session,
+                run_id,
+                ctx.workspace_id,
+                "review_completed",
+                {
+                    "round": review_round,
+                    "report_version": draft.report_version,
+                    "outcome": review.outcome,
+                    "findings": severities,
+                    "next": next_state.value,
+                    **provenance(call.generation),
+                },
+            )
         supplementary: list[dict[str, Any]] = []
         if next_state == RunState.RESEARCHING:
             supplementary = [

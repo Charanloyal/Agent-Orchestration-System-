@@ -8,6 +8,7 @@ from app.db.models.identity import (
     User,
     Workspace,
 )
+from app.db.models.reports import ReportExport, ReviewFindingRow
 from app.db.models.runs import (
     Approval,
     Brief,
@@ -33,7 +34,9 @@ __all__ = [
     "Membership",
     "OidcLoginState",
     "PlanVersion",
+    "ReportExport",
     "ReportVersion",
+    "ReviewFindingRow",
     "Role",
     "Run",
     "RunEvent",

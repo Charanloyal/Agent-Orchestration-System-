@@ -1,3 +1,5 @@
+import { readFile } from "node:fs/promises";
+
 import { expect, test, type Page } from "@playwright/test";
 
 type DemoUser = "Alice Analyst" | "Bob Reviewer" | "Mallory Outsider";
@@ -52,6 +54,49 @@ test("analyst submits a brief and approves the plan; reviewer approves the cited
   await expect(page.getByTestId("run-state")).toHaveText("Succeeded");
   await expect(page.getByText("Approved", { exact: true })).toBeVisible();
   await expect(page.getByTestId("stream-status")).toHaveText("Finished");
+
+  const downloading = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Download approved report (v1)" }).click();
+  const file = await downloading;
+  expect(file.suggestedFilename()).toMatch(/^report-[0-9a-f]{8}-v1-approved\.md$/);
+  const markdown = await readFile(await file.path(), "utf-8");
+  expect(markdown).toContain("Approved by Bob Reviewer");
+  expect(markdown).toContain("## Sources");
+  expect(markdown).not.toContain("DRAFT - NOT APPROVED");
+  await expect(page.getByTestId("export-status")).toContainText("(approved)");
+  // The stream of a finished run has closed; reloading replays the persisted export event.
+  await page.reload();
+  await expect(page.getByText(/Report v1 exported as approved Markdown/)).toBeVisible();
+});
+
+test("the reviewer catches a planted unsupported figure and the writer revises it", async ({ page }) => {
+  await signIn(page, "Alice Analyst");
+  await page.getByRole("link", { name: "New brief", exact: true }).first().click();
+  await page.getByLabel("Topic").fill("Backup tooling options (demo: unsupported claim)");
+  await page.getByLabel("Intended audience").fill("Platform team");
+  await page.getByLabel("Research question 1").fill("Which tools support point-in-time recovery?");
+  await page.getByRole("button", { name: "Submit brief" }).click();
+
+  await expect(page.getByTestId("run-state")).toHaveText("Awaiting plan approval");
+  await page.getByRole("button", { name: "Approve plan v1" }).click();
+  await expect(page.getByTestId("run-state")).toHaveText("Awaiting report approval");
+  await expect(page.getByText(/Review round 1 of report v1: revision requested \(1 blocker\)/)).toBeVisible();
+
+  const review = page.locator(".review-card");
+  await expect(review.getByTestId("finding")).toContainText("37");
+  await expect(review.getByText("passed")).toBeVisible();
+  await expect(page.getByText(/37 dollars/)).toHaveCount(0);
+
+  await review.getByRole("button", { name: "planted" }).click();
+  await expect(page.locator("#claim-planted")).toHaveAttribute("data-flag", "blocker");
+  await expect(page.getByText("Superseded")).toBeVisible();
+
+  await page.getByRole("button", { name: "v2" }).click();
+  const downloading = page.waitForEvent("download");
+  await page.getByRole("button", { name: "Download draft (v2)" }).click();
+  const markdown = await readFile(await (await downloading).path(), "utf-8");
+  expect(markdown.startsWith("> **DRAFT - NOT APPROVED.**")).toBe(true);
+  expect(markdown).not.toContain("37 dollars");
 });
 
 test("a member of another workspace cannot open the run", async ({ page }) => {

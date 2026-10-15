@@ -25,7 +25,9 @@ from app.db.models import (
     BudgetReservation,
     EvidencePassage,
     PlanVersion,
+    ReportExport,
     ReportVersion,
+    ReviewFindingRow,
     Run,
     RunEvent,
     RunJob,
@@ -36,7 +38,9 @@ from app.db.models import Brief as BriefRow
 from app.db.session import get_sessionmaker
 from app.errors import NotFound
 from app.policy.permissions import Action
+from app.services.exports import export_report
 from app.services.runs import create_run, decide, edit_plan, get_run, latest_artifact, run_access
+from app.storage import get_object_store
 
 router = APIRouter(prefix="/api/v1", tags=["runs"])
 
@@ -358,6 +362,117 @@ def _decision_out(db: DbSession, principal: Principal, approval: Approval) -> De
         decided_by=principal.display_name,
         decided_at=approval.decided_at,
     )
+
+
+class FindingOut(BaseModel):
+    finding_id: str
+    severity: str
+    category: str
+    source: Literal["deterministic", "model"]
+    claim_ids: list[str]
+    evidence_ids: list[str]
+    requested_action: str
+
+
+class ReviewRoundOut(BaseModel):
+    report_version: int
+    review_round: int
+    outcome: str
+    next: str
+    reviewed_at: datetime
+    findings: list[FindingOut]
+
+
+@router.get("/runs/{run_id}/reviews", response_model=list[ReviewRoundOut])
+def list_reviews(run_id: uuid.UUID, principal: CurrentPrincipal, db: DbSession) -> list[ReviewRoundOut]:
+    """Review rounds in order, each with its persisted findings (most severe first)."""
+    get_run(db, principal, run_id, Action.RUN_READ)
+    events = db.scalars(
+        select(RunEvent)
+        .where(RunEvent.run_id == run_id, RunEvent.event_type == "review_completed")
+        .order_by(RunEvent.id)
+    ).all()
+    rows = db.scalars(select(ReviewFindingRow).where(ReviewFindingRow.run_id == run_id)).all()
+    order = {"blocker": 0, "major": 1, "minor": 2}
+    by_version: dict[int, list[FindingOut]] = {}
+    for row in sorted(rows, key=lambda r: (order.get(r.severity, 3), r.finding_id)):
+        by_version.setdefault(row.report_version, []).append(
+            FindingOut.model_validate(row, from_attributes=True)
+        )
+    rounds: dict[int, ReviewRoundOut] = {}
+    for event in events:
+        version = int(event.payload["report_version"])
+        # A re-executed reviewer node may log twice; the first event per version stands.
+        rounds.setdefault(
+            version,
+            ReviewRoundOut(
+                report_version=version,
+                review_round=int(event.payload["round"]),
+                outcome=str(event.payload["outcome"]),
+                next=str(event.payload["next"]),
+                reviewed_at=event.created_at,
+                findings=by_version.get(version, []),
+            ),
+        )
+    return list(rounds.values())
+
+
+class ExportOut(BaseModel):
+    id: uuid.UUID
+    report_version: int
+    report_digest: str
+    kind: str
+    content_sha256: str
+    created_by: str
+    created_at: datetime
+
+
+@router.post(
+    "/reports/{report_id}/versions/{version}/export",
+    response_class=Response,
+    dependencies=[Depends(run_access(Action.RUN_READ, param="report_id"))],
+    responses={200: {"content": {"text/markdown": {}}}},
+)
+def export_report_version(
+    report_id: uuid.UUID, version: int, principal: CurrentPrincipal, db: DbSession
+) -> Response:
+    """Render, store, and download a Markdown export. POST because it records an export
+    (CSRF-protected); approved only if a human approved this exact version and digest."""
+    run, _ = get_run(db, principal, report_id, Action.RUN_READ)
+    exported = export_report(db, get_object_store(), run=run, version=version, user_id=principal.user_id)
+    return Response(
+        exported.content,
+        media_type="text/markdown; charset=utf-8",
+        headers={
+            "Content-Disposition": f'attachment; filename="{exported.filename}"',
+            "X-Content-Type-Options": "nosniff",
+            "X-Export-Kind": exported.export.kind,
+            "X-Content-SHA256": exported.export.content_sha256,
+        },
+    )
+
+
+@router.get("/runs/{run_id}/exports", response_model=list[ExportOut])
+def list_exports(run_id: uuid.UUID, principal: CurrentPrincipal, db: DbSession) -> list[ExportOut]:
+    get_run(db, principal, run_id, Action.RUN_READ)
+    rows = db.execute(
+        select(ReportExport, User.display_name)
+        .join(User, User.id == ReportExport.created_by)
+        .where(ReportExport.run_id == run_id)
+        .order_by(ReportExport.created_at.desc())
+    ).all()
+    return [
+        ExportOut(
+            id=e.id,
+            report_version=e.report_version,
+            report_digest=e.report_digest,
+            kind=e.kind,
+            content_sha256=e.content_sha256,
+            created_by=name,
+            created_at=e.created_at,
+        )
+        for e, name in rows
+    ]
 
 
 @router.get("/runs/{run_id}/evidence", response_model=list[EvidenceOut])

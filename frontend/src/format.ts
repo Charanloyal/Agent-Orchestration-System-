@@ -1,4 +1,4 @@
-import type { ClaimKind, RunEvent, RunState } from "./api/types";
+import type { ClaimKind, RunEvent, RunState, Severity } from "./api/types";
 
 export const STATE_LABELS: Record<RunState, string> = {
   QUEUED: "Queued",
@@ -53,6 +53,14 @@ export const CLAIM_KIND_TONES: Record<ClaimKind, Tone> = {
 const num = (value: unknown): string => (typeof value === "number" ? String(value) : "?");
 const str = (value: unknown): string => (typeof value === "string" ? value : "");
 
+export const REVIEW_OUTCOMES: Record<string, string> = {
+  pass: "passed",
+  revise: "revision requested",
+  insufficient_evidence: "more evidence needed",
+};
+
+export const SEVERITY_TONES: Record<Severity, Tone> = { blocker: "danger", major: "warning", minor: "neutral" };
+
 /** One readable sentence per timeline event. Payloads are structured summaries only. */
 export function describeEvent(event: RunEvent): string {
   const p = event.payload;
@@ -85,8 +93,17 @@ export function describeEvent(event: RunEvent): string {
       return `Budget exhausted at ${str(p.step)}: no further ${str(p.kind)} calls scheduled`;
     case "report_drafted":
       return `Report v${num(p.version)} drafted: ${num(p.claims)} claims, ${num(p.citations)} citations`;
-    case "review_completed":
-      return `Review round ${num(p.round)}: ${str(p.outcome).replace("_", " ")}`;
+    case "review_completed": {
+      const f = (p.findings ?? {}) as Record<string, unknown>;
+      const counts = (["blocker", "major", "minor"] as const)
+        .filter((s) => typeof f[s] === "number" && (f[s] as number) > 0)
+        .map((s) => `${num(f[s])} ${s}`);
+      return `Review round ${num(p.round)} of report v${num(p.report_version)}: ${REVIEW_OUTCOMES[str(p.outcome)] ?? str(p.outcome)}${
+        counts.length ? ` (${counts.join(", ")})` : ""
+      }`;
+    }
+    case "report_exported":
+      return `Report v${num(p.version)} exported as ${p.kind === "approved" ? "approved" : "draft"} Markdown`;
     case "retry_scheduled":
       return `Transient error; retry scheduled in ${num(p.delay_seconds)}s`;
     case "step_failed":

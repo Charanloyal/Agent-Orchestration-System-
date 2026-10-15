@@ -4,50 +4,49 @@ Uses the template from the context prompt (§4). Contains no secrets or private 
 
 ```text
 Project: Agent Orchestration System
-Current milestone: M7 (PRD Week 7), research execution + budgets: DONE. Next: M8 writer, reviewer, export.
+Current milestone: M8 (PRD Week 8), writer + reviewer loop + export: DONE. Next: M9 cancel/retry
+  and crash-recovery hardening.
 
 Last completed vertical slice:
-  Analyst signs in → submits a brief → worker plans (fake planner) → analyst approves the exact
-  plan version → worker researches (fake search, evidence stored with provenance), drafts a
-  cited report, reviews it → reviewer signs in, inspects cited passages, approves the exact
-  report version → SUCCEEDED. Live SSE timeline survives reloads (Last-Event-ID replay).
-  Verified in a real browser and by Playwright.
+  Analyst submits a brief → approves the exact plan → bounded parallel research with budget
+  reservations → writer drafts only from evidence → deterministic checks (+ model reviewer in
+  LLM mode) flag unsupported figures/claims → writer revises (≤2 rounds) → reviewer inspects
+  findings, flagged claims in the superseded version, and cited passages → approves the exact
+  version → downloads an approved Markdown export (approver, time, digest); drafts are
+  watermarked. Verified by Playwright, including a planted fabricated figure being caught.
 
 Architecture decisions accepted:
-  0010 workflow runtime, live events, frontend architecture; 0011 evidence ingestion
-  (Tavily/corpus/fake search, SSRF-pinned fetcher, isolated PDF extraction, uploads, Postgres FTS);
-  0012 LLM adapter, bounded structured repair, versioned prompts, plan edits, approval expiry;
-  0013 bounded parallel research, tool-call limits, transactional budget reservations.
+  0010 workflow runtime/events/frontend; 0011 evidence ingestion; 0012 LLM adapter, bounded
+  structured repair, prompts, plan edits, expiry; 0013 parallel research and budget
+  reservations; 0014 two-layer review, persisted findings, POST export, approved-vs-draft by
+  version+digest, escaped Markdown.
 
 Database migrations added/applied:
-  0002_runs_jobs_events_artifacts_evidence (briefs, runs, run_jobs, run_events, plan_versions,
-  report_versions, approvals, tool_executions, sources, evidence_passages, task_results; schema
-  `lg` for LangGraph checkpoints); 0003_uploads_and_full_text_search (uploads, upload_chunks with
-  generated tsvector + GIN; evidence_passages.tsv); 0004_artifact_generation_provenance; 0005_budget_reservations. Applied to dev DB `aos`; test/e2e DBs rebuilt per run.
+  0001 identity … 0005 budget_reservations; 0006_review_findings_and_report_exports. Applied
+  to dev DB `aos`; test/e2e DBs rebuilt per run (upgrade/downgrade + drift tests).
 
-Tests actually run and results (2026-10-15, Windows, Python 3.14.7, PostgreSQL 17.11, Node 24.21):
-  backend:  ruff + format clean; mypy --strict clean (55 files); pytest 192 passed
-            (incl. route-generated authz matrix now covering run/report routes, workflow API
-            tests driving the real worker, 3 subprocess crash windows, stale-owner checkpoint
-            fencing with negative control, retry/fail classification, tool-allowlist policy)
-  frontend: tsc (app + e2e) clean; vitest 15 passed; vite build OK
-  e2e:      Playwright (installed Edge) 2 passed: full analyst→reviewer journey with reload,
-            and cross-workspace 404, against an isolated dev IdP + API + worker + Vite + Postgres
-  CI:       M3 run green on GitHub (backend, spike, frontend, container builds)
+Tests actually run and results (Windows, Python 3.14.7, PostgreSQL 17.11, Node 24.21):
+  backend:  ruff + format clean; mypy --strict clean (80 files); pytest 317 passed,
+            1 live test deselected (needs a key and approval to spend)
+  frontend: tsc (app + e2e) clean; vitest 20 passed; vite build OK
+  e2e:      Playwright 4 passed: analyst→reviewer journey with approved export download,
+            planted-claim catch→revise→draft export, document-only research, cross-workspace 404
+  CI:       checked on GitHub after each push (see commit history)
 
 Checks not run:
-  docker compose up locally (no Docker); images are built in CI.
+  docker compose up locally (no Docker; images are built in CI).
+  Any live LLM/Tavily run (no keys supplied; USD 10 ceiling needs explicit approval).
   User interviews; blind human scoring (project lead).
 
-Observed performance/cost: none measured; no provider cost (fake agents only).
+Observed performance/cost: none measured; fake providers only, so no provider cost.
 
 Known gaps (planned):
-  LLM writer/reviewer + export (M8), offline evaluation corpus content (M11), cancel/retry
-  APIs + 10-scenario crash suite + reaper + approval expiry (M9), observability (M10),
-  export (M8), evaluation (M11).
+  cancel/retry APIs, attempts reaper, 10-scenario crash suite (M9); traces/metrics, rate
+  limits, runbooks (M10); evaluation corpus and harness (M11); pilot packaging (M12);
+  retention/deletion and audits (M13); load and backup/restore (M14); accessibility polish and
+  user guide (M15); held-out rerun and final report (M16).
 
-Next bounded task: M8. LLM writer (evidence-only drafting, claim kinds, citations validated
-  with one repair), LLM reviewer (support check per claim, contradictions, severity-ranked
-  findings), review_findings persistence, bounded revision loop, report decision, sanitized
-  Markdown export (approved vs watermarked draft), report/evidence UI polish.
+Next bounded task: M9. Cancel (CANCEL_REQUESTED → CANCELLED at the next fenced boundary) and
+  retry (new attempt from the last checkpoint) APIs with UI; attempts reaper for expired
+  leases; crash-injection suite across 10 boundaries; idempotency of every side effect.
 ```

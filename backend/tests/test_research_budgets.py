@@ -28,6 +28,7 @@ from app.workers import jobs
 from app.workers.runner import build_fetcher, process_one
 from app.workflow.context import RunContext
 from tests.conftest import SAMPLE_BRIEF, LoggedIn
+from tests.llm_personas import is_reviewer, is_writer, reviewer_reply, writer_reply
 from tests.test_workflow import decide
 
 
@@ -174,8 +175,9 @@ def test_concurrent_reservations_never_exceed_the_budget(
 
 
 class ResponderLlm:
-    """Plays planner and researcher by reading the prompt, like a model would. The researcher
-    persona deliberately 'obeys' injected text by echoing it, to prove it changes nothing."""
+    """Plays planner, researcher, writer and reviewer by reading the prompt, like a model would.
+    The researcher persona deliberately 'obeys' injected text by echoing it, to prove it
+    changes nothing."""
 
     name, model = "responder", "responder-1"
 
@@ -184,7 +186,11 @@ class ResponderLlm:
 
     def complete(self, *, system: str, user: str, json_output: bool, max_output_tokens: int) -> LlmResult:
         self.calls.append(system.splitlines()[0])
-        if "planning agent" in system:
+        if is_writer(system):
+            text = writer_reply(user)
+        elif is_reviewer(system):
+            text = reviewer_reply(user)
+        elif "planning agent" in system:
             text = json.dumps(
                 {
                     "plan_version": 1,
@@ -274,6 +280,7 @@ def test_llm_researcher_cites_only_collected_passages_and_cannot_act_on_injected
     usage = client.get(f"/api/v1/runs/{run_id}/usage").json()
     by_step = {(line["step"], line["kind"]): line for line in usage["lines"]}
     assert by_step[("planner", "llm")]["calls"] == 1 and by_step[("research", "llm")]["calls"] == 1
+    assert by_step[("writer", "llm")]["calls"] == 1 and by_step[("reviewer", "llm")]["calls"] == 1
     assert by_step[("research", "llm")]["input_tokens"] > 0
     assert Decimal(usage["reconciled"]) <= Decimal(usage["committed"]) <= Decimal(usage["budget"])
     assert usage["outstanding"] in ("0", "0.000000") and usage["price_schedules"] == [

@@ -1,11 +1,41 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useOutletContext, useParams } from "react-router";
 
-import { isTerminal, useDecide, useEvidence, useRun, useRunEvents, useSources, useUsage } from "../api/hooks";
-import type { Evidence, Generation, Me, PlanBody, ReportBody, RunDetail, RunEvent } from "../api/types";
+import {
+  isTerminal,
+  useDecide,
+  useEvidence,
+  useExportReport,
+  useReportVersion,
+  useReviews,
+  useRun,
+  useRunEvents,
+  useSources,
+  useUsage,
+} from "../api/hooks";
+import type {
+  Evidence,
+  Generation,
+  Me,
+  PlanBody,
+  ReportBody,
+  ReviewFinding,
+  ReviewRound,
+  RunDetail,
+  RunEvent,
+  Severity,
+} from "../api/types";
 import { PlanEditor } from "../components/PlanEditor";
 import { Badge, Card, EmptyState, ErrorBanner, Spinner, StateBadge } from "../components/ui";
-import { CLAIM_KIND_LABELS, CLAIM_KIND_TONES, describeEvent, formatDateTime, formatTime } from "../format";
+import {
+  CLAIM_KIND_LABELS,
+  CLAIM_KIND_TONES,
+  describeEvent,
+  formatDateTime,
+  formatTime,
+  REVIEW_OUTCOMES,
+  SEVERITY_TONES,
+} from "../format";
 
 type Tab = "report" | "plan" | "evidence";
 
@@ -133,7 +163,7 @@ function GenerationNote({ artifact }: { artifact: { author?: string; generation?
   if (!g || g.provider === "fake") return <p className="small muted">Produced by the deterministic test agent.</p>;
   return (
     <p className="small muted" data-testid="generation">
-      Produced by {g.model} via {g.provider} ? prompt {g.prompt_version} ? {g.attempts} attempt(s) ?{" "}
+      Produced by {g.model} via {g.provider} · prompt {g.prompt_version} · {g.attempts} attempt(s) ·{" "}
       {(g.input_tokens ?? 0) + (g.output_tokens ?? 0)} tokens
     </p>
   );
@@ -211,51 +241,219 @@ function dependencyLevels(plan: PlanBody) {
 }
 
 function ReportView({ run }: { run: RunDetail }) {
+  const latest = run.report?.version ?? null;
+  const [viewing, setViewing] = useState<number | null>(null);
+  const shown = viewing ?? latest;
+  const older = useReportVersion(run.id, shown !== null && shown !== latest ? shown : null);
   const evidence = useEvidence(run.id, Boolean(run.report));
+  const reviews = useReviews(run.id, Boolean(run.report));
   const [selected, setSelected] = useState<string | null>(null);
-  if (!run.report) {
+  const [focused, setFocused] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (focused) document.getElementById(`claim-${focused}`)?.scrollIntoView?.({ block: "center", behavior: "smooth" });
+  }, [focused, shown]);
+
+  if (!run.report || shown === null) {
     return <Card><EmptyState title="No report yet"><p className="muted">Drafting starts after research.</p></EmptyState></Card>;
   }
-  const report: ReportBody = run.report.body;
+  const artifact = shown === latest ? run.report : older.data;
+  if (!artifact) {
+    return older.isError ? <ErrorBanner error={older.error} title="Could not load this version" /> : <Spinner label="Loading version…" />;
+  }
+  const report: ReportBody = artifact.body;
   const byId = new Map((evidence.data ?? []).map((e) => [e.evidence_id, e]));
   const passage = selected ? byId.get(selected) : undefined;
-  const approved = run.decisions.some((d) => d.kind === "report" && d.version === run.report?.version && d.decision === "approve");
+  const decision = run.decisions.find((d) => d.kind === "report" && d.version === shown);
+  const round = reviews.data?.find((r) => r.report_version === shown);
+  const flags = claimFlags(round?.findings ?? []);
+  const showClaim = (version: number, claimId: string) => {
+    setViewing(version === latest ? null : version);
+    setFocused(claimId);
+  };
 
   return (
-    <div className="report-layout">
-      <Card title={`Report v${run.report.version}`} actions={approved ? <Badge tone="success">Approved</Badge> : <Badge>Draft</Badge>}>
-        {report.sections.map((section) => (
-          <section key={section.section_id} className="report-section">
-            <h3>{section.title}</h3>
-            <ul className="claims">
-              {section.claims.map((claim) => (
-                <li key={claim.claim_id} className="claim">
-                  <Badge tone={CLAIM_KIND_TONES[claim.kind]}>{CLAIM_KIND_LABELS[claim.kind]}</Badge>
-                  <span className="claim-text">{claim.text}</span>
-                  {claim.evidence_ids.map((id, i) => (
-                    <button
-                      key={id}
-                      type="button"
-                      className={`cite ${selected === id ? "active" : ""}`}
-                      aria-label={`Show evidence ${id}`}
-                      onClick={() => setSelected(selected === id ? null : id)}
-                    >
-                      [{i + 1}]
+    <div className="stack">
+      <div className="report-layout">
+        <Card
+          title={`Report v${shown}`}
+          actions={
+            <div className="row wrap">
+              {latest !== null && latest > 1 && (
+                <div className="versions" role="group" aria-label="Report version">
+                  {Array.from({ length: latest }, (_, i) => i + 1).map((v) => (
+                    <button key={v} type="button" aria-pressed={v === shown} onClick={() => setViewing(v === latest ? null : v)}>
+                      v{v}
                     </button>
                   ))}
-                </li>
-              ))}
-            </ul>
-          </section>
-        ))}
-      </Card>
-      {selected && (
-        <aside className="card evidence-panel" aria-label="Cited evidence">
-          {passage ? <EvidenceItem item={passage} /> : <Spinner label="Loading evidence…" />}
-          <button type="button" className="btn btn-ghost" onClick={() => setSelected(null)}>Close</button>
-        </aside>
+                </div>
+              )}
+              {decision?.decision === "approve" ? (
+                <Badge tone="success">Approved</Badge>
+              ) : decision ? (
+                <Badge tone="danger">Rejected</Badge>
+              ) : shown !== latest ? (
+                <Badge>Superseded</Badge>
+              ) : (
+                <Badge>Draft</Badge>
+              )}
+            </div>
+          }
+        >
+          <GenerationNote artifact={artifact} />
+          {shown !== latest && (
+            <p className="banner small" role="status">
+              Earlier version kept for audit. The reviewer flagged the highlighted claims; v{latest} is current.
+            </p>
+          )}
+          {report.sections.map((section) => (
+            <section key={section.section_id} className="report-section">
+              <h3>{section.title}</h3>
+              <ul className="claims">
+                {section.claims.map((claim) => {
+                  const flag = flags.get(claim.claim_id);
+                  return (
+                    <li
+                      key={claim.claim_id}
+                      id={`claim-${claim.claim_id}`}
+                      className={`claim${flag ? ` flag-${flag}` : ""}${focused === claim.claim_id ? " focused" : ""}`}
+                      data-flag={flag}
+                    >
+                      <Badge tone={CLAIM_KIND_TONES[claim.kind]}>{CLAIM_KIND_LABELS[claim.kind]}</Badge>
+                      <span className="claim-text">{claim.text}</span>
+                      {flag && <Badge tone={SEVERITY_TONES[flag]}>{`Reviewer: ${flag}`}</Badge>}
+                      {claim.evidence_ids.map((id, i) => (
+                        <button
+                          key={id}
+                          type="button"
+                          className={`cite ${selected === id ? "active" : ""}`}
+                          aria-label={`Show evidence ${id}`}
+                          onClick={() => setSelected(selected === id ? null : id)}
+                        >
+                          [{i + 1}]
+                        </button>
+                      ))}
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          ))}
+          <ExportControls runId={run.id} version={shown} approved={decision?.decision === "approve"} />
+        </Card>
+        {selected && (
+          <aside className="card evidence-panel" aria-label="Cited evidence">
+            {passage ? <EvidenceItem item={passage} /> : <Spinner label="Loading evidence…" />}
+            <button type="button" className="btn btn-ghost" onClick={() => setSelected(null)}>Close</button>
+          </aside>
+        )}
+      </div>
+      <ReviewPanel rounds={reviews.data ?? []} shown={shown} onShowClaim={showClaim} />
+    </div>
+  );
+}
+
+const SEVERITY_ORDER: Severity[] = ["blocker", "major", "minor"];
+
+function claimFlags(findings: ReviewFinding[]): Map<string, Severity> {
+  const flags = new Map<string, Severity>();
+  for (const finding of findings) {
+    for (const id of finding.claim_ids) {
+      const current = flags.get(id);
+      if (!current || SEVERITY_ORDER.indexOf(finding.severity) < SEVERITY_ORDER.indexOf(current)) {
+        flags.set(id, finding.severity);
+      }
+    }
+  }
+  return flags;
+}
+
+function ExportControls({ runId, version, approved }: { runId: string; version: number; approved: boolean }) {
+  const exporter = useExportReport(runId);
+  return (
+    <div className="export-controls stack">
+      <div className="row wrap">
+        <button type="button" className="btn btn-secondary" disabled={exporter.isPending} onClick={() => exporter.mutate(version)}>
+          {approved ? `Download approved report (v${version})` : `Download draft (v${version})`}
+        </button>
+        <span className="small muted">
+          {approved
+            ? "Markdown with approver, time, and digest."
+            : "Markdown watermarked “DRAFT - NOT APPROVED” until a reviewer approves this version."}
+        </span>
+      </div>
+      {exporter.isError && <ErrorBanner error={exporter.error} title="Export failed" />}
+      {exporter.data && (
+        <p className="small muted" role="status" data-testid="export-status">
+          Saved {exporter.data.filename} ({exporter.data.kind}) · sha256{" "}
+          <code title={exporter.data.sha256 ?? ""}>{(exporter.data.sha256 ?? "").slice(0, 12)}…</code>
+        </p>
       )}
     </div>
+  );
+}
+
+function ReviewPanel({
+  rounds,
+  shown,
+  onShowClaim,
+}: {
+  rounds: ReviewRound[];
+  shown: number;
+  onShowClaim: (version: number, claimId: string) => void;
+}) {
+  if (!rounds.length) return null;
+  return (
+    <Card title="Review" className="review-card">
+      <p className="small muted">
+        Automatic checks verify that figures and wording appear in the cited passages; a model reviewer (when
+        configured) checks meaning. Neither replaces your judgement: they only decide whether the writer revises.
+      </p>
+      <ol className="review-rounds">
+        {rounds.map((round) => (
+          <li key={round.report_version} className="review-round" aria-current={round.report_version === shown}>
+            <header>
+              <strong>Round {round.review_round}</strong>
+              <span className="muted small">report v{round.report_version} · {formatDateTime(round.reviewed_at)}</span>
+              <Badge tone={round.outcome === "pass" ? "success" : "warning"}>
+                {REVIEW_OUTCOMES[round.outcome] ?? round.outcome}
+              </Badge>
+            </header>
+            {round.findings.length === 0 ? (
+              <p className="small muted">No findings.</p>
+            ) : (
+              <ul className="findings">
+                {round.findings.map((finding) => (
+                  <li key={finding.finding_id} className="finding" data-testid="finding">
+                    <div className="row wrap small">
+                      <Badge tone={SEVERITY_TONES[finding.severity]}>{finding.severity}</Badge>
+                      <span>{finding.category.replaceAll("_", " ")}</span>
+                      <span className="muted">
+                        · {finding.source === "deterministic" ? "automatic check" : "model reviewer"}
+                      </span>
+                    </div>
+                    <p>{finding.requested_action}</p>
+                    {finding.claim_ids.length > 0 && (
+                      <p className="small">
+                        Claims:{" "}
+                        {finding.claim_ids.map((id, i) => (
+                          <span key={id}>
+                            {i > 0 && ", "}
+                            <button type="button" className="link-button" onClick={() => onShowClaim(round.report_version, id)}>
+                              {id}
+                            </button>
+                          </span>
+                        ))}
+                      </p>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </li>
+        ))}
+      </ol>
+    </Card>
   );
 }
 
@@ -377,9 +575,9 @@ function CostCard({ runId }: { runId: string }) {
         <span style={{ width: `${percent}%` }} />
       </div>
       <p className="small">
-        <strong>{money(u.committed)}</strong> of {money(u.budget)} committed ? reconciled {money(u.reconciled)}
-        {Number(u.outstanding) > 0 && <> ? in flight {money(u.outstanding)}</>}
-        {Number(u.uncertain) > 0 && <> ? uncertain {money(u.uncertain)}</>}
+        <strong>{money(u.committed)}</strong> of {money(u.budget)} committed · reconciled {money(u.reconciled)}
+        {Number(u.outstanding) > 0 && <> · in flight {money(u.outstanding)}</>}
+        {Number(u.uncertain) > 0 && <> · uncertain {money(u.uncertain)}</>}
       </p>
       {u.lines.length > 0 && (
         <table className="table compact">

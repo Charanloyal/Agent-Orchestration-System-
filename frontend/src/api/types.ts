@@ -148,6 +148,37 @@ export type RunEvent = {
   created_at: string;
 };
 
+export type Severity = "blocker" | "major" | "minor";
+
+export type ReviewFinding = {
+  finding_id: string;
+  severity: Severity;
+  category: string;
+  source: "deterministic" | "model";
+  claim_ids: string[];
+  evidence_ids: string[];
+  requested_action: string;
+};
+
+export type ReviewRound = {
+  report_version: number;
+  review_round: number;
+  outcome: "pass" | "revise" | "insufficient_evidence";
+  next: string;
+  reviewed_at: string;
+  findings: ReviewFinding[];
+};
+
+export type ExportRecord = {
+  id: string;
+  report_version: number;
+  report_digest: string;
+  kind: "approved" | "draft";
+  content_sha256: string;
+  created_by: string;
+  created_at: string;
+};
+
 export type Evidence = {
   evidence_id: string;
   task_id: string;

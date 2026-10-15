@@ -198,6 +198,14 @@ AOS_TAVILY_API_KEY=<key>
 
 Opt-in live smoke test (one small planner call): `$env:AOS_LIVE_TESTS="1"; .\.venv\Scripts\python.exe -m pytest -m live -s tests/live`.
 
+### Seeing the reviewer work without a model
+
+With the default fake agents, put `(demo: unsupported claim)` anywhere in a brief's topic.
+Report v1 then contains one fabricated figure. The deterministic check flags it as a
+blocker, the writer revises, and round 2 passes. The **Review** panel shows the finding and
+can jump to the flagged claim in v1. Use **Download draft** or **Download approved report**
+on the Report tab for the Markdown export ([ADR 0014](docs/decisions/0014-writer-reviewer-export.md)).
+
 ## Corporate proxies and package mirrors
 
 `pip` and `npm` cannot authenticate to NTLM/Kerberos proxies. If installs fail with

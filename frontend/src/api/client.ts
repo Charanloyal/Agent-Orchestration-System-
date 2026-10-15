@@ -86,3 +86,51 @@ export async function api<T>(path: string, options: RequestOptions = {}): Promis
 export function newIdempotencyKey(): string {
   return crypto.randomUUID();
 }
+
+export type Download = { blob: Blob; filename: string; kind: string | null; sha256: string | null };
+
+/** POST that returns a file (CSRF-protected because the server records the export). */
+export async function download(path: string): Promise<Download> {
+  const headers: Record<string, string> = { Accept: "text/markdown, application/json" };
+  if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
+  let response: Response;
+  try {
+    response = await fetch(path, { method: "POST", headers, credentials: "same-origin" });
+  } catch {
+    throw new ApiError(0, "network_error", "Could not reach the server.", null);
+  }
+  if (!response.ok) {
+    let error: { code?: string; message?: string; request_id?: string } | undefined;
+    try {
+      error = ((await response.json()) as { error?: typeof error }).error;
+    } catch {
+      error = undefined;
+    }
+    throw new ApiError(
+      response.status,
+      error?.code ?? "http_error",
+      error?.message ?? `Download failed (HTTP ${response.status}).`,
+      error?.request_id ?? response.headers.get("x-request-id"),
+    );
+  }
+  const disposition = response.headers.get("content-disposition") ?? "";
+  const filename = /filename="([^"]+)"/.exec(disposition)?.[1] ?? "report.md";
+  return {
+    blob: await response.blob(),
+    filename,
+    kind: response.headers.get("x-export-kind"),
+    sha256: response.headers.get("x-content-sha256"),
+  };
+}
+
+/** Hand a blob to the browser as a file download. */
+export function saveBlob(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}

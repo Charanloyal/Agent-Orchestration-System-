@@ -12,7 +12,12 @@ describe("describeEvent", () => {
     [event("decision_recorded", { kind: "report", version: 1, decision: "reject", role: "reviewer" }),
       "Report v1 rejected by reviewer"],
     [event("report_drafted", { version: 1, claims: 5, citations: 7 }), "Report v1 drafted: 5 claims, 7 citations"],
-    [event("review_completed", { round: 2, outcome: "insufficient_evidence" }), "Review round 2: insufficient evidence"],
+    [event("review_completed", { round: 2, report_version: 2, outcome: "insufficient_evidence", findings: {} }),
+      "Review round 2 of report v2: more evidence needed"],
+    [event("review_completed", { round: 1, report_version: 1, outcome: "revise",
+                                 findings: { blocker: 1, major: 0, minor: 2 } }),
+      "Review round 1 of report v1: revision requested (1 blocker, 2 minor)"],
+    [event("report_exported", { version: 3, kind: "approved" }), "Report v3 exported as approved Markdown"],
     [event("something_new", {}), "something new"],
   ])("describes %o", (input, expected) => {
     expect(describeEvent(input)).toBe(expected);

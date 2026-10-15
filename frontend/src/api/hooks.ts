@@ -1,14 +1,17 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
-import { api, ApiError, setCsrfToken } from "./client";
+import { api, ApiError, download, saveBlob, setCsrfToken } from "./client";
 import type {
   Artifact,
   BriefInput,
   Decision,
   Evidence,
+  ExportRecord,
   Me,
   PlanBody,
+  ReportBody,
+  ReviewRound,
   RunDetail,
   RunEvent,
   RunSummary,
@@ -134,6 +137,43 @@ export function useUsage(runId: string) {
   });
 }
 
+export function useReviews(runId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ["reviews", runId],
+    queryFn: () => api<ReviewRound[]>(`/api/v1/runs/${runId}/reviews`),
+    enabled,
+  });
+}
+
+export function useReportVersion(runId: string, version: number | null) {
+  return useQuery({
+    queryKey: ["report-version", runId, version],
+    queryFn: () => api<Artifact<ReportBody>>(`/api/v1/reports/${runId}/versions/${version}`),
+    enabled: version !== null,
+    staleTime: Infinity, // versions are immutable
+  });
+}
+
+export function useExports(runId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ["exports", runId],
+    queryFn: () => api<ExportRecord[]>(`/api/v1/runs/${runId}/exports`),
+    enabled,
+  });
+}
+
+export function useExportReport(runId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (version: number) => {
+      const file = await download(`/api/v1/reports/${runId}/versions/${version}/export`);
+      saveBlob(file.blob, file.filename);
+      return file;
+    },
+    onSettled: () => client.invalidateQueries({ queryKey: ["exports", runId] }),
+  });
+}
+
 export function useEditPlan(runId: string) {
   const client = useQueryClient();
   return useMutation({
@@ -206,6 +246,7 @@ export function useRunEvents(runId: string): { events: RunEvent[]; status: Strea
         if (pending.has("run")) {
           void client.invalidateQueries({ queryKey: keys.run(runId) });
           void client.invalidateQueries({ queryKey: ["usage", runId] });
+          void client.invalidateQueries({ queryKey: ["reviews", runId] });
         }
         if (pending.has("evidence")) {
           void client.invalidateQueries({ queryKey: keys.evidence(runId) });
