@@ -1,0 +1,8 @@
+{
+  "doc_id": "keycloak-oidc",
+  "url": "https://www.keycloak.org/docs/latest/server_admin/",
+  "title": "Keycloak server administration (paraphrase)",
+  "published_on": null,
+  "text": "Keycloak is an open-source identity provider that implements OpenID Connect, including the authorization code flow with PKCE for public clients. Administrators configure SSO session idle and maximum lifetimes and access token lifespans per realm. Keycloak is self-hosted, so it has no vendor free-tier limits; the operator provides the infrastructure.",
+  "attribution": "Synthetic paraphrase written for the AOS evaluation corpus v1; not verbatim. Verify at the URL."
+}

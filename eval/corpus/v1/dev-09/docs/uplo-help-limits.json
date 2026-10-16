@@ -1,0 +1,8 @@
+{
+  "doc_id": "uplo-help-limits",
+  "url": "https://help.uplo.example/articles/upload-limits",
+  "title": "Uplo help center: upload limits",
+  "published_on": "2026-06-18",
+  "text": "Help center: On the Free plan you can upload files up to 250 MB each. Files larger than the limit are rejected with an error message. Pro accounts can upload files up to 5 GB.",
+  "attribution": "Fictional document written for the AOS evaluation corpus v1. Product and domain are invented."
+}

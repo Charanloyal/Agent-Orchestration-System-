@@ -1,0 +1,8 @@
+{
+  "doc_id": "flags-config",
+  "url": "https://eng-notes.example/feature-flags/config-files",
+  "title": "Engineering note: feature flags in configuration files",
+  "published_on": "2026-03-02",
+  "text": "Flags stored in configuration files are versioned with the code, so history is auditable through version control. Changing a flag requires a deployment, which makes rollback as slow as a release.",
+  "attribution": "Fictional document written for the AOS evaluation corpus v1. Product and domain are invented."
+}

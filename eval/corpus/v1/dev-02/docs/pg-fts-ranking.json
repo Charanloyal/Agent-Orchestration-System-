@@ -1,0 +1,8 @@
+{
+  "doc_id": "pg-fts-ranking",
+  "url": "https://www.postgresql.org/docs/current/textsearch-controls.html",
+  "title": "PostgreSQL ranking search results (paraphrase)",
+  "published_on": null,
+  "text": "PostgreSQL provides the ranking functions ts_rank and ts_rank_cd. Parts of a document can be given different weights with setweight, for example to rank title matches above body matches. The documentation notes that ranking can be expensive because it must consult the tsvector of each matching document. Fuzzy, typo-tolerant matching is not part of full text search; the separate pg_trgm extension provides trigram similarity.",
+  "attribution": "Synthetic paraphrase written for the AOS evaluation corpus v1; not verbatim. Verify at the URL."
+}

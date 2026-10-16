@@ -1,0 +1,39 @@
+{
+  "case_id": "heldout-05",
+  "split": "heldout",
+  "category": "answerable",
+  "brief": {
+    "topic": "Summarize documented practices for structured logging with request correlation",
+    "audience": "Site reliability engineer",
+    "research_questions": [
+      "What fields do the sources recommend for structured logs?",
+      "How is a request identifier propagated across services?"
+    ],
+    "source_policy": {
+      "allowed_source_types": [
+        "public_web",
+        "vendor_docs"
+      ],
+      "allowed_domains": [],
+      "blocked_domains": []
+    },
+    "output_format": "markdown",
+    "budget": {
+      "currency": "USD",
+      "max_estimated_cost": "1.00"
+    },
+    "limits": {
+      "max_tasks": 4
+    }
+  },
+  "expected": {
+    "outcome": "reviewable_draft",
+    "must_cover": [
+      "Recommended fields cited",
+      "Propagation mechanism cited"
+    ],
+    "must_not": [
+      "Recommending logging secrets or full request bodies"
+    ]
+  }
+}

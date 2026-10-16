@@ -1,0 +1,8 @@
+{
+  "doc_id": "surveyo-export",
+  "url": "https://help.surveyo.example/export",
+  "title": "Surveyo export formats",
+  "published_on": "2026-02-03",
+  "text": "Surveyo exports responses as CSV, XLSX and SPSS files.",
+  "attribution": "Fictional document written for the AOS evaluation corpus v1. Product and domain are invented."
+}

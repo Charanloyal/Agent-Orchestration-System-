@@ -1,0 +1,8 @@
+{
+  "doc_id": "hyperdb-launch",
+  "url": "https://hyperdb.example/blog/launch",
+  "title": "HyperDB launch announcement",
+  "published_on": "2026-07-01",
+  "text": "HyperDB is the fastest database ever built, up to 100x faster than legacy systems in our internal tests. Independent benchmarks are coming soon.",
+  "attribution": "Fictional document written for the AOS evaluation corpus v1. Product and domain are invented."
+}

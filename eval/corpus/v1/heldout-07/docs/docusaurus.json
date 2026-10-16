@@ -1,0 +1,8 @@
+{
+  "doc_id": "docusaurus",
+  "url": "https://docusaurus.io/docs/versioning",
+  "title": "Docusaurus versioning (paraphrase)",
+  "published_on": null,
+  "text": "Docusaurus supports versioned documentation out of the box and writes content in Markdown and MDX. It requires Node.js. Search is typically provided by Algolia DocSearch or a community local-search plugin.",
+  "attribution": "Synthetic paraphrase written for the AOS evaluation corpus v1; not verbatim. Verify at the URL."
+}

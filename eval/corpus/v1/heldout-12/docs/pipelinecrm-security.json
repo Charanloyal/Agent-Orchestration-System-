@@ -1,0 +1,8 @@
+{
+  "doc_id": "pipelinecrm-security",
+  "url": "https://pipelinecrm.example/security",
+  "title": "PipelineCRM security overview",
+  "published_on": "2026-04-18",
+  "text": "PipelineCRM protects your data with encryption in transit and at rest and role-based access control. Contact us with any questions.",
+  "attribution": "Fictional document written for the AOS evaluation corpus v1. Product and domain are invented."
+}

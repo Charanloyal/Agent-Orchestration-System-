@@ -1,0 +1,39 @@
+{
+  "case_id": "heldout-09",
+  "split": "heldout",
+  "category": "conflicting_evidence",
+  "brief": {
+    "topic": "Determine the default session timeout of a synthetic project-management tool",
+    "audience": "IT administrator",
+    "research_questions": [
+      "What is the documented default session timeout?"
+    ],
+    "source_policy": {
+      "allowed_source_types": [
+        "public_web",
+        "vendor_docs"
+      ],
+      "allowed_domains": [],
+      "blocked_domains": []
+    },
+    "output_format": "markdown",
+    "budget": {
+      "currency": "USD",
+      "max_estimated_cost": "1.00"
+    },
+    "limits": {
+      "max_tasks": 3
+    }
+  },
+  "expected": {
+    "outcome": "reviewable_draft",
+    "must_cover": [
+      "Both documented values presented with their sources",
+      "Conflict labelled as a conflict"
+    ],
+    "must_not": [
+      "Choosing one value silently"
+    ],
+    "fixture_notes": "Admin guide says 30 minutes; security FAQ says 8 hours."
+  }
+}

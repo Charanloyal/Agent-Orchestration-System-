@@ -1,0 +1,8 @@
+{
+  "doc_id": "coinly-webhooks",
+  "url": "https://developers.coinly.example/webhooks",
+  "title": "Coinly webhooks",
+  "published_on": "2026-01-25",
+  "text": "Coinly retries a failed webhook every hour for up to 3 days, then marks the event as failed in the dashboard.",
+  "attribution": "Fictional document written for the AOS evaluation corpus v1. Product and domain are invented."
+}

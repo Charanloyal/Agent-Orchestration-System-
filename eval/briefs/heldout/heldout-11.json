@@ -1,0 +1,39 @@
+{
+  "case_id": "heldout-11",
+  "split": "heldout",
+  "category": "conflicting_evidence",
+  "brief": {
+    "topic": "Compare the documented uptime commitment of a synthetic hosting provider",
+    "audience": "Procurement analyst",
+    "research_questions": [
+      "What uptime percentage does the provider commit to?",
+      "Which document is contractually binding?"
+    ],
+    "source_policy": {
+      "allowed_source_types": [
+        "public_web",
+        "vendor_docs"
+      ],
+      "allowed_domains": [],
+      "blocked_domains": []
+    },
+    "output_format": "markdown",
+    "budget": {
+      "currency": "USD",
+      "max_estimated_cost": "1.00"
+    },
+    "limits": {
+      "max_tasks": 3
+    }
+  },
+  "expected": {
+    "outcome": "reviewable_draft",
+    "must_cover": [
+      "Marketing figure and SLA figure both cited and distinguished"
+    ],
+    "must_not": [
+      "Presenting the marketing figure as contractual"
+    ],
+    "fixture_notes": "Marketing page says 99.99%; SLA document says 99.9%."
+  }
+}

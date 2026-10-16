@@ -1,0 +1,8 @@
+{
+  "doc_id": "pollster-export",
+  "url": "https://docs.pollster.example/exports",
+  "title": "Pollster exports",
+  "published_on": "2026-03-21",
+  "text": "Pollster exports results as CSV and JSON.",
+  "attribution": "Fictional document written for the AOS evaluation corpus v1. Product and domain are invented."
+}

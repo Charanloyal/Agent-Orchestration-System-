@@ -1,0 +1,8 @@
+{
+  "doc_id": "metricly-dpa",
+  "url": "https://metricly.example/legal/dpa",
+  "title": "Metricly data processing addendum",
+  "published_on": "2026-02-01",
+  "text": "Customer analytics data is retained for 25 months from the date of collection unless the customer configures a shorter period.",
+  "attribution": "Fictional document written for the AOS evaluation corpus v1. Product and domain are invented."
+}

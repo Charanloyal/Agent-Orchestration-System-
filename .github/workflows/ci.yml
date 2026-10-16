@@ -39,8 +39,8 @@ jobs:
       - run: pip install -r requirements-dev.txt
       - name: Lint
         run: |
-          ruff check app devtools tests scripts migrations/env.py
-          ruff format --check app devtools tests scripts migrations/env.py
+          ruff check app devtools evaluation tests scripts migrations/env.py
+          ruff format --check app devtools evaluation tests scripts migrations/env.py
       - name: Type-check
         run: mypy
       - name: Tests (contracts, schema drift, migrations, authz, OIDC)

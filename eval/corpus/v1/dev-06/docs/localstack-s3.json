@@ -1,0 +1,8 @@
+{
+  "doc_id": "localstack-s3",
+  "url": "https://docs.localstack.cloud/user-guide/aws/s3/",
+  "title": "LocalStack S3 (paraphrase)",
+  "published_on": null,
+  "text": "LocalStack emulates AWS services, including S3, for local development and testing. The community edition is open source under the Apache 2.0 license; additional features require a paid plan. Emulation aims for API compatibility, but behaviour can differ from AWS in edge cases.",
+  "attribution": "Synthetic paraphrase written for the AOS evaluation corpus v1; not verbatim. Verify at the URL."
+}

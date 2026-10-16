@@ -1,0 +1,8 @@
+{
+  "doc_id": "trivy-ci",
+  "url": "https://trivy.dev/latest/docs/",
+  "title": "Trivy documentation (paraphrase)",
+  "published_on": null,
+  "text": "Trivy scans container images for known vulnerabilities and is commonly run in CI after the image is built and before it is pushed or deployed. The exit-code and severity options make the pipeline fail on findings, and --ignore-unfixed skips vulnerabilities that have no fix available yet.",
+  "attribution": "Synthetic paraphrase written for the AOS evaluation corpus v1; not verbatim. Verify at the URL."
+}

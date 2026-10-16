@@ -1,0 +1,8 @@
+{
+  "doc_id": "mapfind-limits",
+  "url": "https://docs.mapfind.example/usage-limits",
+  "title": "MapFind usage limits",
+  "published_on": "2026-01-30",
+  "text": "MapFind allows 600 requests per minute on the standard plan. When the limit is exceeded, the API returns HTTP 429; the documentation recommends waiting one second before retrying.",
+  "attribution": "Fictional document written for the AOS evaluation corpus v1. Product and domain are invented."
+}

@@ -1,0 +1,8 @@
+{
+  "doc_id": "typesense-guide",
+  "url": "https://typesense.org/docs/guide/",
+  "title": "Typesense guide (paraphrase)",
+  "published_on": null,
+  "text": "Typesense is an open-source search engine licensed under GPL-3.0 that can be self-hosted. Requests are authenticated with API keys, including scoped search-only keys. Typesense keeps its index in memory, so the documented operational requirement is enough RAM for the indexed data. High availability is provided by running a cluster of nodes that replicate with the Raft consensus protocol.",
+  "attribution": "Synthetic paraphrase written for the AOS evaluation corpus v1; not verbatim. Verify at the URL."
+}

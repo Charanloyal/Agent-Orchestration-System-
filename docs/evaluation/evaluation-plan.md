@@ -1,7 +1,9 @@
 # Evaluation plan
 
-- **Status:** Plan only. No evaluation has been run, and no quality, latency or cost numbers
-  exist yet.
+- **Status (M11):** harness, corpus, held-out set and blind scoring kit are built ([ADR 0017](../decisions/0017-evaluation-harness.md)).
+  The only results so far are a **fake-agent harness validation** run on the dev split
+  ([eval/results](../../eval/results/README.md)), which is not a quality result. No live-model
+  run and no human scoring has happened yet, so no quality, latency or cost conclusions exist.
 - Targets in the PRD are proposed release gates, not results.
 
 ## Questions the evaluation must answer
@@ -16,8 +18,8 @@
 
 | Split | Count | Location | Status |
 | --- | --- | --- | --- |
-| Development | 20 | [eval/briefs/dev](../../eval/briefs/dev) | Written; validated by `test_contract_schemas.py` |
-| Held-out | 20 | [eval/briefs/heldout](../../eval/briefs/heldout) | **Not written.** Procedure only, to avoid leakage |
+| Development | 20 | [eval/briefs/dev](../../eval/briefs/dev) | Frozen at tag `eval-dev-v1`; validated by `test_contract_schemas.py` |
+| Held-out | 20 | [eval/briefs/heldout](../../eval/briefs/heldout) | Written after the freeze, before prompt tuning, by the system's author (recorded limitation). **Not yet run** |
 
 Each case is an `EvalCase` ([schema](../contracts/eval-case.schema.json)): a `Brief`, a
 category, and expectations. Expectations are a target outcome, `must_cover` coverage points and
@@ -37,9 +39,32 @@ are stored.
 
 The held-out set should use the same mix.
 
-Fixtures for fake providers (synthetic pages, injected failures) follow each case's
-`fixture_notes`. They will be added with the fake search adapter in Week 4–5 and versioned
-alongside the cases.
+Fixtures for the offline corpus (synthetic pages, injected failures, uploads) implement each
+case's `fixture_notes`. They live in [eval/corpus/v1](../../eval/corpus/v1/README.md), are
+hashed in its manifest, and are versioned alongside the cases.
+
+## Running it
+
+From `backend/`, with `AOS_EVAL_DATABASE_URL` pointing at an empty, dedicated database:
+
+```text
+python -m evaluation.run                          # dev split, systems A,B,C, fake agents
+python -m evaluation.run --cases dev-09,dev-17    # a subset
+python -m evaluation.blind ../eval/results/<folder>            # blind scoring kit
+python -m evaluation.score <folder>/scoring <scorerA> <scorerB> # merge two scorers
+```
+
+### Live run checklist (costs money, ADR 0005)
+
+1. The project lead approves a budget in writing, at most USD 10 in total across all runs.
+2. Set `AOS_LLM_API_KEY` (and `AOS_LLM_MODEL` or `AOS_LLM_BASE_URL`) in `backend/.env`.
+   Verify current prices and set `AOS_PRICE_*` and `AOS_PRICE_SCHEDULE_ID` to match.
+3. Start with a smoke run:
+   `python -m evaluation.run --live --budget 0.50 --cases dev-01 --systems A --repeats 1`.
+4. Run the dev split with `--live --budget <approved>`. The harness stops when the estimated
+   spend reaches the budget, and records the spend in `config.json`.
+5. Compare the provider's billing console with `live_spend_usd_estimated`.
+6. Only then, and once, run `--split heldout --confirm-heldout`.
 
 ## Systems compared
 
@@ -47,7 +72,12 @@ alongside the cases.
 | --- | --- | --- |
 | A: Orchestrated | Planner → researchers → writer → reviewer, with at most 2 review rounds | — |
 | B: Single-agent baseline | One agent with the same tools that plans, researches and writes in one loop | Model, source corpus, brief, token/cost ceiling, tool allowlist |
-| C: Reviewer ablation | System A with the reviewer removed (writer output goes straight to human approval) | Same as A |
+| C: Reviewer ablation | System A with the reviewer replaced by a pass-through (writer output goes straight to human approval) | Same as A |
+
+As built (ADR 0017), system B uses a fixed one-task plan, deterministic collection for every
+research question, and a single writer call. Every system passes through the same workflow
+and human gates. In the harness, those gates are answered by a simulated human that always
+approves.
 
 ## Metrics
 

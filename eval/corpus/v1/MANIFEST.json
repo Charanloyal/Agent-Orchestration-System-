@@ -1,0 +1,603 @@
+{
+  "corpus": "v1",
+  "license_note": "All text written for this project; see README.md.",
+  "cases": {
+    "dev-01": {
+      "documents": [
+        {
+          "doc_id": "opensearch-security",
+          "kind": "paraphrase",
+          "sha256": "d2a54200065e933818ffdf6f2952ce5e0a2567856897d6c3310f5d0dfc1c9856"
+        },
+        {
+          "doc_id": "meilisearch-security",
+          "kind": "paraphrase",
+          "sha256": "71c4e1bdc0a114d68f8181d9c26cc5ea7e0f2b070061a25edcb722ab918ac2e0"
+        },
+        {
+          "doc_id": "typesense-guide",
+          "kind": "paraphrase",
+          "sha256": "933282f37b3beec4546dbedcbf722bdcc0e2cb671c5ca35d28220440a280757f"
+        }
+      ],
+      "fixture": false
+    },
+    "dev-02": {
+      "documents": [
+        {
+          "doc_id": "pg-fts-intro",
+          "kind": "paraphrase",
+          "sha256": "ddee8d19795ad311d3cfd64ae726b0d715e44779639a49cdc36c0e28488fcedd"
+        },
+        {
+          "doc_id": "pg-fts-ranking",
+          "kind": "paraphrase",
+          "sha256": "2ca221a5dc562633372f999b0e5a68dc92dc589ea4544f414f9067c61f53cdde"
+        },
+        {
+          "doc_id": "dedicated-engine-ops",
+          "kind": "fictional",
+          "sha256": "4c241a0db18b36004b910a1c3ec7963364eb8ff90a4438cbdfe376e82b5d3dbe"
+        }
+      ],
+      "fixture": false
+    },
+    "dev-03": {
+      "documents": [
+        {
+          "doc_id": "pg-select-locking",
+          "kind": "paraphrase",
+          "sha256": "349c244aeeca3f9df6f193de5f0a114d9fdb3a4b0e23f39aed4c841b5385bb51"
+        },
+        {
+          "doc_id": "pg-explicit-locking",
+          "kind": "paraphrase",
+          "sha256": "eab1a8ac4adb4db4b0040e3651c8eb0200c7e9156ca06d4e3958a0c56383031f"
+        }
+      ],
+      "fixture": false
+    },
+    "dev-04": {
+      "documents": [
+        {
+          "doc_id": "keycloak-oidc",
+          "kind": "paraphrase",
+          "sha256": "12f759331507d95bfb65f21dd98646ca2b878a0535550c806031b751c90b4076"
+        },
+        {
+          "doc_id": "auth0-pkce",
+          "kind": "paraphrase",
+          "sha256": "5282e48200e8ca343646ad050e48baa34370d698b1ebcc25102a01a4a657f24f"
+        },
+        {
+          "doc_id": "entra-tokens",
+          "kind": "paraphrase",
+          "sha256": "01152ca108088fd98abd5b93994d1a11b351926b1b680c610cde8dc1d2922b85"
+        }
+      ],
+      "fixture": false
+    },
+    "dev-05": {
+      "documents": [
+        {
+          "doc_id": "react-markdown-security",
+          "kind": "paraphrase",
+          "sha256": "88db14c4410cb0ae47f52596a2aa1403efd0b97c065451389f173fbda0f20206"
+        },
+        {
+          "doc_id": "dompurify-readme",
+          "kind": "paraphrase",
+          "sha256": "2c2fa10cc79f3ef20c47986203174d4cb4d45316472914e1bdefc2528ffa6c74"
+        },
+        {
+          "doc_id": "markdown-it-security",
+          "kind": "paraphrase",
+          "sha256": "12a6956d6c2dd377e73729056ca7445eeafaaf1a9297a1931f816a550daa4994"
+        }
+      ],
+      "fixture": false
+    },
+    "dev-06": {
+      "documents": [
+        {
+          "doc_id": "minio-overview",
+          "kind": "paraphrase",
+          "sha256": "8d14a4b2134b0be94a336d964168b89fae77b242ef5cc170e4abe06f4799c918"
+        },
+        {
+          "doc_id": "localstack-s3",
+          "kind": "paraphrase",
+          "sha256": "8637b5ee3aa9af7b9b643603e651248c6adc67a0c8332baff8b608370b0777ef"
+        },
+        {
+          "doc_id": "seaweedfs-s3",
+          "kind": "paraphrase",
+          "sha256": "82f3cfb7b589fc10d6b4141a2681e2011a22621737e790a01e31864471106511"
+        }
+      ],
+      "fixture": false
+    },
+    "dev-07": {
+      "documents": [
+        {
+          "doc_id": "html-sse",
+          "kind": "paraphrase",
+          "sha256": "b4bfe58ed9a57b4bf784a3b5be63906973edefc93db5479440ecefc732694f94"
+        },
+        {
+          "doc_id": "frameworks-sse",
+          "kind": "fictional",
+          "sha256": "ad8dfea1509d01071820262a15553b6be458a39f05de1b843e736d0d394f0b0c"
+        }
+      ],
+      "fixture": false
+    },
+    "dev-08": {
+      "documents": [
+        {
+          "doc_id": "pypdf-extract",
+          "kind": "paraphrase",
+          "sha256": "ccb26c84d74da18e1cff9b57b95eaf192502c768b1247e18f8a6a52cd3ceac73"
+        },
+        {
+          "doc_id": "pdfminer-six",
+          "kind": "paraphrase",
+          "sha256": "62949a797ce9afcea939c620b31c87104d80222e94c39b90c84552e3cfc48cbb"
+        }
+      ],
+      "fixture": false
+    },
+    "dev-09": {
+      "documents": [
+        {
+          "doc_id": "uplo-pricing",
+          "kind": "fictional",
+          "sha256": "990c4d5f65e0913bc55090efef255b73822154d4785578e7de4f626dae80d18b"
+        },
+        {
+          "doc_id": "uplo-help-limits",
+          "kind": "fictional",
+          "sha256": "daf32e80cebfbb06d7587837a9ead4ea2ffac290744d0e3fc0ec848e5c853740"
+        }
+      ],
+      "fixture": true
+    },
+    "dev-10": {
+      "documents": [
+        {
+          "doc_id": "pyfoo-readme",
+          "kind": "fictional",
+          "sha256": "f3845f5bee225d4febfb2d8b896070b44996e05c63241c3afd9db488adce4a72"
+        },
+        {
+          "doc_id": "pyfoo-changelog",
+          "kind": "fictional",
+          "sha256": "d9d237e0ae8e5740ecb97a50b709f73b0ef0ae4c251b6b369b1877a5d4cac4d8"
+        }
+      ],
+      "fixture": false
+    },
+    "dev-11": {
+      "documents": [
+        {
+          "doc_id": "metricly-privacy",
+          "kind": "fictional",
+          "sha256": "79857b6ef0875cd70e43ed9a79463571a6841c88246c8b223ccba88c45de35f9"
+        },
+        {
+          "doc_id": "metricly-dpa",
+          "kind": "fictional",
+          "sha256": "ff56d0e3b1e3c1ec75fe7a83da0bc5fdf848b96f21c5f3945e680d4a27ed650c"
+        }
+      ],
+      "fixture": false
+    },
+    "dev-12": {
+      "documents": [
+        {
+          "doc_id": "quotient-pricing",
+          "kind": "fictional",
+          "sha256": "635af06cd0a6546048847f0ff6ae233dd9c6e596f8dd37264bbb183be680b949"
+        }
+      ],
+      "fixture": false
+    },
+    "dev-13": {
+      "documents": [
+        {
+          "doc_id": "hyperdb-launch",
+          "kind": "fictional",
+          "sha256": "78c33638f11cff68e5e6171ab45fa30b10d26a12fffeb386e5ad5289e764f1c2"
+        }
+      ],
+      "fixture": false
+    },
+    "dev-14": {
+      "documents": [
+        {
+          "doc_id": "nimbuscrm-about",
+          "kind": "fictional",
+          "sha256": "a48a44ecb85e35e74538954035d8186c670e23c83239d7b8d5cb2780c1ba160c"
+        }
+      ],
+      "fixture": false
+    },
+    "dev-15": {
+      "documents": [
+        {
+          "doc_id": "findr-limits",
+          "kind": "fictional",
+          "sha256": "df7e6e4850eca9edf64e6b8bfd6ab47244fdbe82afa30a4009516d1025e8e332"
+        },
+        {
+          "doc_id": "seekit-limits",
+          "kind": "fictional",
+          "sha256": "817145aef28ccb9d01d1dd41e84a6677e98afba8df14fb1686991fde83689e8b"
+        },
+        {
+          "doc_id": "blog-search-comparison",
+          "kind": "fictional",
+          "sha256": "8cf44a444ac4f728749c0d50f142ad36b73e2cbf4de859223d8ec1fd68a92f22"
+        }
+      ],
+      "fixture": false
+    },
+    "dev-16": {
+      "documents": [
+        {
+          "doc_id": "buildy-docs-requirements",
+          "kind": "fictional",
+          "sha256": "5c4765d104ba7bf4e56aa7aa3a081dd06084b03a5a17b8ccb5d88abf00939cca"
+        },
+        {
+          "doc_id": "buildy-old-tutorial",
+          "kind": "fictional",
+          "sha256": "cbe784cf74c86145d16aad4dd75ff87a60c2013a1c9a9f70d79d1940b7ab5eab"
+        }
+      ],
+      "fixture": false
+    },
+    "dev-17": {
+      "documents": [
+        {
+          "doc_id": "notely-backup",
+          "kind": "fictional",
+          "sha256": "9c3daf4bb0d7fef9a8eab362614b4027e296fae5890f79b36cc86dbdc9a65cff"
+        },
+        {
+          "doc_id": "jotter-backup",
+          "kind": "fictional",
+          "sha256": "2b311c1dc173e16150d0625fb8bbc420001142eab686070212de92e28a157a34"
+        }
+      ],
+      "fixture": false
+    },
+    "dev-18": {
+      "documents": [],
+      "fixture": true
+    },
+    "dev-19": {
+      "documents": [
+        {
+          "doc_id": "geoplace-limits",
+          "kind": "fictional",
+          "sha256": "244f0db1f0b8952f528c84012530ebf86157b1d4a9b69f6e4be40cdc2fedcf3a"
+        },
+        {
+          "doc_id": "mapfind-limits",
+          "kind": "fictional",
+          "sha256": "49ca1318d0e66d478e7e6bfc24728ae8872c56d105ff772fa9f5fc176347912c"
+        }
+      ],
+      "fixture": true
+    },
+    "dev-20": {
+      "documents": [
+        {
+          "doc_id": "formcraft-a11y",
+          "kind": "fictional",
+          "sha256": "e6f5146d2747e43a3fc8f0500888d8bb5f9c71c676489f37a3689f4e2334383b"
+        },
+        {
+          "doc_id": "quickform-a11y",
+          "kind": "fictional",
+          "sha256": "4dbd8a75ba2a6a5b7c89a14c0ae2fd4de3ccfd2c74eda4b1919293933532b502"
+        }
+      ],
+      "fixture": true
+    },
+    "heldout-01": {
+      "documents": [
+        {
+          "doc_id": "celery-acks",
+          "kind": "paraphrase",
+          "sha256": "43e946f053ad440e300c431792ac2354b97d70a708f2315497ab236e699821dd"
+        },
+        {
+          "doc_id": "rq-docs",
+          "kind": "paraphrase",
+          "sha256": "54084b0ba3462bdbf1c3a2ddc953830e3a8f3040d7c0bec3d41d7c306d1126b7"
+        },
+        {
+          "doc_id": "dramatiq-guide",
+          "kind": "paraphrase",
+          "sha256": "a20877512533e513e29b64b6f680a76e77cea756a5f3a660b07a5f2681971d75"
+        }
+      ],
+      "fixture": false
+    },
+    "heldout-02": {
+      "documents": [
+        {
+          "doc_id": "parallel-change",
+          "kind": "paraphrase",
+          "sha256": "07f3687a32ec5dd79128ac514632e42cbbb46b6fb9da79fe50e3579d265673c0"
+        },
+        {
+          "doc_id": "pg-create-index-concurrently",
+          "kind": "paraphrase",
+          "sha256": "abf20653c231b21b04760ff9c53ed35ff7c18a41079ec701393eaa3ba2116c7d"
+        },
+        {
+          "doc_id": "migration-risks",
+          "kind": "fictional",
+          "sha256": "2cfa2b445f8d06956746fdce927daf94713a2320a529881cd72aa97cb80f123b"
+        }
+      ],
+      "fixture": false
+    },
+    "heldout-03": {
+      "documents": [
+        {
+          "doc_id": "token-bucket",
+          "kind": "fictional",
+          "sha256": "7ee3a3f3e80cd109db2a1b980756beebdfef602105e6942902951bb982f74aea"
+        },
+        {
+          "doc_id": "sliding-window",
+          "kind": "fictional",
+          "sha256": "636b8075efa02f386868d107a2444ff52c12df3648750652447fb2503e349f88"
+        }
+      ],
+      "fixture": false
+    },
+    "heldout-04": {
+      "documents": [
+        {
+          "doc_id": "flags-config",
+          "kind": "fictional",
+          "sha256": "3c129a7e0078486fbb1b9f0e9f2c64316504d50e5a168c13df1e8324c3a2925d"
+        },
+        {
+          "doc_id": "flags-database",
+          "kind": "fictional",
+          "sha256": "2ca1354b8e99fea4dd925b786f0c7d6cda4d2ea923229ccbfb77560cffdee523"
+        },
+        {
+          "doc_id": "flags-hosted",
+          "kind": "fictional",
+          "sha256": "95ed170045d5e46771094484ae63ba4fcb67c15a67d2d7e0f3f1e5f47c2c030e"
+        }
+      ],
+      "fixture": false
+    },
+    "heldout-05": {
+      "documents": [
+        {
+          "doc_id": "w3c-trace-context",
+          "kind": "paraphrase",
+          "sha256": "4f9b6f823da66017bffa075a9a512c8389357640f34d81bfd9723a5fc42dbd8f"
+        },
+        {
+          "doc_id": "structured-logging-fields",
+          "kind": "fictional",
+          "sha256": "55edac1205032f9813cec5298eb08c24f3758cd569c0b5d2badf7a49b19acdea"
+        }
+      ],
+      "fixture": false
+    },
+    "heldout-06": {
+      "documents": [
+        {
+          "doc_id": "pgbouncer-features",
+          "kind": "paraphrase",
+          "sha256": "60a70a4ff503002454169bd08f50fe375ea7291da54f93e8f31d694c575c1ec9"
+        },
+        {
+          "doc_id": "sqlalchemy-pooling",
+          "kind": "paraphrase",
+          "sha256": "de66cac1bd25b64f67fc2e048cfb070db1ae6a15ef3bde9ffb08ee59bb4d4fc7"
+        }
+      ],
+      "fixture": false
+    },
+    "heldout-07": {
+      "documents": [
+        {
+          "doc_id": "mkdocs",
+          "kind": "paraphrase",
+          "sha256": "36a9dce0533748f1e64876bd5ffb582b93be1961262afa28a1888292b02c9af5"
+        },
+        {
+          "doc_id": "docusaurus",
+          "kind": "paraphrase",
+          "sha256": "a946004a1af636293a235f6b0a144f57b426e1d517f4f332d621951fa5385921"
+        },
+        {
+          "doc_id": "sphinx",
+          "kind": "paraphrase",
+          "sha256": "a7df0ab38b05fd592b281a6c40b23dfdb51f0384edae279801128b052ed1382c"
+        }
+      ],
+      "fixture": false
+    },
+    "heldout-08": {
+      "documents": [
+        {
+          "doc_id": "trivy-ci",
+          "kind": "paraphrase",
+          "sha256": "90dd7fa20587c340ed00904b10198207cb5f1a3de5b247f2aaea1f7071fd5468"
+        },
+        {
+          "doc_id": "grype-ci",
+          "kind": "paraphrase",
+          "sha256": "987ee39fdc19df0995f57d9120dab3228fa49a4d16cfcd777181dbfe5e01903b"
+        }
+      ],
+      "fixture": false
+    },
+    "heldout-09": {
+      "documents": [
+        {
+          "doc_id": "tasko-admin-guide",
+          "kind": "fictional",
+          "sha256": "80e9119471b3a70df68f2eb13840c7e9169b4621d0706776b829b4d95beddf99"
+        },
+        {
+          "doc_id": "tasko-security-faq",
+          "kind": "fictional",
+          "sha256": "69c02a7710a4d2c167ac6ead21047a502c1c2c3d7218911ae7a787ce09b9a68a"
+        }
+      ],
+      "fixture": false
+    },
+    "heldout-10": {
+      "documents": [
+        {
+          "doc_id": "watchly-install",
+          "kind": "fictional",
+          "sha256": "bbd9ae049e67b8e975f2a1770bf6bb35b004e121c9bb78ef1bc9453518825fe9"
+        },
+        {
+          "doc_id": "watchly-release-notes",
+          "kind": "fictional",
+          "sha256": "e5ebffa5af56d8f69c3fe3790689adb8e28a4ad632d0e1fb8c13065bd80bf328"
+        }
+      ],
+      "fixture": false
+    },
+    "heldout-11": {
+      "documents": [
+        {
+          "doc_id": "hostnest-marketing",
+          "kind": "fictional",
+          "sha256": "afbc98ca4aed0b82287a5f6b928eb7ddec6ed2d5382373a639465a3610df197d"
+        },
+        {
+          "doc_id": "hostnest-sla",
+          "kind": "fictional",
+          "sha256": "48c3e800af46bf459e522cd1bd860178a269a92498bab9f57f08ba0ea5e4366a"
+        }
+      ],
+      "fixture": false
+    },
+    "heldout-12": {
+      "documents": [
+        {
+          "doc_id": "pipelinecrm-security",
+          "kind": "fictional",
+          "sha256": "4ad27d6920d0082ccabc972115ae3aedb9a8491804616deb1885f3758483c824"
+        }
+      ],
+      "fixture": false
+    },
+    "heldout-13": {
+      "documents": [],
+      "fixture": false
+    },
+    "heldout-14": {
+      "documents": [
+        {
+          "doc_id": "cryptlet-readme",
+          "kind": "fictional",
+          "sha256": "72c4a0fdf2c3fb93cb31d59f24b838719c1c8c342aa4b7e5241fa9a728e93c89"
+        }
+      ],
+      "fixture": false
+    },
+    "heldout-15": {
+      "documents": [
+        {
+          "doc_id": "gatekeep-tls-docs",
+          "kind": "fictional",
+          "sha256": "9be5675f1dac0eb85c086389aa3daac37c7110058caed34322d9700f7269998a"
+        },
+        {
+          "doc_id": "gatekeep-old-blog",
+          "kind": "fictional",
+          "sha256": "d9a02feb49bc172e1418c237005cb700e146e291c7ac544401da0e041346eaa8"
+        }
+      ],
+      "fixture": false
+    },
+    "heldout-16": {
+      "documents": [
+        {
+          "doc_id": "repohub-quotas",
+          "kind": "fictional",
+          "sha256": "b15175f9a91ad3899358ccebfb84175f1e022cbdcad8b3c1831825b896eb0f6b"
+        },
+        {
+          "doc_id": "gitstash-quotas",
+          "kind": "fictional",
+          "sha256": "055d975b9f4d4ecce042e4377938a1306f499872c5e5d35c2348500cbd3c9da7"
+        },
+        {
+          "doc_id": "old-hosting-comparison",
+          "kind": "fictional",
+          "sha256": "cd74bef0b9c786cb647adb3f5f51dcab7bed7ed4aa72742fcb92b6dbb19b5a17"
+        }
+      ],
+      "fixture": false
+    },
+    "heldout-17": {
+      "documents": [
+        {
+          "doc_id": "idpone-passwords",
+          "kind": "fictional",
+          "sha256": "0491d779f41a238d15f2bc15a03b4aa4824de964a345d666e34db5adc70a97c1"
+        },
+        {
+          "doc_id": "authzy-passwords",
+          "kind": "fictional",
+          "sha256": "9b0f04506ce5fb72abfe7c2d12206f35af33a5e9c5ae4db270f10abba5fdd11c"
+        }
+      ],
+      "fixture": false
+    },
+    "heldout-18": {
+      "documents": [],
+      "fixture": true
+    },
+    "heldout-19": {
+      "documents": [
+        {
+          "doc_id": "payflow-webhooks",
+          "kind": "fictional",
+          "sha256": "2bf7e6c4e1bf087a23a8c41535a40afe04b4a34bb5d189cc86815c4b8326819e"
+        },
+        {
+          "doc_id": "coinly-webhooks",
+          "kind": "fictional",
+          "sha256": "2e1219d0a52fed8d1c31d0c803b79d33175fdcf32ad6b3ac5243534a420d5032"
+        }
+      ],
+      "fixture": true
+    },
+    "heldout-20": {
+      "documents": [
+        {
+          "doc_id": "surveyo-export",
+          "kind": "fictional",
+          "sha256": "ed3e3c753b98347b8af5aa8d05af5b8d10bdf53615c6b41972f0197e465c1157"
+        },
+        {
+          "doc_id": "pollster-export",
+          "kind": "fictional",
+          "sha256": "dc57a993f2dbaf612b842b8068438d30e03c7232344047d24127a9c5b95c9ba1"
+        }
+      ],
+      "fixture": true
+    }
+  }
+}

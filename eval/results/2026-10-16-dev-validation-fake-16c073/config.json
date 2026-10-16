@@ -1,0 +1,60 @@
+{
+  "run_tag": "2026-10-16-dev-validation-fake-16c073",
+  "label": "FAKE-AGENT HARNESS VALIDATION: not a quality result",
+  "started_at": "2026-10-16T06:21:17.780988+00:00",
+  "finished_at": "2026-10-16T06:21:54.355908+00:00",
+  "git": {
+    "commit": "e8261f901e38f94f28659b32372a84a115e1458e",
+    "dirty": true
+  },
+  "python": "3.14.7",
+  "split": "dev",
+  "systems": {
+    "A": "orchestrated: planner, parallel researchers, writer, reviewer",
+    "B": "single-agent baseline: fixed collection plan, one writer call, no reviewer",
+    "C": "reviewer ablation: system A with a pass-through reviewer"
+  },
+  "case_ids": [
+    "dev-01",
+    "dev-02",
+    "dev-03",
+    "dev-04",
+    "dev-05",
+    "dev-06",
+    "dev-07",
+    "dev-08",
+    "dev-09",
+    "dev-10",
+    "dev-11",
+    "dev-12",
+    "dev-13",
+    "dev-14",
+    "dev-15",
+    "dev-16",
+    "dev-17",
+    "dev-18",
+    "dev-19",
+    "dev-20"
+  ],
+  "repeats": 3,
+  "repeat_case_ids": [
+    "dev-01",
+    "dev-02",
+    "dev-03",
+    "dev-04",
+    "dev-05"
+  ],
+  "corpus_manifest_sha256": "967f7c066fa5f74d9cf3ed93cb97300417f1de1f3264af54ba16dc717da6e5ea",
+  "settings": {
+    "agent_mode": "fake",
+    "llm_model": null,
+    "llm_base_url": null,
+    "search_provider": "corpus (eval/corpus/v1, per-case folders)",
+    "price_schedule_id": "configured-2026-10",
+    "job_max_attempts": 5
+  },
+  "simulated_human": "Plan and report approvals are given automatically by the harness.",
+  "live_budget_usd": null,
+  "live_spend_usd_estimated": "0.000000",
+  "stopped_early": null
+}

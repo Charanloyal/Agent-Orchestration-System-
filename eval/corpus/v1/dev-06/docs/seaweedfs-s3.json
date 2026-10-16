@@ -1,0 +1,8 @@
+{
+  "doc_id": "seaweedfs-s3",
+  "url": "https://github.com/seaweedfs/seaweedfs/wiki/Amazon-S3-API",
+  "title": "SeaweedFS S3 API (paraphrase)",
+  "published_on": null,
+  "text": "SeaweedFS is a distributed file system under the Apache 2.0 license with an S3-compatible gateway. Its wiki lists the supported S3 API operations, which are a subset of the full Amazon S3 API.",
+  "attribution": "Synthetic paraphrase written for the AOS evaluation corpus v1; not verbatim. Verify at the URL."
+}

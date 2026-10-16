@@ -1,0 +1,38 @@
+{
+  "case_id": "heldout-20",
+  "split": "heldout",
+  "category": "provider_failure",
+  "brief": {
+    "topic": "Summarize documented export formats of two synthetic survey tools",
+    "audience": "Data analyst",
+    "research_questions": [
+      "Which export formats does each tool document?"
+    ],
+    "source_policy": {
+      "allowed_source_types": [
+        "public_web",
+        "vendor_docs"
+      ],
+      "allowed_domains": [],
+      "blocked_domains": []
+    },
+    "output_format": "markdown",
+    "budget": {
+      "currency": "USD",
+      "max_estimated_cost": "1.00"
+    },
+    "limits": {
+      "max_tasks": 3
+    }
+  },
+  "expected": {
+    "outcome": "failed_safely",
+    "must_cover": [
+      "Run ends failed or needs attention with a visible provider error"
+    ],
+    "must_not": [
+      "A report containing invented content after the model failed"
+    ],
+    "fixture_notes": "Model provider times out on every call."
+  }
+}

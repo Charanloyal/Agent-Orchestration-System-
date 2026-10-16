@@ -1,0 +1,8 @@
+{
+  "doc_id": "migration-risks",
+  "url": "https://eng-notes.example/zero-downtime-migrations",
+  "title": "Engineering note: zero-downtime migration risks",
+  "published_on": "2026-02-25",
+  "text": "Zero-downtime migrations require application code that works with both the old and new schema during the rollout. Long-running data backfills should run in batches to avoid long locks, and every step needs a tested rollback.",
+  "attribution": "Fictional document written for the AOS evaluation corpus v1. Product and domain are invented."
+}

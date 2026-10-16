@@ -1,0 +1,8 @@
+{
+  "doc_id": "flags-hosted",
+  "url": "https://eng-notes.example/feature-flags/hosted-services",
+  "title": "Engineering note: hosted feature flag services",
+  "published_on": "2026-03-04",
+  "text": "Hosted services provide targeting rules, audit logs and instant rollback through a dashboard. They add a vendor dependency, and flag evaluation must keep working if the service is unreachable.",
+  "attribution": "Fictional document written for the AOS evaluation corpus v1. Product and domain are invented."
+}

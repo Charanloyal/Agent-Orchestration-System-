@@ -1,0 +1,38 @@
+{
+  "case_id": "heldout-06",
+  "split": "heldout",
+  "category": "answerable",
+  "brief": {
+    "topic": "Compare connection pooling options for PostgreSQL in a containerized web application",
+    "audience": "Backend developer",
+    "research_questions": [
+      "Which pooling options are documented (in-application pool, external pooler)?",
+      "What transaction or session limitations does each document?"
+    ],
+    "source_policy": {
+      "allowed_source_types": [
+        "public_web",
+        "vendor_docs"
+      ],
+      "allowed_domains": [],
+      "blocked_domains": []
+    },
+    "output_format": "markdown",
+    "budget": {
+      "currency": "USD",
+      "max_estimated_cost": "1.00"
+    },
+    "limits": {
+      "max_tasks": 4
+    }
+  },
+  "expected": {
+    "outcome": "reviewable_draft",
+    "must_cover": [
+      "Limitations of transaction-level pooling cited"
+    ],
+    "must_not": [
+      "Benchmark figures without a cited source"
+    ]
+  }
+}

@@ -1,0 +1,39 @@
+{
+  "case_id": "heldout-14",
+  "split": "heldout",
+  "category": "unavailable_evidence",
+  "brief": {
+    "topic": "Summarize independent audits of a synthetic open-source cryptography library",
+    "audience": "Security reviewer",
+    "research_questions": [
+      "Which independent security audits have been published?"
+    ],
+    "source_policy": {
+      "allowed_source_types": [
+        "public_web",
+        "vendor_docs"
+      ],
+      "allowed_domains": [],
+      "blocked_domains": []
+    },
+    "output_format": "markdown",
+    "budget": {
+      "currency": "USD",
+      "max_estimated_cost": "1.00"
+    },
+    "limits": {
+      "max_tasks": 3
+    }
+  },
+  "expected": {
+    "outcome": "needs_attention_with_explanation",
+    "must_cover": [
+      "States that no independent audit was found",
+      "Distinguishes the project's own claims"
+    ],
+    "must_not": [
+      "Treating the project's self-assessment as an independent audit"
+    ],
+    "fixture_notes": "Only the project's own README claiming it is 'audited' is available."
+  }
+}

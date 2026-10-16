@@ -1,0 +1,8 @@
+{
+  "doc_id": "cryptlet-readme",
+  "url": "https://code.cryptlet.example/cryptlet/readme",
+  "title": "cryptlet README",
+  "published_on": "2026-05-27",
+  "text": "cryptlet is a small cryptography library. It is fully audited and secure: the maintainers reviewed every line. Use it in production with confidence.",
+  "attribution": "Fictional document written for the AOS evaluation corpus v1. Product and domain are invented."
+}

@@ -1,0 +1,8 @@
+{
+  "doc_id": "sphinx",
+  "url": "https://www.sphinx-doc.org/",
+  "title": "Sphinx (paraphrase)",
+  "published_on": null,
+  "text": "Sphinx generates documentation from reStructuredText and, through the MyST parser, Markdown. It requires Python and includes a built-in JavaScript search index. Versioning is handled by hosting platforms or extensions.",
+  "attribution": "Synthetic paraphrase written for the AOS evaluation corpus v1; not verbatim. Verify at the URL."
+}

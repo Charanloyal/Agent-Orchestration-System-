@@ -1,0 +1,8 @@
+{
+  "doc_id": "watchly-release-notes",
+  "url": "https://docs.watchly.example/releases/3.4",
+  "title": "Watchly agent 3.4 release notes",
+  "published_on": "2026-06-01",
+  "text": "ARM64 Linux support remains experimental and is not recommended for production.",
+  "attribution": "Fictional document written for the AOS evaluation corpus v1. Product and domain are invented."
+}

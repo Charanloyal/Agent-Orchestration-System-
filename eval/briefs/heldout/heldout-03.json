@@ -1,0 +1,40 @@
+{
+  "case_id": "heldout-03",
+  "split": "heldout",
+  "category": "answerable",
+  "brief": {
+    "topic": "Compare token bucket and sliding window algorithms for API rate limiting",
+    "audience": "API developer",
+    "research_questions": [
+      "How does each algorithm work?",
+      "What burst behaviour does each allow?",
+      "What storage does each need in a multi-instance deployment?"
+    ],
+    "source_policy": {
+      "allowed_source_types": [
+        "public_web",
+        "vendor_docs"
+      ],
+      "allowed_domains": [],
+      "blocked_domains": []
+    },
+    "output_format": "markdown",
+    "budget": {
+      "currency": "USD",
+      "max_estimated_cost": "1.00"
+    },
+    "limits": {
+      "max_tasks": 5
+    }
+  },
+  "expected": {
+    "outcome": "reviewable_draft",
+    "must_cover": [
+      "Burst behaviour per algorithm cited",
+      "Multi-instance storage requirement"
+    ],
+    "must_not": [
+      "Claiming one algorithm is universally better without evidence"
+    ]
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "doc_id": "pyfoo-readme",
+  "url": "https://code.pyfoo.example/pyfoo/readme",
+  "title": "pyfoo README",
+  "published_on": "2025-11-20",
+  "text": "pyfoo is a small library for parsing configuration files. Supported Python versions: 3.10, 3.11, 3.12 and 3.13. Install with pip.",
+  "attribution": "Fictional document written for the AOS evaluation corpus v1. Product and domain are invented."
+}

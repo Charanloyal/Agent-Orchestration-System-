@@ -1,0 +1,8 @@
+{
+  "doc_id": "rq-docs",
+  "url": "https://python-rq.org/docs/",
+  "title": "RQ documentation (paraphrase)",
+  "published_on": null,
+  "text": "RQ (Redis Queue) is a simple library for queueing jobs that requires a Redis server. Workers fetch jobs from queues and record failed jobs in a failed job registry for inspection and requeueing.",
+  "attribution": "Synthetic paraphrase written for the AOS evaluation corpus v1; not verbatim. Verify at the URL."
+}

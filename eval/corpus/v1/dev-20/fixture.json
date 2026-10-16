@@ -1,0 +1,5 @@
+{
+  "model_fault": {
+    "kind": "http_500"
+  }
+}

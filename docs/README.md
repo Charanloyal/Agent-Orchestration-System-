@@ -15,7 +15,8 @@
 | **M8: writer, reviewer loop, export** | **Done** | ADR 0014; `test_review_export.py`, `e2e/workflow.spec.ts` |
 | **M9: recovery and cancellation** | **Done** | ADR 0015; `test_cancel_retry.py`, 10-scenario crash suite in `test_worker_recovery.py` |
 | **M10: observability and cost operations** | **Done** | ADR 0016; `test_observability.py`, [operations/](operations/) |
-| M11–M16 | Not started | see the plan in [handoff.md](handoff.md) |
+| **M11: evaluation harness** | **Done** (fake-agent validation only; live run awaits a key and budget approval) | ADR 0017; `test_evaluation.py`, [eval/results](../eval/results/README.md) |
+| M12–M16 | Not started | see the plan in [handoff.md](handoff.md) |
 
 ### Implemented behavior (verified by tests)
 
@@ -43,6 +44,13 @@
   - Version- and digest-bound decisions.
   - Persisted timeline with SSE replay.
   - Evidence with provenance.
+- **Evaluation (M11):**
+  - Dev set frozen (`eval-dev-v1`); 20 held-out briefs written, not yet run.
+  - Offline corpus v1: 80 labelled synthetic documents with executable fixtures.
+  - Harness for systems A/B/C on the real workflow, with automated metrics and Wilson
+    intervals.
+  - Blind human-scoring kit with two-scorer agreement.
+  - One fake-agent harness-validation run (not a quality result).
 - **Observability (M10):**
   - OpenTelemetry traces with allowlisted, redacted attributes.
   - Prometheus `/metrics` with database-derived workflow gauges.
@@ -79,8 +87,8 @@
 
 ### Not implemented yet
 
-- Evaluation runs, retention/deletion, load tests. All four agents are LLM-backed when
-  `AOS_AGENT_MODE=llm`; fakes are the default.
+- Live evaluation runs and human scoring, retention/deletion, load tests. All four agents are
+  LLM-backed when `AOS_AGENT_MODE=llm`; fakes are the default.
 
 ## Product and planning
 
@@ -113,6 +121,7 @@
 | [0014](decisions/0014-writer-reviewer-export.md) | Writer, reviewer loop, persisted findings, report export | Accepted |
 | [0015](decisions/0015-cancel-retry-recovery.md) | Cancellation, retry, reaper, segment deadlines, crash suite | Accepted |
 | [0016](decisions/0016-observability-rate-limits.md) | Observability, rate limits, degraded mode, usage views | Accepted |
+| [0017](decisions/0017-evaluation-harness.md) | Evaluation harness, systems A/B/C, offline corpus, blind scoring | Accepted |
 
 ## Session handoff
 

@@ -1,0 +1,8 @@
+{
+  "doc_id": "grype-ci",
+  "url": "https://github.com/anchore/grype",
+  "title": "Grype (paraphrase)",
+  "published_on": null,
+  "text": "Grype scans container images and filesystems for vulnerabilities. It can fail a CI job when findings reach a severity threshold, and the --only-fixed option reports only vulnerabilities that have a fix, so teams can track unfixed findings separately.",
+  "attribution": "Synthetic paraphrase written for the AOS evaluation corpus v1; not verbatim. Verify at the URL."
+}

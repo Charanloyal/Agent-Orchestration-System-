@@ -1,0 +1,8 @@
+{
+  "doc_id": "entra-tokens",
+  "url": "https://learn.microsoft.com/en-us/entra/identity-platform/",
+  "title": "Microsoft identity platform (paraphrase)",
+  "published_on": null,
+  "text": "The Microsoft identity platform supports the OpenID Connect authorization code flow, and recommends PKCE for public clients. Access token lifetime can be configured with token lifetime policies, and session behaviour is governed by Conditional Access sign-in frequency settings.",
+  "attribution": "Synthetic paraphrase written for the AOS evaluation corpus v1; not verbatim. Verify at the URL."
+}

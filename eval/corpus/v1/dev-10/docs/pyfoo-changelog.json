@@ -1,0 +1,8 @@
+{
+  "doc_id": "pyfoo-changelog",
+  "url": "https://code.pyfoo.example/pyfoo/changelog",
+  "title": "pyfoo changelog",
+  "published_on": "2026-04-09",
+  "text": "Release 4.0.0: dropped support for Python 3.10; the minimum supported version is now Python 3.11. Added support for Python 3.14.",
+  "attribution": "Fictional document written for the AOS evaluation corpus v1. Product and domain are invented."
+}

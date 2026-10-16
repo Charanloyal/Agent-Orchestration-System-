@@ -1,0 +1,8 @@
+{
+  "doc_id": "geoplace-limits",
+  "url": "https://developers.geoplace.example/rate-limits",
+  "title": "GeoPlace API rate limits",
+  "published_on": "2026-02-20",
+  "text": "The GeoPlace geocoding API allows 50 requests per second per key. Requests above the limit receive HTTP 429 with a Retry-After header; clients should retry with exponential backoff.",
+  "attribution": "Fictional document written for the AOS evaluation corpus v1. Product and domain are invented."
+}

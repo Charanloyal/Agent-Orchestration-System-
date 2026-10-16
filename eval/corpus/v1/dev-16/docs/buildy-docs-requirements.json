@@ -1,0 +1,8 @@
+{
+  "doc_id": "buildy-docs-requirements",
+  "url": "https://buildy.example/docs/requirements",
+  "title": "Buildy documentation: requirements",
+  "published_on": "2026-05-05",
+  "text": "Buildy 6 requires Node.js 20.19 or later, or Node.js 22.12 or later. Older Node.js releases are not supported.",
+  "attribution": "Fictional document written for the AOS evaluation corpus v1. Product and domain are invented."
+}

@@ -1,0 +1,8 @@
+{
+  "doc_id": "w3c-trace-context",
+  "url": "https://www.w3.org/TR/trace-context/",
+  "title": "W3C Trace Context (paraphrase)",
+  "published_on": null,
+  "text": "The W3C Trace Context specification defines the traceparent HTTP header, which carries a trace identifier and parent span identifier between services so that requests can be correlated across service boundaries.",
+  "attribution": "Synthetic paraphrase written for the AOS evaluation corpus v1; not verbatim. Verify at the URL."
+}

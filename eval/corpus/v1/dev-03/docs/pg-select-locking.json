@@ -1,0 +1,8 @@
+{
+  "doc_id": "pg-select-locking",
+  "url": "https://www.postgresql.org/docs/current/sql-select.html",
+  "title": "PostgreSQL SELECT locking clause (paraphrase)",
+  "published_on": null,
+  "text": "With SKIP LOCKED, rows that cannot be locked immediately are skipped instead of waiting. The documentation says skipping locked rows gives an inconsistent view of the data, so it is not suitable for general-purpose queries, but it can be used to avoid lock contention when several consumers read from a queue-like table. FOR UPDATE locks the selected rows until the transaction ends.",
+  "attribution": "Synthetic paraphrase written for the AOS evaluation corpus v1; not verbatim. Verify at the URL."
+}

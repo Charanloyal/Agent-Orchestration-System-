@@ -1,0 +1,8 @@
+{
+  "doc_id": "minio-overview",
+  "url": "https://min.io/docs/minio/linux/index.html",
+  "title": "MinIO object storage (paraphrase)",
+  "published_on": null,
+  "text": "MinIO is an object store that implements the Amazon S3 API and can run locally as a single binary or container. The community edition is licensed under the GNU AGPLv3. MinIO documents which S3 features are supported; some AWS-specific features are not implemented.",
+  "attribution": "Synthetic paraphrase written for the AOS evaluation corpus v1; not verbatim. Verify at the URL."
+}

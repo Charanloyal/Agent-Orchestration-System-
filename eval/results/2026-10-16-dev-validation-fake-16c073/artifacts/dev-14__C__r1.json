@@ -1,0 +1,41 @@
+{
+  "case_id": "dev-14",
+  "brief": {
+    "topic": "Summarize the security certifications of a synthetic startup with no public trust page",
+    "audience": "Security reviewer",
+    "research_questions": [
+      "Which certifications does the vendor publicly claim?",
+      "Are audit reports publicly referenced?"
+    ],
+    "source_policy": {
+      "allowed_source_types": [
+        "public_web",
+        "vendor_docs"
+      ],
+      "allowed_domains": [],
+      "blocked_domains": [],
+      "date_cutoff": null
+    },
+    "output_format": "markdown",
+    "budget": {
+      "currency": "USD",
+      "max_estimated_cost": "0.75"
+    },
+    "limits": {
+      "max_tasks": 2,
+      "max_parallel_tasks": 2,
+      "max_tool_calls": 60,
+      "max_review_rounds": 2,
+      "deadline_minutes": 60
+    }
+  },
+  "must_cover": [
+    "Unknowns listed as unknowns",
+    "Recommendation to request documentation from vendor"
+  ],
+  "must_not": [
+    "Inferring certifications from company size or marketing language"
+  ],
+  "report": null,
+  "cited_passages": {}
+}

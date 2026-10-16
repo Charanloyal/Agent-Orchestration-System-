@@ -13,6 +13,7 @@ import random
 import signal
 import threading
 import uuid
+from collections.abc import Callable
 from dataclasses import replace
 from types import FrameType
 from typing import Any
@@ -143,6 +144,7 @@ def process_one(
     search: SearchProvider | None = None,
     fetcher: Fetcher | None = None,
     llm: LlmProvider | None = None,
+    agent_factory: Callable[[Settings, RunContext, LlmProvider | None], AgentSuite] | None = None,
 ) -> str:
     settings = settings or get_settings()
     sm = get_sessionmaker()
@@ -158,7 +160,9 @@ def process_one(
         search or build_search(settings),
         fetcher or build_fetcher(settings),
     )
-    ctx.agents = agents or build_agents(settings, ctx, llm)
+    # `agent_factory` lets the evaluation harness build alternative systems (ADR 0017) that
+    # still need the run context, e.g. for budget metering.
+    ctx.agents = agents or (agent_factory or build_agents)(settings, ctx, llm)
     ctx.search = BreakerSearch(MeteredSearch(ctx.search, ctx.meter), settings)
     heartbeat = Heartbeat(ctx)
     heartbeat.start()

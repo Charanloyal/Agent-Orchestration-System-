@@ -1,0 +1,8 @@
+{
+  "doc_id": "pypdf-extract",
+  "url": "https://pypi.org/project/pypdf/",
+  "title": "pypdf on PyPI (paraphrase)",
+  "published_on": null,
+  "text": "pypdf is a pure-Python library that extracts text from PDF pages with extract_text. Encrypted PDFs must be decrypted with the password before reading, and AES encryption needs an additional cryptography dependency. pypdf does not perform optical character recognition, so scanned pages that contain only images yield no text.",
+  "attribution": "Synthetic paraphrase written for the AOS evaluation corpus v1; not verbatim. Verify at the URL."
+}

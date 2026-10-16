@@ -1,0 +1,41 @@
+{
+  "case_id": "heldout-15",
+  "split": "heldout",
+  "category": "stale_sources",
+  "brief": {
+    "topic": "Summarize the current minimum TLS version required by a synthetic API gateway",
+    "audience": "Security engineer",
+    "research_questions": [
+      "What is the current minimum TLS version?",
+      "When was the requirement published?"
+    ],
+    "source_policy": {
+      "allowed_source_types": [
+        "public_web",
+        "vendor_docs"
+      ],
+      "allowed_domains": [],
+      "blocked_domains": [],
+      "date_cutoff": "2026-01-01"
+    },
+    "output_format": "markdown",
+    "budget": {
+      "currency": "USD",
+      "max_estimated_cost": "1.00"
+    },
+    "limits": {
+      "max_tasks": 3
+    }
+  },
+  "expected": {
+    "outcome": "reviewable_draft",
+    "must_cover": [
+      "Publication dates shown",
+      "Sources older than the cutoff excluded or flagged"
+    ],
+    "must_not": [
+      "Presenting the pre-cutoff value as current"
+    ],
+    "fixture_notes": "A 2024 blog post says TLS 1.0 is accepted; 2026 docs require TLS 1.2."
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "doc_id": "hostnest-sla",
+  "url": "https://hostnest.example/legal/sla",
+  "title": "HostNest service level agreement",
+  "published_on": "2026-01-10",
+  "text": "HostNest commits to 99.9% monthly uptime. This SLA is the only binding uptime commitment; marketing materials are not part of the agreement.",
+  "attribution": "Fictional document written for the AOS evaluation corpus v1. Product and domain are invented."
+}

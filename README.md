@@ -20,7 +20,8 @@ backend/                  FastAPI API, workers, agents, contracts, Alembic migra
 backend/devtools/         Local dev OIDC issuer (never used in prod)
 frontend/                 React + TypeScript + Vite single-page app (same-origin API proxy)
 docs/                     Product, evaluation, security and architecture docs; ADRs; JSON Schemas
-eval/                     Evaluation briefs (dev set; held-out procedure)
+eval/                     Evaluation briefs (dev frozen at eval-dev-v1; held-out), offline corpus v1, results
+backend/evaluation/       Evaluation harness: systems A/B/C, metrics, blind scoring kit (ADR 0017)
 spikes/week2_persistence/ Archived Week-2 spike (evidence for ADR 0007/0008)
 docker-compose.yml        Local production-like stack (Postgres, API, dev IdP, web)
 .github/workflows/ci.yml  Lint, type-check, tests on Postgres, frontend build, image builds
@@ -203,6 +204,19 @@ AOS_TAVILY_API_KEY=<key>
 ```
 
 Opt-in live smoke test (one small planner call): `$env:AOS_LIVE_TESTS="1"; .\.venv\Scripts\python.exe -m pytest -m live -s tests/live`.
+
+### Evaluation
+
+From `backend/`, with `AOS_EVAL_DATABASE_URL` set to an empty, dedicated database:
+
+```text
+.\.venv\Scripts\python.exe -m evaluation.run                              # dev split, systems A/B/C, fake agents
+.\.venv\Scripts\python.exe -m evaluation.blind ..\eval\results\<folder>   # blind human-scoring kit
+```
+
+Results go to [eval/results](eval/results/README.md). Live runs (`--live --budget`) and the
+held-out split (`--confirm-heldout`) are guarded; follow the checklist in the
+[evaluation plan](docs/evaluation/evaluation-plan.md#live-run-checklist-costs-money-adr-0005).
 
 ### Seeing the reviewer work without a model
 

@@ -1,0 +1,8 @@
+{
+  "doc_id": "pdfminer-six",
+  "url": "https://pypi.org/project/pdfminer.six/",
+  "title": "pdfminer.six on PyPI (paraphrase)",
+  "published_on": null,
+  "text": "pdfminer.six extracts text from PDF documents and performs layout analysis to recover the reading order of text boxes. It works on PDFs that contain text objects; it does not include OCR for scanned documents.",
+  "attribution": "Synthetic paraphrase written for the AOS evaluation corpus v1; not verbatim. Verify at the URL."
+}

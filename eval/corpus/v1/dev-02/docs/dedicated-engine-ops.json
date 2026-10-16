@@ -1,0 +1,8 @@
+{
+  "doc_id": "dedicated-engine-ops",
+  "url": "https://eng-notes.example/dedicated-search-engines",
+  "title": "Engineering note: operating a dedicated search engine",
+  "published_on": "2026-03-10",
+  "text": "A dedicated search engine is a separate service to deploy, monitor, back up and upgrade. Data must be synchronized from the primary database, usually through change events or periodic reindexing, so search results can lag behind writes. Dedicated engines offer typo tolerance, faceting and relevance tuning out of the box, which is why teams adopt them when product search quality matters more than operational simplicity.",
+  "attribution": "Fictional document written for the AOS evaluation corpus v1. Product and domain are invented."
+}

@@ -1,0 +1,8 @@
+{
+  "doc_id": "frameworks-sse",
+  "url": "https://eng-notes.example/sse-in-frameworks",
+  "title": "Engineering note: SSE in server frameworks",
+  "published_on": "2026-04-01",
+  "text": "Server frameworks generally support server-sent events by streaming a text/event-stream response. Starlette and FastAPI use a streaming response; Node.js servers write the headers and keep the response open. Replay is not automatic: the application must persist events with identifiers and read the Last-Event-ID header to send what the client missed.",
+  "attribution": "Fictional document written for the AOS evaluation corpus v1. Product and domain are invented."
+}

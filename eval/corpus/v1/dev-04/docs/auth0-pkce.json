@@ -1,0 +1,8 @@
+{
+  "doc_id": "auth0-pkce",
+  "url": "https://auth0.com/docs/get-started/authentication-and-authorization-flow",
+  "title": "Auth0 authentication flows (paraphrase)",
+  "published_on": null,
+  "text": "Auth0 documents the authorization code flow with PKCE for single-page and native applications. Token lifetimes, including ID token and refresh token expiration, are configurable in the dashboard. Auth0 publishes a free plan; its user limits are listed on the pricing page and can change.",
+  "attribution": "Synthetic paraphrase written for the AOS evaluation corpus v1; not verbatim. Verify at the URL."
+}

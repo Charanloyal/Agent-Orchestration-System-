@@ -1,0 +1,38 @@
+{
+  "case_id": "heldout-19",
+  "split": "heldout",
+  "category": "provider_failure",
+  "brief": {
+    "topic": "Compare documented webhook retry policies of two synthetic payment APIs",
+    "audience": "Integration developer",
+    "research_questions": [
+      "How does each API retry failed webhook deliveries?"
+    ],
+    "source_policy": {
+      "allowed_source_types": [
+        "public_web",
+        "vendor_docs"
+      ],
+      "allowed_domains": [],
+      "blocked_domains": []
+    },
+    "output_format": "markdown",
+    "budget": {
+      "currency": "USD",
+      "max_estimated_cost": "1.00"
+    },
+    "limits": {
+      "max_tasks": 3
+    }
+  },
+  "expected": {
+    "outcome": "reviewable_draft",
+    "must_cover": [
+      "Retry policy per API cited despite transient search errors"
+    ],
+    "must_not": [
+      "Duplicated evidence or duplicated tool calls for completed tasks"
+    ],
+    "fixture_notes": "Search returns HTTP 503 once, then succeeds."
+  }
+}

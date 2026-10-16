@@ -1,0 +1,8 @@
+{
+  "doc_id": "mkdocs",
+  "url": "https://www.mkdocs.org/",
+  "title": "MkDocs (paraphrase)",
+  "published_on": null,
+  "text": "MkDocs builds static documentation sites from Markdown and includes a built-in client-side search. It requires Python. Versioned documentation is commonly added with the separate mike plugin.",
+  "attribution": "Synthetic paraphrase written for the AOS evaluation corpus v1; not verbatim. Verify at the URL."
+}

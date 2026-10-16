@@ -1,0 +1,38 @@
+{
+  "case_id": "heldout-04",
+  "split": "heldout",
+  "category": "answerable",
+  "brief": {
+    "topic": "Evaluate approaches to feature flag management for a small product team",
+    "audience": "Engineering manager",
+    "research_questions": [
+      "Which feature flag approaches are documented (config files, database, hosted service)?",
+      "What auditing and rollback capabilities are documented?"
+    ],
+    "source_policy": {
+      "allowed_source_types": [
+        "public_web",
+        "vendor_docs"
+      ],
+      "allowed_domains": [],
+      "blocked_domains": []
+    },
+    "output_format": "markdown",
+    "budget": {
+      "currency": "USD",
+      "max_estimated_cost": "1.00"
+    },
+    "limits": {
+      "max_tasks": 4
+    }
+  },
+  "expected": {
+    "outcome": "reviewable_draft",
+    "must_cover": [
+      "Each approach's audit and rollback capability or marked unknown"
+    ],
+    "must_not": [
+      "Vendor pricing without a cited source"
+    ]
+  }
+}

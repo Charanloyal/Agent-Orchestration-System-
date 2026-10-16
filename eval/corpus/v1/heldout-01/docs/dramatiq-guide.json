@@ -1,0 +1,8 @@
+{
+  "doc_id": "dramatiq-guide",
+  "url": "https://dramatiq.io/guide.html",
+  "title": "Dramatiq user guide (paraphrase)",
+  "published_on": null,
+  "text": "Dramatiq processes messages with RabbitMQ or Redis brokers. Messages are acknowledged after the actor finishes, which gives at-least-once delivery; the documentation recommends making actors idempotent. Failed messages are retried with exponential backoff by default.",
+  "attribution": "Synthetic paraphrase written for the AOS evaluation corpus v1; not verbatim. Verify at the URL."
+}

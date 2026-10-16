@@ -1,0 +1,8 @@
+{
+  "doc_id": "jotter-backup",
+  "url": "https://help.jotter.example/backups",
+  "title": "Jotter help: backups",
+  "published_on": "2026-03-28",
+  "text": "Jotter supports manual export to JSON and PDF. Automatic backups are available on paid plans and are kept for 7 days.",
+  "attribution": "Fictional document written for the AOS evaluation corpus v1. Product and domain are invented."
+}

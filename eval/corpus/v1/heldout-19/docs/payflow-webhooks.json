@@ -1,0 +1,8 @@
+{
+  "doc_id": "payflow-webhooks",
+  "url": "https://docs.payflow.example/webhooks/retries",
+  "title": "PayFlow webhook retries",
+  "published_on": "2026-03-12",
+  "text": "PayFlow retries failed webhook deliveries up to 8 times over 24 hours with exponential backoff. Endpoints must return a 2xx status to acknowledge delivery.",
+  "attribution": "Fictional document written for the AOS evaluation corpus v1. Product and domain are invented."
+}

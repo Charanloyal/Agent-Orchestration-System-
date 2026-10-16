@@ -1,0 +1,8 @@
+{
+  "doc_id": "gatekeep-old-blog",
+  "url": "https://blog.cloudtips.example/2024/gatekeep-tls",
+  "title": "Blog: configuring GateKeep TLS",
+  "published_on": "2024-06-30",
+  "text": "GateKeep still accepts TLS 1.0 connections for legacy clients.",
+  "attribution": "Fictional document written for the AOS evaluation corpus v1. Product and domain are invented."
+}

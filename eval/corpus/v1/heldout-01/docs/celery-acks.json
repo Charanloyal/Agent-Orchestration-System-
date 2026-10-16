@@ -1,0 +1,8 @@
+{
+  "doc_id": "celery-acks",
+  "url": "https://docs.celeryq.dev/en/stable/userguide/tasks.html",
+  "title": "Celery tasks guide (paraphrase)",
+  "published_on": null,
+  "text": "Celery runs background tasks with a message broker such as RabbitMQ or Redis. By default a task message is acknowledged just before execution; with acks_late it is acknowledged after the task returns, so a task may run more than once if a worker crashes. Tasks should therefore be idempotent. Operating Celery requires running the broker and the worker processes.",
+  "attribution": "Synthetic paraphrase written for the AOS evaluation corpus v1; not verbatim. Verify at the URL."
+}

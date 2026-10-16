@@ -1,0 +1,8 @@
+{
+  "doc_id": "html-sse",
+  "url": "https://html.spec.whatwg.org/multipage/server-sent-events.html",
+  "title": "HTML standard: server-sent events (paraphrase)",
+  "published_on": null,
+  "text": "When an event stream contains an id field, the user agent stores it as the last event ID. If the connection drops, the EventSource reconnects automatically and sends the stored value in the Last-Event-ID request header, so the server can resume from that point. A retry field sets the reconnection delay in milliseconds.",
+  "attribution": "Synthetic paraphrase written for the AOS evaluation corpus v1; not verbatim. Verify at the URL."
+}

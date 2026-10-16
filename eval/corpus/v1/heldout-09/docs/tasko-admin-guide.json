@@ -1,0 +1,8 @@
+{
+  "doc_id": "tasko-admin-guide",
+  "url": "https://docs.tasko.example/admin/sessions",
+  "title": "Tasko admin guide: sessions",
+  "published_on": "2026-04-02",
+  "text": "By default, Tasko signs users out after 30 minutes of inactivity.",
+  "attribution": "Fictional document written for the AOS evaluation corpus v1. Product and domain are invented."
+}

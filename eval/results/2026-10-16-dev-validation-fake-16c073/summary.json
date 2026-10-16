@@ -1,0 +1,827 @@
+{
+  "A": {
+    "all": {
+      "runs": 30,
+      "outcome_matches_expected": {
+        "successes": 28,
+        "total": 30,
+        "rate": 0.9333333333333333,
+        "ci95": [
+          0.7868,
+          0.9815
+        ]
+      },
+      "operational_failures": {
+        "successes": 0,
+        "total": 30,
+        "rate": 0.0,
+        "ci95": [
+          0.0,
+          0.1135
+        ]
+      },
+      "citation_validity": {
+        "successes": 70,
+        "total": 70,
+        "rate": 1.0,
+        "ci95": [
+          0.948,
+          1.0
+        ]
+      },
+      "fact_claims_passing_automatic_checks_PROXY": {
+        "successes": 42,
+        "total": 42,
+        "rate": 1.0,
+        "ci95": [
+          0.9162,
+          1.0
+        ]
+      },
+      "mechanical_must_not_checks": {
+        "human_gate_not_bypassed": {
+          "successes": 30,
+          "total": 30,
+          "rate": 1.0,
+          "ci95": [
+            0.8865,
+            1.0
+          ]
+        },
+        "no_network_fetch_attempted": {
+          "successes": 30,
+          "total": 30,
+          "rate": 1.0,
+          "ci95": [
+            0.8865,
+            1.0
+          ]
+        },
+        "no_report_after_model_failure": {
+          "successes": 1,
+          "total": 1,
+          "rate": 1.0,
+          "ci95": [
+            0.2065,
+            1.0
+          ]
+        },
+        "no_source_older_than_cutoff_cited": {
+          "successes": 2,
+          "total": 2,
+          "rate": 1.0,
+          "ci95": [
+            0.3424,
+            1.0
+          ]
+        },
+        "no_unsupported_figures_in_final_report": {
+          "successes": 28,
+          "total": 28,
+          "rate": 1.0,
+          "ci95": [
+            0.8794,
+            1.0
+          ]
+        }
+      },
+      "review_rounds_mean": 0.9333333333333333,
+      "revisions_total": 0,
+      "latency_seconds": {
+        "median": 0.27,
+        "p95": 0.372
+      },
+      "cost_usd": {
+        "median": 0.0,
+        "p95": 0.0,
+        "total": 0.0
+      }
+    },
+    "answerable": {
+      "runs": 18,
+      "outcome_matches_expected": {
+        "successes": 18,
+        "total": 18,
+        "rate": 1.0,
+        "ci95": [
+          0.8241,
+          1.0
+        ]
+      },
+      "operational_failures": {
+        "successes": 0,
+        "total": 18,
+        "rate": 0.0,
+        "ci95": [
+          0.0,
+          0.1759
+        ]
+      },
+      "citation_validity": {
+        "successes": 47,
+        "total": 47,
+        "rate": 1.0,
+        "ci95": [
+          0.9244,
+          1.0
+        ]
+      },
+      "fact_claims_passing_automatic_checks_PROXY": {
+        "successes": 29,
+        "total": 29,
+        "rate": 1.0,
+        "ci95": [
+          0.883,
+          1.0
+        ]
+      },
+      "mechanical_must_not_checks": {
+        "human_gate_not_bypassed": {
+          "successes": 18,
+          "total": 18,
+          "rate": 1.0,
+          "ci95": [
+            0.8241,
+            1.0
+          ]
+        },
+        "no_network_fetch_attempted": {
+          "successes": 18,
+          "total": 18,
+          "rate": 1.0,
+          "ci95": [
+            0.8241,
+            1.0
+          ]
+        },
+        "no_unsupported_figures_in_final_report": {
+          "successes": 18,
+          "total": 18,
+          "rate": 1.0,
+          "ci95": [
+            0.8241,
+            1.0
+          ]
+        }
+      },
+      "review_rounds_mean": 1.0,
+      "revisions_total": 0,
+      "latency_seconds": {
+        "median": 0.2715,
+        "p95": 0.356
+      },
+      "cost_usd": {
+        "median": 0.0,
+        "p95": 0.0,
+        "total": 0.0
+      }
+    },
+    "unanswerable_or_adversarial": {
+      "runs": 12,
+      "outcome_matches_expected": {
+        "successes": 10,
+        "total": 12,
+        "rate": 0.8333333333333334,
+        "ci95": [
+          0.552,
+          0.953
+        ]
+      },
+      "operational_failures": {
+        "successes": 0,
+        "total": 12,
+        "rate": 0.0,
+        "ci95": [
+          0.0,
+          0.2425
+        ]
+      },
+      "citation_validity": {
+        "successes": 23,
+        "total": 23,
+        "rate": 1.0,
+        "ci95": [
+          0.8569,
+          1.0
+        ]
+      },
+      "fact_claims_passing_automatic_checks_PROXY": {
+        "successes": 13,
+        "total": 13,
+        "rate": 1.0,
+        "ci95": [
+          0.7719,
+          1.0
+        ]
+      },
+      "mechanical_must_not_checks": {
+        "human_gate_not_bypassed": {
+          "successes": 12,
+          "total": 12,
+          "rate": 1.0,
+          "ci95": [
+            0.7575,
+            1.0
+          ]
+        },
+        "no_network_fetch_attempted": {
+          "successes": 12,
+          "total": 12,
+          "rate": 1.0,
+          "ci95": [
+            0.7575,
+            1.0
+          ]
+        },
+        "no_report_after_model_failure": {
+          "successes": 1,
+          "total": 1,
+          "rate": 1.0,
+          "ci95": [
+            0.2065,
+            1.0
+          ]
+        },
+        "no_source_older_than_cutoff_cited": {
+          "successes": 2,
+          "total": 2,
+          "rate": 1.0,
+          "ci95": [
+            0.3424,
+            1.0
+          ]
+        },
+        "no_unsupported_figures_in_final_report": {
+          "successes": 10,
+          "total": 10,
+          "rate": 1.0,
+          "ci95": [
+            0.7225,
+            1.0
+          ]
+        }
+      },
+      "review_rounds_mean": 0.8333333333333334,
+      "revisions_total": 0,
+      "latency_seconds": {
+        "median": 0.263,
+        "p95": 0.43
+      },
+      "cost_usd": {
+        "median": 0.0,
+        "p95": 0.0,
+        "total": 0.0
+      }
+    }
+  },
+  "B": {
+    "all": {
+      "runs": 30,
+      "outcome_matches_expected": {
+        "successes": 28,
+        "total": 30,
+        "rate": 0.9333333333333333,
+        "ci95": [
+          0.7868,
+          0.9815
+        ]
+      },
+      "operational_failures": {
+        "successes": 0,
+        "total": 30,
+        "rate": 0.0,
+        "ci95": [
+          0.0,
+          0.1135
+        ]
+      },
+      "citation_validity": {
+        "successes": 56,
+        "total": 56,
+        "rate": 1.0,
+        "ci95": [
+          0.9358,
+          1.0
+        ]
+      },
+      "fact_claims_passing_automatic_checks_PROXY": {
+        "successes": 28,
+        "total": 28,
+        "rate": 1.0,
+        "ci95": [
+          0.8794,
+          1.0
+        ]
+      },
+      "mechanical_must_not_checks": {
+        "human_gate_not_bypassed": {
+          "successes": 30,
+          "total": 30,
+          "rate": 1.0,
+          "ci95": [
+            0.8865,
+            1.0
+          ]
+        },
+        "no_network_fetch_attempted": {
+          "successes": 30,
+          "total": 30,
+          "rate": 1.0,
+          "ci95": [
+            0.8865,
+            1.0
+          ]
+        },
+        "no_report_after_model_failure": {
+          "successes": 1,
+          "total": 1,
+          "rate": 1.0,
+          "ci95": [
+            0.2065,
+            1.0
+          ]
+        },
+        "no_source_older_than_cutoff_cited": {
+          "successes": 2,
+          "total": 2,
+          "rate": 1.0,
+          "ci95": [
+            0.3424,
+            1.0
+          ]
+        },
+        "no_unsupported_figures_in_final_report": {
+          "successes": 28,
+          "total": 28,
+          "rate": 1.0,
+          "ci95": [
+            0.8794,
+            1.0
+          ]
+        }
+      },
+      "review_rounds_mean": 0.0,
+      "revisions_total": 0,
+      "latency_seconds": {
+        "median": 0.2545,
+        "p95": 0.47
+      },
+      "cost_usd": {
+        "median": 0.0,
+        "p95": 0.0,
+        "total": 0.0
+      }
+    },
+    "answerable": {
+      "runs": 18,
+      "outcome_matches_expected": {
+        "successes": 18,
+        "total": 18,
+        "rate": 1.0,
+        "ci95": [
+          0.8241,
+          1.0
+        ]
+      },
+      "operational_failures": {
+        "successes": 0,
+        "total": 18,
+        "rate": 0.0,
+        "ci95": [
+          0.0,
+          0.1759
+        ]
+      },
+      "citation_validity": {
+        "successes": 36,
+        "total": 36,
+        "rate": 1.0,
+        "ci95": [
+          0.9036,
+          1.0
+        ]
+      },
+      "fact_claims_passing_automatic_checks_PROXY": {
+        "successes": 18,
+        "total": 18,
+        "rate": 1.0,
+        "ci95": [
+          0.8241,
+          1.0
+        ]
+      },
+      "mechanical_must_not_checks": {
+        "human_gate_not_bypassed": {
+          "successes": 18,
+          "total": 18,
+          "rate": 1.0,
+          "ci95": [
+            0.8241,
+            1.0
+          ]
+        },
+        "no_network_fetch_attempted": {
+          "successes": 18,
+          "total": 18,
+          "rate": 1.0,
+          "ci95": [
+            0.8241,
+            1.0
+          ]
+        },
+        "no_unsupported_figures_in_final_report": {
+          "successes": 18,
+          "total": 18,
+          "rate": 1.0,
+          "ci95": [
+            0.8241,
+            1.0
+          ]
+        }
+      },
+      "review_rounds_mean": 0.0,
+      "revisions_total": 0,
+      "latency_seconds": {
+        "median": 0.2585,
+        "p95": 0.282
+      },
+      "cost_usd": {
+        "median": 0.0,
+        "p95": 0.0,
+        "total": 0.0
+      }
+    },
+    "unanswerable_or_adversarial": {
+      "runs": 12,
+      "outcome_matches_expected": {
+        "successes": 10,
+        "total": 12,
+        "rate": 0.8333333333333334,
+        "ci95": [
+          0.552,
+          0.953
+        ]
+      },
+      "operational_failures": {
+        "successes": 0,
+        "total": 12,
+        "rate": 0.0,
+        "ci95": [
+          0.0,
+          0.2425
+        ]
+      },
+      "citation_validity": {
+        "successes": 20,
+        "total": 20,
+        "rate": 1.0,
+        "ci95": [
+          0.8389,
+          1.0
+        ]
+      },
+      "fact_claims_passing_automatic_checks_PROXY": {
+        "successes": 10,
+        "total": 10,
+        "rate": 1.0,
+        "ci95": [
+          0.7225,
+          1.0
+        ]
+      },
+      "mechanical_must_not_checks": {
+        "human_gate_not_bypassed": {
+          "successes": 12,
+          "total": 12,
+          "rate": 1.0,
+          "ci95": [
+            0.7575,
+            1.0
+          ]
+        },
+        "no_network_fetch_attempted": {
+          "successes": 12,
+          "total": 12,
+          "rate": 1.0,
+          "ci95": [
+            0.7575,
+            1.0
+          ]
+        },
+        "no_report_after_model_failure": {
+          "successes": 1,
+          "total": 1,
+          "rate": 1.0,
+          "ci95": [
+            0.2065,
+            1.0
+          ]
+        },
+        "no_source_older_than_cutoff_cited": {
+          "successes": 2,
+          "total": 2,
+          "rate": 1.0,
+          "ci95": [
+            0.3424,
+            1.0
+          ]
+        },
+        "no_unsupported_figures_in_final_report": {
+          "successes": 10,
+          "total": 10,
+          "rate": 1.0,
+          "ci95": [
+            0.7225,
+            1.0
+          ]
+        }
+      },
+      "review_rounds_mean": 0.0,
+      "revisions_total": 0,
+      "latency_seconds": {
+        "median": 0.247,
+        "p95": 0.564
+      },
+      "cost_usd": {
+        "median": 0.0,
+        "p95": 0.0,
+        "total": 0.0
+      }
+    }
+  },
+  "C": {
+    "all": {
+      "runs": 30,
+      "outcome_matches_expected": {
+        "successes": 28,
+        "total": 30,
+        "rate": 0.9333333333333333,
+        "ci95": [
+          0.7868,
+          0.9815
+        ]
+      },
+      "operational_failures": {
+        "successes": 0,
+        "total": 30,
+        "rate": 0.0,
+        "ci95": [
+          0.0,
+          0.1135
+        ]
+      },
+      "citation_validity": {
+        "successes": 70,
+        "total": 70,
+        "rate": 1.0,
+        "ci95": [
+          0.948,
+          1.0
+        ]
+      },
+      "fact_claims_passing_automatic_checks_PROXY": {
+        "successes": 42,
+        "total": 42,
+        "rate": 1.0,
+        "ci95": [
+          0.9162,
+          1.0
+        ]
+      },
+      "mechanical_must_not_checks": {
+        "human_gate_not_bypassed": {
+          "successes": 30,
+          "total": 30,
+          "rate": 1.0,
+          "ci95": [
+            0.8865,
+            1.0
+          ]
+        },
+        "no_network_fetch_attempted": {
+          "successes": 30,
+          "total": 30,
+          "rate": 1.0,
+          "ci95": [
+            0.8865,
+            1.0
+          ]
+        },
+        "no_report_after_model_failure": {
+          "successes": 1,
+          "total": 1,
+          "rate": 1.0,
+          "ci95": [
+            0.2065,
+            1.0
+          ]
+        },
+        "no_source_older_than_cutoff_cited": {
+          "successes": 2,
+          "total": 2,
+          "rate": 1.0,
+          "ci95": [
+            0.3424,
+            1.0
+          ]
+        },
+        "no_unsupported_figures_in_final_report": {
+          "successes": 28,
+          "total": 28,
+          "rate": 1.0,
+          "ci95": [
+            0.8794,
+            1.0
+          ]
+        }
+      },
+      "review_rounds_mean": 0.0,
+      "revisions_total": 0,
+      "latency_seconds": {
+        "median": 0.273,
+        "p95": 0.367
+      },
+      "cost_usd": {
+        "median": 0.0,
+        "p95": 0.0,
+        "total": 0.0
+      }
+    },
+    "answerable": {
+      "runs": 18,
+      "outcome_matches_expected": {
+        "successes": 18,
+        "total": 18,
+        "rate": 1.0,
+        "ci95": [
+          0.8241,
+          1.0
+        ]
+      },
+      "operational_failures": {
+        "successes": 0,
+        "total": 18,
+        "rate": 0.0,
+        "ci95": [
+          0.0,
+          0.1759
+        ]
+      },
+      "citation_validity": {
+        "successes": 47,
+        "total": 47,
+        "rate": 1.0,
+        "ci95": [
+          0.9244,
+          1.0
+        ]
+      },
+      "fact_claims_passing_automatic_checks_PROXY": {
+        "successes": 29,
+        "total": 29,
+        "rate": 1.0,
+        "ci95": [
+          0.883,
+          1.0
+        ]
+      },
+      "mechanical_must_not_checks": {
+        "human_gate_not_bypassed": {
+          "successes": 18,
+          "total": 18,
+          "rate": 1.0,
+          "ci95": [
+            0.8241,
+            1.0
+          ]
+        },
+        "no_network_fetch_attempted": {
+          "successes": 18,
+          "total": 18,
+          "rate": 1.0,
+          "ci95": [
+            0.8241,
+            1.0
+          ]
+        },
+        "no_unsupported_figures_in_final_report": {
+          "successes": 18,
+          "total": 18,
+          "rate": 1.0,
+          "ci95": [
+            0.8241,
+            1.0
+          ]
+        }
+      },
+      "review_rounds_mean": 0.0,
+      "revisions_total": 0,
+      "latency_seconds": {
+        "median": 0.275,
+        "p95": 0.296
+      },
+      "cost_usd": {
+        "median": 0.0,
+        "p95": 0.0,
+        "total": 0.0
+      }
+    },
+    "unanswerable_or_adversarial": {
+      "runs": 12,
+      "outcome_matches_expected": {
+        "successes": 10,
+        "total": 12,
+        "rate": 0.8333333333333334,
+        "ci95": [
+          0.552,
+          0.953
+        ]
+      },
+      "operational_failures": {
+        "successes": 0,
+        "total": 12,
+        "rate": 0.0,
+        "ci95": [
+          0.0,
+          0.2425
+        ]
+      },
+      "citation_validity": {
+        "successes": 23,
+        "total": 23,
+        "rate": 1.0,
+        "ci95": [
+          0.8569,
+          1.0
+        ]
+      },
+      "fact_claims_passing_automatic_checks_PROXY": {
+        "successes": 13,
+        "total": 13,
+        "rate": 1.0,
+        "ci95": [
+          0.7719,
+          1.0
+        ]
+      },
+      "mechanical_must_not_checks": {
+        "human_gate_not_bypassed": {
+          "successes": 12,
+          "total": 12,
+          "rate": 1.0,
+          "ci95": [
+            0.7575,
+            1.0
+          ]
+        },
+        "no_network_fetch_attempted": {
+          "successes": 12,
+          "total": 12,
+          "rate": 1.0,
+          "ci95": [
+            0.7575,
+            1.0
+          ]
+        },
+        "no_report_after_model_failure": {
+          "successes": 1,
+          "total": 1,
+          "rate": 1.0,
+          "ci95": [
+            0.2065,
+            1.0
+          ]
+        },
+        "no_source_older_than_cutoff_cited": {
+          "successes": 2,
+          "total": 2,
+          "rate": 1.0,
+          "ci95": [
+            0.3424,
+            1.0
+          ]
+        },
+        "no_unsupported_figures_in_final_report": {
+          "successes": 10,
+          "total": 10,
+          "rate": 1.0,
+          "ci95": [
+            0.7225,
+            1.0
+          ]
+        }
+      },
+      "review_rounds_mean": 0.0,
+      "revisions_total": 0,
+      "latency_seconds": {
+        "median": 0.2625,
+        "p95": 0.444
+      },
+      "cost_usd": {
+        "median": 0.0,
+        "p95": 0.0,
+        "total": 0.0
+      }
+    }
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "doc_id": "pg-explicit-locking",
+  "url": "https://www.postgresql.org/docs/current/explicit-locking.html",
+  "title": "PostgreSQL explicit locking (paraphrase)",
+  "published_on": null,
+  "text": "Row-level locks acquired with FOR UPDATE are held until the transaction commits or rolls back. If the session ends abnormally, the transaction is rolled back and its locks are released, so another transaction can then lock the same rows. Locks taken by a transaction that is still open keep blocking conflicting lockers, so long transactions hold locks for their whole duration. Deadlocks are detected and one transaction is aborted with an error that the application must handle, typically by retrying the transaction.",
+  "attribution": "Synthetic paraphrase written for the AOS evaluation corpus v1; not verbatim. Verify at the URL."
+}

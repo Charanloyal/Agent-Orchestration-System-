@@ -1,0 +1,8 @@
+{
+  "doc_id": "react-markdown-security",
+  "url": "https://github.com/remarkjs/react-markdown#security",
+  "title": "react-markdown security (paraphrase)",
+  "published_on": null,
+  "text": "react-markdown is safe by default: raw HTML in Markdown is not rendered unless the rehype-raw plugin is added. URLs pass through a urlTransform function whose default only allows safe protocols such as http, https, mailto and relative links, so javascript: links are removed. When raw HTML is enabled, the documentation recommends a sanitizer such as rehype-sanitize.",
+  "attribution": "Synthetic paraphrase written for the AOS evaluation corpus v1; not verbatim. Verify at the URL."
+}

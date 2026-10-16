@@ -30,6 +30,7 @@ if TYPE_CHECKING:
     from app.workflow.context import RunContext
 
 CHARS_PER_TOKEN = 4
+OFFLINE_SEARCH_PROVIDERS = frozenset({"fake", "corpus"})
 
 
 class BudgetExhausted(Exception):
@@ -201,20 +202,18 @@ class MeteredLlm:
 
 
 class MeteredSearch:
-    """Wraps a search provider; one basic search is estimated at one credit."""
+    """Wraps a search provider; one basic search is estimated at one credit. Offline
+    providers (fake, the versioned corpus) cost nothing and are never priced."""
 
     def __init__(self, inner: SearchProvider, meter: BudgetMeter, *, credits_per_call: float = 1.0) -> None:
         self.inner, self.meter, self.credits_per_call = inner, meter, credits_per_call
         self.name = inner.name
+        self.free = inner.name in OFFLINE_SEARCH_PROVIDERS
 
     def search(
         self, query: str, *, max_results: int, allowed_domains: list[str], blocked_domains: list[str]
     ) -> SearchResponse:
-        priced = (
-            self.meter.schedule.search_cost(self.credits_per_call)
-            if self.inner.name != "fake"
-            else Decimal(0)
-        )
+        priced = Decimal(0) if self.free else self.meter.schedule.search_cost(self.credits_per_call)
         reservation = self.meter.reserve(
             step="research", kind="search", estimate=priced, detail={"provider": self.inner.name}
         )
@@ -235,9 +234,7 @@ class MeteredSearch:
                 )
                 raise
             annotate(current, results=len(response.hits))
-        actual = (
-            self.meter.schedule.search_cost(response.credits) if self.inner.name != "fake" else Decimal(0)
-        )
+        actual = Decimal(0) if self.free else self.meter.schedule.search_cost(response.credits)
         self.meter.reconcile(
             reservation, actual=actual, usage={"provider": self.inner.name, "credits": response.credits}
         )

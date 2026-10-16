@@ -1,0 +1,8 @@
+{
+  "doc_id": "pg-fts-intro",
+  "url": "https://www.postgresql.org/docs/current/textsearch-intro.html",
+  "title": "PostgreSQL full text search introduction (paraphrase)",
+  "published_on": null,
+  "text": "PostgreSQL full text search converts documents to the tsvector type and queries to tsquery. Text is normalized with dictionaries, which handle stemming and stop words for supported languages. GIN indexes make text search queries fast. Searching documents stored in the database avoids running a separate system.",
+  "attribution": "Synthetic paraphrase written for the AOS evaluation corpus v1; not verbatim. Verify at the URL."
+}

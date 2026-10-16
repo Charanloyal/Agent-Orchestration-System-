@@ -1,0 +1,8 @@
+{
+  "doc_id": "metricly-privacy",
+  "url": "https://metricly.example/legal/privacy",
+  "title": "Metricly privacy policy",
+  "published_on": "2026-01-15",
+  "text": "Metricly retains raw analytics events for 13 months after collection, after which they are deleted or aggregated.",
+  "attribution": "Fictional document written for the AOS evaluation corpus v1. Product and domain are invented."
+}

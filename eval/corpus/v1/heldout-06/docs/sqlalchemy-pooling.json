@@ -1,0 +1,8 @@
+{
+  "doc_id": "sqlalchemy-pooling",
+  "url": "https://docs.sqlalchemy.org/en/20/core/pooling.html",
+  "title": "SQLAlchemy connection pooling (paraphrase)",
+  "published_on": null,
+  "text": "SQLAlchemy maintains an in-application connection pool per process, configured with pool size and overflow. With several application processes or containers, each has its own pool, so the total number of database connections grows with the number of processes.",
+  "attribution": "Synthetic paraphrase written for the AOS evaluation corpus v1; not verbatim. Verify at the URL."
+}

@@ -1,0 +1,8 @@
+{
+  "doc_id": "watchly-install",
+  "url": "https://docs.watchly.example/install",
+  "title": "Watchly agent installation",
+  "published_on": "2026-03-19",
+  "text": "Supported platforms: Linux x86_64 and Linux ARM64 (since agent 3.2), Windows Server 2019 and later.",
+  "attribution": "Fictional document written for the AOS evaluation corpus v1. Product and domain are invented."
+}

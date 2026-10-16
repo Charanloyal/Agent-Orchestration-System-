@@ -1,0 +1,8 @@
+{
+  "doc_id": "dompurify-readme",
+  "url": "https://github.com/cure53/DOMPurify",
+  "title": "DOMPurify (paraphrase)",
+  "published_on": null,
+  "text": "DOMPurify sanitizes HTML strings and removes script elements, event handler attributes and dangerous URL schemes. It is used when an application must render HTML produced from untrusted input. It runs in the browser and, with a DOM implementation such as jsdom, on the server.",
+  "attribution": "Synthetic paraphrase written for the AOS evaluation corpus v1; not verbatim. Verify at the URL."
+}

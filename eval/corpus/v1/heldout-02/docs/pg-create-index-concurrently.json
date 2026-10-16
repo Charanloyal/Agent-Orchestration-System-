@@ -1,0 +1,8 @@
+{
+  "doc_id": "pg-create-index-concurrently",
+  "url": "https://www.postgresql.org/docs/current/sql-createindex.html",
+  "title": "PostgreSQL CREATE INDEX CONCURRENTLY (paraphrase)",
+  "published_on": null,
+  "text": "CREATE INDEX CONCURRENTLY builds an index without taking a lock that blocks writes, at the cost of more total work and a longer build. It cannot run inside a transaction block, and if it fails it can leave an invalid index that must be dropped and rebuilt.",
+  "attribution": "Synthetic paraphrase written for the AOS evaluation corpus v1; not verbatim. Verify at the URL."
+}

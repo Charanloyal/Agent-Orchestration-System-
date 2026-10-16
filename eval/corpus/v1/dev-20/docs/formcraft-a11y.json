@@ -1,0 +1,8 @@
+{
+  "doc_id": "formcraft-a11y",
+  "url": "https://formcraft.example/accessibility",
+  "title": "FormCraft accessibility statement",
+  "published_on": "2026-03-15",
+  "text": "FormCraft forms aim to conform to WCAG 2.2 level AA, including keyboard navigation and labelled fields.",
+  "attribution": "Fictional document written for the AOS evaluation corpus v1. Product and domain are invented."
+}

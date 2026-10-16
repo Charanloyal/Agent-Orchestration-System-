@@ -1,0 +1,8 @@
+{
+  "doc_id": "sliding-window",
+  "url": "https://eng-notes.example/rate-limiting/sliding-window",
+  "title": "Engineering note: sliding window",
+  "published_on": "2026-01-21",
+  "text": "A sliding window counts requests within a rolling time window. A sliding log stores a timestamp per request and is exact but memory heavy; a sliding window counter approximates it from two fixed-window counts. It limits bursts at window boundaries better than a fixed window. Multi-instance deployments need shared counters.",
+  "attribution": "Fictional document written for the AOS evaluation corpus v1. Product and domain are invented."
+}

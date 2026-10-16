@@ -1,0 +1,8 @@
+{
+  "doc_id": "tasko-security-faq",
+  "url": "https://tasko.example/security/faq",
+  "title": "Tasko security FAQ",
+  "published_on": "2026-05-11",
+  "text": "How long do sessions last? Tasko sessions expire after 8 hours by default, regardless of activity.",
+  "attribution": "Fictional document written for the AOS evaluation corpus v1. Product and domain are invented."
+}

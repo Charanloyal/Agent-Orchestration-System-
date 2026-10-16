@@ -1,0 +1,8 @@
+{
+  "doc_id": "opensearch-security",
+  "url": "https://opensearch.org/docs/latest/security/",
+  "title": "OpenSearch security plugin (paraphrase)",
+  "published_on": null,
+  "text": "OpenSearch is open-source software under the Apache 2.0 license and can be self-hosted on your own servers. Its security plugin supports several authentication backends, including internal users, LDAP, SAML and OpenID Connect, so single sign-on can be configured against an existing identity provider. OpenSearch runs on the Java virtual machine; operators must size heap memory and plan for cluster management, snapshots and upgrades.",
+  "attribution": "Synthetic paraphrase written for the AOS evaluation corpus v1; not verbatim. Verify at the URL."
+}

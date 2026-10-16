@@ -1,0 +1,8 @@
+{
+  "doc_id": "parallel-change",
+  "url": "https://martinfowler.com/bliki/ParallelChange.html",
+  "title": "Parallel change (expand and contract) (paraphrase)",
+  "published_on": null,
+  "text": "Parallel change, also called expand and contract, splits a breaking change into three phases: expand by adding the new structure alongside the old, migrate clients to the new structure, then contract by removing the old one. Each phase can be deployed separately, which avoids downtime.",
+  "attribution": "Synthetic paraphrase written for the AOS evaluation corpus v1; not verbatim. Verify at the URL."
+}

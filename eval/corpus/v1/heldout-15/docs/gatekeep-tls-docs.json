@@ -1,0 +1,8 @@
+{
+  "doc_id": "gatekeep-tls-docs",
+  "url": "https://docs.gatekeep.example/security/tls",
+  "title": "GateKeep docs: TLS configuration",
+  "published_on": "2026-03-08",
+  "text": "GateKeep requires TLS 1.2 or later for all client connections.",
+  "attribution": "Fictional document written for the AOS evaluation corpus v1. Product and domain are invented."
+}

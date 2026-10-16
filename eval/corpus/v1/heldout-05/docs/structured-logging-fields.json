@@ -1,0 +1,8 @@
+{
+  "doc_id": "structured-logging-fields",
+  "url": "https://eng-notes.example/structured-logging",
+  "title": "Engineering note: structured logging fields",
+  "published_on": "2026-02-08",
+  "text": "Structured logs are emitted as JSON with consistent fields: timestamp, level, message, service name, and a request or trace identifier. Secrets, tokens and full request bodies must not be logged; redact them before writing.",
+  "attribution": "Fictional document written for the AOS evaluation corpus v1. Product and domain are invented."
+}

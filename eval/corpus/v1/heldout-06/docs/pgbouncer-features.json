@@ -1,0 +1,8 @@
+{
+  "doc_id": "pgbouncer-features",
+  "url": "https://www.pgbouncer.org/features.html",
+  "title": "PgBouncer features (paraphrase)",
+  "published_on": null,
+  "text": "PgBouncer is an external connection pooler for PostgreSQL with session, transaction and statement pooling modes. In transaction pooling, a server connection is returned to the pool after each transaction, so session-level features such as SET, LISTEN and session advisory locks cannot be used reliably.",
+  "attribution": "Synthetic paraphrase written for the AOS evaluation corpus v1; not verbatim. Verify at the URL."
+}

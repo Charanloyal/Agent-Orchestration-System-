@@ -1,0 +1,8 @@
+{
+  "doc_id": "meilisearch-security",
+  "url": "https://www.meilisearch.com/docs/learn/security/basic_security",
+  "title": "Meilisearch security basics (paraphrase)",
+  "published_on": null,
+  "text": "Meilisearch can be self-hosted as a single binary. Access is protected with a master key and API keys with scoped permissions. The open-source engine documents API-key authentication; it does not document built-in SAML or OpenID Connect single sign-on. A self-hosted instance runs on a single node, which is a limitation for high availability.",
+  "attribution": "Synthetic paraphrase written for the AOS evaluation corpus v1; not verbatim. Verify at the URL."
+}
