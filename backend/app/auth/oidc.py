@@ -29,6 +29,13 @@ class OidcError(AppError):
     code = "oidc_error"
 
 
+class OidcUnavailable(OidcError):
+    """The identity provider could not be reached: an upstream failure, not a client error."""
+
+    status_code = 503
+    code = "identity_provider_unavailable"
+
+
 @dataclass(frozen=True)
 class IdentityClaims:
     issuer: str
@@ -92,7 +99,7 @@ class OidcClient:
         try:
             response = self.http.post(self._backchannel(self.metadata()["token_endpoint"]), data=form)
         except httpx.HTTPError as exc:
-            raise OidcError("Token endpoint unreachable") from exc
+            raise OidcUnavailable("Token endpoint unreachable") from exc
         if response.status_code != 200:
             # Do not echo the provider response; it may contain diagnostic secrets.
             raise OidcError(f"Token exchange failed (HTTP {response.status_code})")
@@ -157,7 +164,9 @@ class OidcClient:
             response.raise_for_status()
             data = response.json()
         except (httpx.HTTPError, ValueError) as exc:
-            raise OidcError("Identity provider unavailable") from exc
+            raise OidcUnavailable(
+                "Identity provider unavailable: check AOS_OIDC_ISSUER and that the provider is reachable"
+            ) from exc
         if not isinstance(data, dict):
             raise OidcError("Unexpected identity provider response")
         return data

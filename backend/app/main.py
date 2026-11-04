@@ -1,27 +1,36 @@
 from fastapi import FastAPI
 
 from app.api import auth, health, runs, uploads, workspaces
-from app.config import get_settings
+from app.config import Settings, get_settings
 from app.errors import install_error_handlers
-from app.observability.logging import configure_logging
+from app.observability.logging import configure_logging, startup_summary
 from app.observability.middleware import RequestContextMiddleware
 from app.observability.tracing import configure_tracing
+from app.web import BodySizeLimitMiddleware, mount_spa
 
 
-def create_app() -> FastAPI:
-    settings = get_settings()
+def create_app(settings: Settings | None = None) -> FastAPI:
+    settings = settings or get_settings()
     configure_logging(settings.log_level, settings.log_json)
     configure_tracing(settings, "aos-api")
+    prod = settings.env == "prod"
     app = FastAPI(
         title="Agent Orchestration System API",
-        version="0.3.0",
-        docs_url="/api/docs" if settings.env != "prod" else None,
-        openapi_url="/api/openapi.json",
+        version="0.4.0",
+        # Interactive docs and the schema document are development aids, not public surface.
+        docs_url=None if prod else "/api/docs",
+        redoc_url=None,
+        openapi_url=None if prod else "/api/openapi.json",
     )
+    # Added first, so it runs inside the request-context middleware (errors carry request ids).
+    app.add_middleware(BodySizeLimitMiddleware, settings=get_settings)
     app.add_middleware(RequestContextMiddleware)
     install_error_handlers(app)
     for router in (health.router, auth.router, workspaces.router, runs.router, uploads.router):
         app.include_router(router)
+    if settings.static_dir is not None:
+        mount_spa(app, settings.static_dir)
+    startup_summary(settings, "api")
     return app
 
 

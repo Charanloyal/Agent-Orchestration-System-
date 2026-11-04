@@ -1,0 +1,21 @@
+# Build context for the root (single-origin) Dockerfile.
+**/.git
+**/node_modules
+**/.venv
+**/__pycache__
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+**/.env
+**/.env.*
+!.env.example
+backend/.data
+backend/devtools
+backend/tests
+backend/evaluation
+frontend/dist
+frontend/test-results
+frontend/playwright-report
+eval
+spikes
+docs

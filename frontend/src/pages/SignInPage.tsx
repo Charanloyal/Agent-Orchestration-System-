@@ -24,7 +24,9 @@ export function SignInPage() {
         </p>
         {error && (
           <div className="banner banner-danger" role="alert">
-            Sign-in was cancelled or denied by the identity provider.
+            {error === "not_allowed"
+              ? "Your account is not invited to this deployment. Ask an administrator to add your email address."
+              : "Sign-in was cancelled or denied by the identity provider."}
           </div>
         )}
         <a className="btn btn-primary btn-block" href={`/api/v1/auth/login?next=${encodeURIComponent(next)}`}>

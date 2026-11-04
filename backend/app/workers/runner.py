@@ -19,7 +19,10 @@ from types import FrameType
 from typing import Any
 
 from langgraph.types import Command
+from psycopg import OperationalError as PsycopgOperationalError
 from sqlalchemy import select
+from sqlalchemy.exc import OperationalError as SqlAlchemyOperationalError
+from sqlalchemy.exc import ProgrammingError
 from sqlalchemy.orm import Session, sessionmaker
 
 from app.agents.base import AgentSuite
@@ -31,9 +34,10 @@ from app.billing.meter import BudgetExhausted, MeteredLlm, MeteredSearch
 from app.config import Settings, get_settings
 from app.contracts import Brief as BriefSpec
 from app.contracts.run_state import RunState
+from app.db import schema_state
 from app.db.models import Brief, Run
 from app.db.session import get_sessionmaker
-from app.observability.logging import configure_logging
+from app.observability.logging import configure_logging, startup_summary
 from app.observability.tracing import annotate, configure_tracing, span
 from app.providers.breaker import BreakerLlm, BreakerSearch
 from app.providers.corpus import CorpusSearch
@@ -46,12 +50,14 @@ from app.tools.fetcher import Fetcher, FetchPolicy, SafeFetcher
 from app.workers import jobs
 from app.workers.checkpointer import FencedPostgresSaver, checkpoint_connection, setup_checkpointer
 from app.workers.jobs import Lease, StaleOwner
-from app.workers.maintenance import expire_overdue_waits, reap_exhausted_jobs
+from app.workers.maintenance import expire_overdue_waits, reap_exhausted_jobs, run_retention
 from app.workflow.context import RunContext
 from app.workflow.errors import RunStopped, StepFailed, TransientError
 from app.workflow.graph import build_graph
 
 log = logging.getLogger("aos.worker")
+# Lost or refused database connections, from SQLAlchemy sessions or raw psycopg (checkpointer).
+OperationalError_ = (SqlAlchemyOperationalError, PsycopgOperationalError)
 
 WAIT_STATES = {"plan": RunState.AWAITING_PLAN_APPROVAL, "report": RunState.AWAITING_REPORT_APPROVAL}
 
@@ -338,10 +344,11 @@ def main(argv: list[str] | None = None) -> int:
     settings = get_settings()
     configure_logging(settings.log_level, settings.log_json)
     configure_tracing(settings, "aos-worker")
-    setup_checkpointer(settings)
+    startup_summary(settings, "worker")
     worker_id = args.worker_id or f"worker-{uuid.uuid4().hex[:8]}"
 
     if args.once:
+        setup_checkpointer(settings)
         print(process_one(settings, worker_id=worker_id, run_id=args.run_id), flush=True)
         return 0
 
@@ -353,23 +360,83 @@ def main(argv: list[str] | None = None) -> int:
 
     signal.signal(signal.SIGINT, request_stop)
     signal.signal(signal.SIGTERM, request_stop)
+    wait_for_database(settings, stopping)
     log.info("worker started", extra={"worker": worker_id})
-    sm = get_sessionmaker()
+    run_loop(settings, worker_id, stopping, run_id=args.run_id)
+    log.info("worker stopped", extra={"worker": worker_id})
+    return 0
+
+
+def wait_for_database(settings: Settings, stopping: threading.Event, max_delay: float = 30.0) -> None:
+    """At boot the database may still be starting, or this worker may have deployed before
+    the API's pre-deploy migration ran. Wait (capped backoff) until the schema is at this
+    code's migration head, instead of crash-looping or running against an old schema."""
+    delay = 1.0
     while not stopping.is_set():
         try:
-            expired = expire_overdue_waits(sm)
-            if expired:
-                log.info("expired overdue approval waits", extra={"count": expired})
-            reaped = reap_exhausted_jobs(sm)
-            if reaped:
-                log.warning("reaped jobs whose workers kept crashing", extra={"count": reaped})
-            purge_old_windows()
-        except Exception:
-            log.exception("maintenance failed")
-        outcome = process_one(settings, worker_id=worker_id, run_id=args.run_id)
+            with get_sessionmaker()() as db:
+                current = schema_state.current_revisions(db)
+            if current == schema_state.migration_heads():
+                setup_checkpointer(settings)
+                return
+            log.warning(
+                "database schema not at migration head; waiting",
+                extra={"current": sorted(current), "expected": sorted(schema_state.migration_heads())},
+            )
+        except (*OperationalError_, ProgrammingError) as exc:
+            log.warning(
+                "database not reachable or not migrated; retrying", extra={"error": type(exc).__name__}
+            )
+        stopping.wait(delay)
+        delay = min(max_delay, delay * 2)
+
+
+def run_loop(
+    settings: Settings,
+    worker_id: str,
+    stopping: threading.Event,
+    *,
+    run_id: uuid.UUID | None = None,
+    pass_fn: Callable[..., str] | None = None,
+    max_delay: float = 30.0,
+) -> None:
+    """Poll for work until asked to stop. A database outage pauses the loop with capped
+    backoff instead of killing the process; leases make any interrupted pass recoverable."""
+    sm = get_sessionmaker()
+    run_pass = pass_fn or process_one
+    delay = settings.worker_poll_seconds
+    while not stopping.is_set():
+        try:
+            _maintenance(settings, sm)
+            outcome = run_pass(settings, worker_id=worker_id, run_id=run_id)
+        except OperationalError_ as exc:
+            log.error("database unavailable; pausing", extra={"delay_s": delay, "error": type(exc).__name__})
+            stopping.wait(delay)
+            delay = min(max_delay, max(delay, 1.0) * 2)
+            continue
+        delay = settings.worker_poll_seconds
         if outcome == "no_job":
             stopping.wait(settings.worker_poll_seconds)
-    return 0
+
+
+def _maintenance(settings: Settings, sm: sessionmaker[Session]) -> None:
+    """Housekeeping between passes. A database outage propagates (the loop pauses); any other
+    failure is logged and must not stop the worker from processing runs."""
+    try:
+        expired = expire_overdue_waits(sm)
+        if expired:
+            log.info("expired overdue approval waits", extra={"count": expired})
+        reaped = reap_exhausted_jobs(sm)
+        if reaped:
+            log.warning("reaped jobs whose workers kept crashing", extra={"count": reaped})
+        purge_old_windows()
+        swept = run_retention(settings, sm)
+        if swept:
+            log.info("retention sweep", extra=swept)
+    except OperationalError_:
+        raise
+    except Exception:
+        log.exception("maintenance failed")
 
 
 if __name__ == "__main__":

@@ -4,9 +4,9 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Header
 from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
-from sqlalchemy import text
 
 from app.auth.deps import AppSettings, DbSession
+from app.db import schema_state
 from app.errors import AppError, NotFound, Unauthenticated
 from app.observability.metrics import http_metrics, workflow_metrics
 
@@ -36,11 +36,14 @@ def healthz() -> HealthResponse:
 
 @router.get("/readyz", response_model=HealthResponse)
 def readyz(db: DbSession) -> HealthResponse:
-    """Readiness: the database is reachable and migrated."""
+    """Readiness: the database is reachable *and* migrated to the code's head revision. A
+    deploy whose migrations did not run must not receive traffic (Render health check)."""
     try:
-        db.execute(text("SELECT 1 FROM alembic_version"))
+        current = schema_state.current_revisions(db)
     except Exception as exc:
         raise NotReady("Database unavailable or not migrated") from exc
+    if current != schema_state.migration_heads():
+        raise NotReady("Database schema is not at the expected migration head; run `alembic upgrade head`")
     return HealthResponse(status="ok")
 
 

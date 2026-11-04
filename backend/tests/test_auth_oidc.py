@@ -2,7 +2,6 @@
 edge cases using locally signed tokens."""
 
 import time
-from collections.abc import Callable
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
@@ -14,19 +13,8 @@ from fastapi.testclient import TestClient
 from jwt.algorithms import RSAAlgorithm
 
 from app.api.auth import safe_next_path
-from app.auth.deps import get_oidc_client
 from app.auth.oidc import OidcClient, OidcError
 from app.config import Settings
-from app.main import app
-
-
-@pytest.fixture
-def oidc_against(dev_issuer: str) -> Callable[[], OidcClient]:
-    settings = Settings(oidc_issuer=dev_issuer, public_url="http://testserver", env="test")
-    client = OidcClient(settings, httpx.Client(timeout=5, trust_env=False))
-    app.dependency_overrides[get_oidc_client] = lambda: client
-    yield lambda: client
-    app.dependency_overrides.pop(get_oidc_client, None)
 
 
 def sign_in_via_dev_issuer(client: TestClient, subject: str, next_path: str = "/runs") -> httpx.Response:

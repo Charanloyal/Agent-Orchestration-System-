@@ -1,0 +1,88 @@
+# 0018: Single-origin production image, Render topology and production hardening
+
+- **Status:** Accepted
+- **Date:** 2026-11-03
+- **Requirements:** PRD week 12 (controlled pilot), NFR security; threat model T3, T10, T11,
+  T15; ADR 0004 (deployment target), ADR 0009 (identity)
+
+## Context
+
+The local stack (docker-compose) uses nginx in front of the API and a bundled dev OIDC issuer.
+A hosted pilot on Render needs three things:
+
+- **The minimum service topology that preserves behaviour:** leased background work, human
+  gates, SSE.
+- **A deploy that cannot accidentally run development defaults:** the dev issuer, insecure
+  cookies, an open sign-up.
+- **Health checks** that only route traffic to instances whose database schema matches the
+  code.
+
+## Decisions
+
+1. **One image, two processes** (`Dockerfile` at the repository root).
+   - A Node stage builds the SPA. The Python stage serves it from the API (`AOS_STATIC_DIR`)
+     on the same origin as `/api`, so there is no CORS, cookies stay first-party, and no
+     second web service or nginx is needed. Unknown non-API paths return `index.html` (client
+     routing survives refresh); unknown `/api` paths keep the JSON 404 envelope.
+   - HTML responses carry the same CSP as the nginx front end. Hashed assets are cached as
+     immutable.
+   - The same image runs the worker (`python -m app.workers.runner`). The worker is a separate
+     process and service: never threads inside the API.
+   - `backend/devtools` (the dev OIDC issuer), tests, evaluation code and docs are excluded
+     from the image.
+2. **Render topology** (`render.yaml`, validated against Render's published Blueprint schema
+   in CI):
+   - Docker web service `aos-web`: health check `/readyz`, `preDeployCommand: alembic upgrade
+     head`, binds `0.0.0.0:$PORT`.
+   - Docker background worker `aos-worker`.
+   - Managed Postgres 17 `aos-db`, with no public IP allow-list; services use the private
+     connection string.
+   - Render's docs state that background workers and pre-deploy commands need paid instance
+     types, so this blueprint is not free-tier. Free Postgres instances expire after 30 days.
+   - Secrets are `sync: false` or `generateValue`; nothing secret is committed.
+3. **Readiness means "schema at head".** `/readyz` compares `alembic_version` with the code's
+   head revision, so a deploy whose migration did not run never receives traffic. Liveness
+   (`/healthz`) does not touch the database.
+   - The worker waits, with capped backoff, until the schema is at head before polling. Web
+     and worker deploy independently, and the migration runs only in the web service's
+     pre-deploy step.
+   - The worker's poll loop pauses on database outages instead of exiting.
+4. **Production refuses unsafe configuration at start-up** (`Settings._production_safety`).
+   With `AOS_ENV=prod`, the process exits with a message naming every variable to fix if any
+   of these hold:
+   - no database URL;
+   - non-secure cookies;
+   - a non-https or local issuer, or the dev client id `aos-local`;
+   - a non-https public URL;
+   - no sign-in allowlist;
+   - fault injection enabled.
+
+   The dev issuer itself also refuses `AOS_ENV=prod`.
+5. **Sign-in allowlist** (`AOS_ALLOWED_EMAILS`, `AOS_ALLOWED_EMAIL_DOMAINS`, required in prod).
+   It matches the provider's *verified* email. Uninvited accounts get no user row and no
+   session; the refusal is audited without storing the address. Without this, anyone with an
+   account at a public identity provider could create workspaces and runs.
+6. **Edge limits and surface.**
+   - JSON request bodies are capped at `AOS_MAX_REQUEST_BYTES` (1 MB), uploads at the upload
+     limit plus 1 MB. Streamed bodies are counted, and the response is 413 with the error
+     envelope.
+   - OpenAPI JSON and interactive docs are disabled in prod.
+   - An unreachable identity provider is a 503 naming `AOS_OIDC_ISSUER`, not a 400.
+
+## Consequences
+
+- **Ephemeral filesystem.** Render's filesystem is ephemeral. Uploaded *originals* and export
+  *copies* in the object store are lost on redeploy. Everything the workflow needs
+  (extracted upload chunks, evidence, reports, findings, approvals) is in Postgres, so runs
+  and reports survive. Exports are regenerated on demand. For durable originals, attach a
+  persistent disk at `AOS_OBJECT_STORE_DIR` (which disables zero-downtime deploys) or add an
+  S3-compatible store; neither is needed for the pilot.
+- **Fake agents by default.** The hosted demo runs the deterministic fake agents
+  (`AOS_AGENT_MODE=fake`) and is labelled as such. It demonstrates the workflow, not
+  real-model quality.
+- **No public authenticated deployment yet.** A real identity provider registration (client
+  id, secret, redirect URI) is a manual step; see
+  [deploy-render.md](../operations/deploy-render.md).
+- **Proxy headers.** `--forwarded-allow-ips '*'` trusts proxy headers. This is acceptable only
+  because the platform load balancer is the sole route to the container; do not reuse the
+  image behind an untrusted proxy without changing it.

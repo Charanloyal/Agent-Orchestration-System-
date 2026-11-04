@@ -1,0 +1,17 @@
+{
+  "topic": "Compare self-hosted document search options for a 20-person software team (demo: unsupported claim)",
+  "audience": "Engineering manager choosing an internal search tool",
+  "research_questions": [
+    "Which options can be self-hosted?",
+    "What authentication and SSO integrations does each document?",
+    "What are the documented operational requirements and limitations?"
+  ],
+  "source_policy": {
+    "allowed_source_types": ["public_web", "vendor_docs"],
+    "allowed_domains": [],
+    "blocked_domains": []
+  },
+  "output_format": "markdown",
+  "budget": {"currency": "USD", "max_estimated_cost": "2.00"},
+  "limits": {"max_tasks": 4, "max_parallel_tasks": 2, "max_tool_calls": 40, "max_review_rounds": 2}
+}

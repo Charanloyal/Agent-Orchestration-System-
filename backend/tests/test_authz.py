@@ -272,6 +272,11 @@ def test_role_matrix_is_least_privilege() -> None:
     assert Action.PLAN_DECIDE not in ROLE_PERMISSIONS[Role.REVIEWER]
     assert Action.MEMBERS_MANAGE not in ROLE_PERMISSIONS[Role.ANALYST] | ROLE_PERMISSIONS[Role.REVIEWER]
     assert ROLE_PERMISSIONS[Role.ADMIN] == frozenset(Action)
+    for role in (Role.ANALYST, Role.REVIEWER):
+        assert (
+            Action.AUDIT_READ not in ROLE_PERMISSIONS[role]
+            and Action.DATA_DELETE not in ROLE_PERMISSIONS[role]
+        )
 
 
 def test_expired_session_is_rejected(

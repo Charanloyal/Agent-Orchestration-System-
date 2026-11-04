@@ -81,6 +81,17 @@ def callback(
 
     tokens = oidc.exchange_code(code=code, code_verifier=login_state.code_verifier)
     identity = oidc.verify_id_token(tokens["id_token"], nonce=login_state.nonce)
+    if not settings.email_allowed(identity.email):
+        # Authenticated by the provider but not invited to this deployment. No user row or
+        # session is created; the attempt is audited without the email itself.
+        audit(
+            db,
+            "auth.denied",
+            actor_user_id=None,
+            details={"reason": "not_on_allowlist", "verified_email": identity.email is not None},
+        )
+        db.commit()
+        return RedirectResponse("/signin?error=not_allowed", status_code=302)
     user = upsert_user(db, identity)
     raw, session = create_session(db, user.id, settings)
     audit(db, "auth.login", actor_user_id=user.id, details={"session_id": str(session.id)})

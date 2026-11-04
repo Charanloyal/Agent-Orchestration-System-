@@ -17,6 +17,7 @@ class Action(StrEnum):
     UPLOAD_CREATE = "upload.create"
     USAGE_READ = "usage.read"
     DATA_DELETE = "data.delete"
+    AUDIT_READ = "audit.read"
 
 
 _ANALYST = {

@@ -4,11 +4,17 @@ backend/.env (git-ignored). Secrets are SecretStr so they never appear in logs o
 from functools import lru_cache
 from pathlib import Path
 from typing import Literal
+from urllib.parse import urlsplit
 
 from pydantic import SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
+
+
+def _is_local_url(url: str) -> bool:
+    host = (urlsplit(url).hostname or "").lower()
+    return host in ("localhost", "127.0.0.1", "::1", "0.0.0.0") or host.endswith(".localhost")  # noqa: S104
 
 
 class Settings(BaseSettings):
@@ -88,6 +94,35 @@ class Settings(BaseSettings):
     # Provider circuit breaker: consecutive transient failures before opening, and cooldown.
     breaker_failure_threshold: int = 5
     breaker_cooldown_seconds: float = 60.0
+    # Sign-in allowlist (ADR 0018). Comma-separated; matched against the provider's *verified*
+    # email. Empty means "anyone the identity provider authenticates" and is refused in prod.
+    allowed_emails: str = ""
+    allowed_email_domains: str = ""
+    # Single-origin deployment: when set, the API also serves the built SPA from this folder.
+    static_dir: Path | None = None
+    # Largest accepted request body for JSON endpoints; uploads get upload_max_bytes + 1 MB.
+    max_request_bytes: int = 1_000_000
+    # Data retention (ADR 0018). 0 disables a sweep.
+    retention_run_days: int = 0
+    retention_upload_days: int = 0
+
+    @property
+    def allowed_email_set(self) -> frozenset[str]:
+        return frozenset(e.strip().lower() for e in self.allowed_emails.split(",") if e.strip())
+
+    @property
+    def allowed_domain_set(self) -> frozenset[str]:
+        return frozenset(
+            d.strip().lower().lstrip("@") for d in self.allowed_email_domains.split(",") if d.strip()
+        )
+
+    def email_allowed(self, email: str | None) -> bool:
+        if not self.allowed_email_set and not self.allowed_domain_set:
+            return True
+        if not email:
+            return False
+        email = email.lower()
+        return email in self.allowed_email_set or email.rsplit("@", 1)[-1] in self.allowed_domain_set
 
     @field_validator("public_url", "oidc_issuer")
     @classmethod
@@ -96,13 +131,28 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def _production_safety(self) -> Settings:
+        """Refuse to start in prod with any development default that would be unsafe there.
+        Each message names the variable to fix."""
         if self.env == "prod":
+            problems = []
+            if self.database_url is None:
+                problems.append("AOS_DATABASE_URL is required")
             if not self.cookie_secure:
-                raise ValueError("AOS_COOKIE_SECURE must be true in prod")
+                problems.append("AOS_COOKIE_SECURE must be true")
             if not self.oidc_issuer.startswith("https://"):
-                raise ValueError("AOS_OIDC_ISSUER must use https in prod")
+                problems.append("AOS_OIDC_ISSUER must be an https URL of a real identity provider")
+            if _is_local_url(self.oidc_issuer) or self.oidc_client_id == "aos-local":
+                problems.append("the bundled dev OIDC issuer/client must never be used in prod")
+            if self.oidc_backchannel_url and _is_local_url(self.oidc_backchannel_url):
+                problems.append("AOS_OIDC_BACKCHANNEL_URL must not point at a local dev issuer in prod")
             if not self.public_url.startswith("https://"):
-                raise ValueError("AOS_PUBLIC_URL must use https in prod")
+                problems.append("AOS_PUBLIC_URL must use https")
+            if not self.allowed_email_set and not self.allowed_domain_set:
+                problems.append("set AOS_ALLOWED_EMAILS and/or AOS_ALLOWED_EMAIL_DOMAINS (sign-in allowlist)")
+            if self.crash_at:
+                problems.append("AOS_CRASH_AT is a test-only setting")
+            if problems:
+                raise ValueError("unsafe production configuration: " + "; ".join(problems))
         return self
 
     @property

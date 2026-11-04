@@ -9,9 +9,12 @@ import logging
 import re
 import sys
 from datetime import UTC, datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from app.observability.context import current_request_id
+
+if TYPE_CHECKING:
+    from app.config import Settings
 
 _STANDARD_ATTRS = set(vars(logging.makeLogRecord({}))) | {
     "message",
@@ -79,6 +82,29 @@ def configure_logging(level: str = "INFO", json_output: bool = True) -> None:
     root = logging.getLogger()
     root.handlers[:] = [handler]
     root.setLevel(level)
-    # Third-party request loggers can include full URLs with query strings.
-    for noisy in ("httpx", "httpcore", "uvicorn.access"):
+    # Third-party request loggers can include full URLs with query strings; Alembic's plugin
+    # registration is noise at INFO (it runs on the first readiness check).
+    for noisy in ("httpx", "httpcore", "uvicorn.access", "alembic.runtime.plugins"):
         logging.getLogger(noisy).setLevel(logging.WARNING)
+
+
+def startup_summary(settings: Settings, component: str) -> None:
+    """One structured line describing how this process is configured. Hostnames and modes
+    only: never secrets, full URLs with credentials, or the allowlist contents."""
+    from urllib.parse import urlsplit
+
+    logging.getLogger("aos.startup").info(
+        "starting",
+        extra={
+            "component": component,
+            "env": settings.env,
+            "agent_mode": settings.agent_mode,
+            "search_provider": settings.search_provider,
+            "oidc_issuer_host": urlsplit(settings.oidc_issuer).hostname,
+            "public_url": settings.public_url,
+            "database_configured": settings.database_url is not None,
+            "serves_frontend": settings.static_dir is not None,
+            "signin_allowlist": bool(settings.allowed_email_set or settings.allowed_domain_set),
+            "tracing": settings.otel_exporter,
+        },
+    )

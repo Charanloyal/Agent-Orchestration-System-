@@ -16,7 +16,9 @@
 | **M9: recovery and cancellation** | **Done** | ADR 0015; `test_cancel_retry.py`, 10-scenario crash suite in `test_worker_recovery.py` |
 | **M10: observability and cost operations** | **Done** | ADR 0016; `test_observability.py`, [operations/](operations/) |
 | **M11: evaluation harness** | **Done** (fake-agent validation only; live run awaits a key and budget approval) | ADR 0017; `test_evaluation.py`, [eval/results](../eval/results/README.md) |
-| M12–M16 | Not started | see the plan in [handoff.md](handoff.md) |
+| **M12: controlled pilot and deployment packaging** | **Done** (repository side; the Render deploy itself needs an account, payment and an identity provider) | ADR 0018; `test_pilot_and_lifecycle.py`; CI `deploy-image`; [demo script](demo/demo-script.md), [deploy-render.md](operations/deploy-render.md), [P0 checklist](operations/p0-checklist.md) |
+| **M13: retention, deletion, audit** | **Done** | ADR 0019; `test_pilot_and_lifecycle.py`; [data-retention.md](operations/data-retention.md) |
+| M14–M16 | In progress | see [handoff.md](handoff.md) |
 
 ### Implemented behavior (verified by tests)
 
@@ -44,6 +46,16 @@
   - Version- and digest-bound decisions.
   - Persisted timeline with SSE replay.
   - Evidence with provenance.
+- **Pilot packaging and data lifecycle (M12–M13):**
+  - Single-origin production image (API serves the SPA; same image runs the worker; no dev
+    issuer) and a Render Blueprint validated against Render's schema.
+  - Production refuses unsafe settings; sign-in allowlist; request-size limits.
+  - Readiness requires the schema at migration head; the worker waits for migrations and
+    survives database outages.
+  - Admin run deletion including checkpoints and export files; retention sweep;
+    append-only audit log with an admin audit view.
+  - Seeded demo with a sample run; demo script; P0 checklist; migration and rollback
+    procedure.
 - **Evaluation (M11):**
   - Dev set frozen (`eval-dev-v1`); 20 held-out briefs written, not yet run.
   - Offline corpus v1: 80 labelled synthetic documents with executable fixtures.
@@ -122,6 +134,8 @@
 | [0015](decisions/0015-cancel-retry-recovery.md) | Cancellation, retry, reaper, segment deadlines, crash suite | Accepted |
 | [0016](decisions/0016-observability-rate-limits.md) | Observability, rate limits, degraded mode, usage views | Accepted |
 | [0017](decisions/0017-evaluation-harness.md) | Evaluation harness, systems A/B/C, offline corpus, blind scoring | Accepted |
+| [0018](decisions/0018-production-image-render-hardening.md) | Single-origin production image, Render topology, production hardening | Accepted |
+| [0019](decisions/0019-data-lifecycle-audit.md) | Data lifecycle: deletion, retention, append-only audit log | Accepted |
 
 ## Session handoff
 

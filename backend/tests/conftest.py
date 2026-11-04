@@ -268,3 +268,20 @@ def dev_issuer() -> Iterator[str]:
     yield issuer
     server.should_exit = True
     thread.join(timeout=5)
+
+
+@pytest.fixture
+def oidc_against(dev_issuer: str) -> Iterator[Callable[[], object]]:
+    """Point the app's OIDC client at the real dev issuer for this test."""
+    import httpx
+
+    from app.auth.deps import get_oidc_client
+    from app.auth.oidc import OidcClient
+    from app.config import Settings
+    from app.main import app
+
+    settings = Settings(oidc_issuer=dev_issuer, public_url="http://testserver", env="test")
+    oidc = OidcClient(settings, httpx.Client(timeout=5, trust_env=False))
+    app.dependency_overrides[get_oidc_client] = lambda: oidc
+    yield lambda: oidc
+    app.dependency_overrides.pop(get_oidc_client, None)

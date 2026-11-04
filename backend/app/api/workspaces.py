@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field, StringConstraints
 from sqlalchemy import Integer, cast, func, select
 
 from app.auth.deps import CurrentPrincipal, DbSession, WorkspaceAccess, workspace_access
-from app.db.models import Brief, BudgetReservation, Membership, Role, Run, User, Workspace
+from app.db.models import AuditEvent, Brief, BudgetReservation, Membership, Role, Run, User, Workspace
 from app.errors import Conflict, NotFound, Unprocessable
 from app.policy.permissions import Action
 from app.services.audit import audit
@@ -343,3 +343,45 @@ def workspace_usage(
             "Check the provider's billing console for invoiced amounts."
         ),
     )
+
+
+class AuditEventOut(BaseModel):
+    id: int
+    action: str
+    actor: str | None
+    target: str | None
+    details: dict[str, object]
+    created_at: datetime
+
+
+@router.get("/{workspace_id}/audit", response_model=list[AuditEventOut])
+def workspace_audit(
+    workspace_id: uuid.UUID,
+    access: Annotated[WorkspaceAccess, Depends(workspace_access(Action.AUDIT_READ))],
+    db: DbSession,
+    before_id: Annotated[int | None, Query(ge=1)] = None,
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+) -> list[AuditEventOut]:
+    """Security-relevant actions in this workspace, newest first (admins only). Audit events
+    are append-only and survive run and upload deletion; they hold ids and counts, never
+    report or source content."""
+    query = (
+        select(AuditEvent, User.display_name)
+        .outerjoin(User, User.id == AuditEvent.actor_user_id)
+        .where(AuditEvent.workspace_id == workspace_id)
+        .order_by(AuditEvent.id.desc())
+        .limit(limit)
+    )
+    if before_id is not None:
+        query = query.where(AuditEvent.id < before_id)
+    return [
+        AuditEventOut(
+            id=event.id,
+            action=event.action,
+            actor=name,
+            target=event.target,
+            details=event.details,
+            created_at=event.created_at,
+        )
+        for event, name in db.execute(query).all()
+    ]

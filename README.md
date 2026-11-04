@@ -24,6 +24,7 @@ eval/                     Evaluation briefs (dev frozen at eval-dev-v1; held-out
 backend/evaluation/       Evaluation harness: systems A/B/C, metrics, blind scoring kit (ADR 0017)
 spikes/week2_persistence/ Archived Week-2 spike (evidence for ADR 0007/0008)
 docker-compose.yml        Local production-like stack (Postgres, API, dev IdP, web)
+Dockerfile, render.yaml   Single-origin production image and Render Blueprint (web + worker + Postgres)
 .github/workflows/ci.yml  Lint, type-check, tests on Postgres, frontend build, image builds
 ```
 
@@ -96,15 +97,15 @@ without any model provider or cost.
 | Endpoint | Purpose |
 | --- | --- |
 | `GET /healthz` | Liveness |
-| `GET /readyz` | Readiness (database reachable and migrated) |
+| `GET /readyz` | Readiness (database reachable and at the code's migration head) |
 | `GET /api/docs` | Interactive OpenAPI docs (disabled in prod) |
 | `GET /api/v1/auth/login` | Start OIDC sign-in |
 
 **Checks** (the same commands CI runs):
 
 ```powershell
-.\.venv\Scripts\python.exe -m ruff check app devtools tests scripts migrations\env.py
-.\.venv\Scripts\python.exe -m ruff format --check app devtools tests scripts migrations\env.py
+.\.venv\Scripts\python.exe -m ruff check app devtools evaluation tests scripts migrations\env.py
+.\.venv\Scripts\python.exe -m ruff format --check app devtools evaluation tests scripts migrations\env.py
 .\.venv\Scripts\python.exe -m mypy
 .\.venv\Scripts\python.exe -m pytest -q
 ```
@@ -155,6 +156,32 @@ docker compose up --build          # http://localhost:8080 , dev IdP on http://l
 
 Both ports bind to 127.0.0.1 only. CI builds these images on every push.
 
+### Single-origin production image (what Render runs)
+
+The root [`Dockerfile`](Dockerfile) builds one image: the API also serves the built web app,
+and the same image runs the worker. It contains no dev issuer. Without Docker, the same
+arrangement runs natively; this mirrors CI's `deploy-image` job:
+
+```powershell
+cd frontend; npm.cmd run build; cd ..\backend
+$env:AOS_STATIC_DIR = (Resolve-Path ..\frontend\dist).Path
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --port 8000   # http://127.0.0.1:8000 serves app + API
+```
+
+To sign in on this single origin, start both the API and the dev issuer with
+`$env:AOS_PUBLIC_URL = "http://127.0.0.1:8000"`. The dev issuer only accepts the callback
+`<AOS_PUBLIC_URL>/api/v1/auth/callback`.
+
+## 5. Demo and deployment
+
+- **Demo:** `python -m app.cli seed-demo --sample-run`, then follow the 10-step
+  [demonstration script](docs/demo/demo-script.md).
+- **Render:** [`render.yaml`](render.yaml) and [deploy-render.md](docs/operations/deploy-render.md)
+  (web + worker + managed Postgres; paid instance types; a real identity provider required).
+- **Operations:** [P0 checklist](docs/operations/p0-checklist.md) ·
+  [migrations and rollback](docs/operations/migrations.md) ·
+  [data retention](docs/operations/data-retention.md) · [runbook](docs/operations/runbook.md).
+
 ## Configuration
 
 All settings are environment variables prefixed with `AOS_`, defined in
@@ -183,6 +210,14 @@ issuer.
 | `AOS_METRICS_TOKEN` | none | Bearer token for `/metrics` (required in prod, otherwise the endpoint is hidden there) |
 | `AOS_RATE_*` | 20 runs/user/h, 60 runs/workspace/h, 30 uploads/h, 60 exports/h, 30 logins/5 min | Rate limits (`0` disables one) |
 | `AOS_BREAKER_FAILURE_THRESHOLD` / `AOS_BREAKER_COOLDOWN_SECONDS` | `5` / `60` | Provider circuit breaker |
+| `AOS_ALLOWED_EMAILS` / `AOS_ALLOWED_EMAIL_DOMAINS` | empty (anyone) | Sign-in allowlist on the provider's verified email; **required in prod** |
+| `AOS_STATIC_DIR` | unset | Serve the built SPA from the API (single origin; set in the production image) |
+| `AOS_MAX_REQUEST_BYTES` | `1000000` | Largest JSON request body (uploads: `AOS_UPLOAD_MAX_BYTES` + 1 MB) |
+| `AOS_RETENTION_RUN_DAYS` / `AOS_RETENTION_UPLOAD_DAYS` | `0` (off) | Retention sweep for finished runs and uploads ([policy](docs/operations/data-retention.md)) |
+
+With `AOS_ENV=prod` the API and worker **refuse to start** on unsafe settings: the dev
+issuer, http URLs, insecure cookies, no allowlist, a missing database URL. The error names
+each variable to fix.
 
 Operations: [alert rules](docs/operations/alerts.yml) and the [incident runbook](docs/operations/runbook.md).
 

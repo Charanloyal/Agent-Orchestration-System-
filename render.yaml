@@ -1,0 +1,104 @@
+# Render Blueprint for the Agent Orchestration System (ADR 0018, docs/operations/deploy-render.md).
+#
+# Topology: one Docker web service (API + built SPA on one origin), one Docker background
+# worker built from the same image, one managed Postgres. Render background workers and
+# pre-deploy commands require paid instance types, so this blueprint is not free-tier.
+#
+# Secrets are `sync: false`: Render prompts for them when the Blueprint is first created and
+# never reads them from this file. Nothing secret is committed here.
+#
+# This deployment runs the deterministic fake agents by default (AOS_AGENT_MODE=fake): it
+# demonstrates the workflow, it is NOT evidence of real-model quality.
+
+databases:
+  - name: aos-db
+    databaseName: aos
+    user: aos
+    plan: basic-256mb
+    postgresMajorVersion: "17"
+    region: frankfurt
+    ipAllowList: []   # no public access; services connect over Render's private network
+
+envVarGroups:
+  - name: aos-shared
+    envVars:
+      - key: AOS_ENV
+        value: prod
+      - key: AOS_LOG_JSON
+        value: "true"
+      - key: AOS_COOKIE_SECURE
+        value: "true"
+      - key: AOS_AGENT_MODE
+        value: fake
+      - key: AOS_SEARCH_PROVIDER
+        value: fake
+      - key: AOS_RETENTION_RUN_DAYS
+        value: "30"
+      - key: AOS_RETENTION_UPLOAD_DAYS
+        value: "30"
+
+services:
+  - type: web
+    name: aos-web
+    runtime: docker
+    plan: starter
+    region: frankfurt
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /readyz
+    preDeployCommand: alembic upgrade head
+    maxShutdownDelaySeconds: 30
+    autoDeployTrigger: checksPass
+    envVars:
+      - fromGroup: aos-shared
+      - key: AOS_DATABASE_URL
+        fromDatabase:
+          name: aos-db
+          property: connectionString
+      # The service's own https URL, e.g. https://aos-web-xxxx.onrender.com (must also be
+      # registered at the identity provider as <url>/api/v1/auth/callback).
+      - key: AOS_PUBLIC_URL
+        sync: false
+      # A real OpenID Connect provider (Google, Microsoft Entra ID, Auth0, Keycloak...).
+      # The bundled dev issuer is refused in prod by configuration validation.
+      - key: AOS_OIDC_ISSUER
+        sync: false
+      - key: AOS_OIDC_CLIENT_ID
+        sync: false
+      - key: AOS_OIDC_CLIENT_SECRET
+        sync: false
+      # Who may sign in (at least one is required in prod), e.g. "you@university.edu".
+      - key: AOS_ALLOWED_EMAILS
+        sync: false
+      - key: AOS_ALLOWED_EMAIL_DOMAINS
+        sync: false
+      - key: AOS_METRICS_TOKEN
+        generateValue: true
+
+  - type: worker
+    name: aos-worker
+    runtime: docker
+    plan: starter
+    region: frankfurt
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    dockerCommand: python -m app.workers.runner
+    maxShutdownDelaySeconds: 30
+    autoDeployTrigger: checksPass
+    envVars:
+      - fromGroup: aos-shared
+      - key: AOS_DATABASE_URL
+        fromDatabase:
+          name: aos-db
+          property: connectionString
+      # The worker validates the same production settings as the web service.
+      - key: AOS_PUBLIC_URL
+        sync: false
+      - key: AOS_OIDC_ISSUER
+        sync: false
+      - key: AOS_OIDC_CLIENT_ID
+        sync: false
+      - key: AOS_ALLOWED_EMAILS
+        sync: false
+      - key: AOS_ALLOWED_EMAIL_DOMAINS
+        sync: false

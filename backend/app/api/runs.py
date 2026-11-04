@@ -14,7 +14,14 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field, StringConstraints
 from sqlalchemy import func, select, text
 
-from app.auth.deps import AppSettings, CurrentPrincipal, DbSession, Principal, check_workspace_access
+from app.auth.deps import (
+    AppSettings,
+    CurrentPrincipal,
+    DbSession,
+    Principal,
+    WorkspaceAccess,
+    check_workspace_access,
+)
 from app.billing.meter import spend_for
 from app.contracts import Brief as BriefSpec
 from app.contracts import Plan as PlanSpec
@@ -40,6 +47,7 @@ from app.errors import NotFound
 from app.policy.permissions import Action
 from app.services.exports import export_report
 from app.services.ratelimit import user_limit, workspace_run_limit
+from app.services.retention import delete_run
 from app.services.runs import (
     cancel_run,
     create_run,
@@ -348,6 +356,18 @@ def cancel(run_id: uuid.UUID, principal: CurrentPrincipal, db: DbSession) -> Run
 def retry(run_id: uuid.UUID, principal: CurrentPrincipal, db: DbSession) -> RunDetail:
     """Resume a failed run from its last checkpoint (bounded number of manual retries)."""
     return _detail(db, retry_run(db, principal, run_id))
+
+
+@router.delete("/runs/{run_id}", status_code=204)
+def delete_run_route(
+    run_id: uuid.UUID,
+    access: Annotated[WorkspaceAccess, Depends(run_access(Action.DATA_DELETE))],
+    db: DbSession,
+) -> Response:
+    """Permanently delete a finished run and everything derived from it (ADR 0018). Audit
+    events are kept. Admins only."""
+    delete_run(db, get_object_store(), run_id, actor_user_id=access.principal.user_id, role=access.role)
+    return Response(status_code=204)
 
 
 @router.get("/reports/{report_id}/versions/{version}", response_model=ArtifactOut)

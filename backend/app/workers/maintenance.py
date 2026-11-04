@@ -4,6 +4,7 @@ are locked with SKIP LOCKED, so workers never block each other or a decision in 
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session, sessionmaker
 
+from app.config import Settings
 from app.contracts.run_state import RunState
 from app.db.models import Run, RunJob, ToolExecution
 from app.services.events import append_event, set_run_state
@@ -65,3 +66,13 @@ def reap_exhausted_jobs(sm: sessionmaker[Session], batch: int = 50) -> int:
             job.lease_owner, job.lease_expires_at, job.last_error = None, None, reason
             job.fencing_token += 1
     return len(jobs)
+
+
+def run_retention(settings: Settings, sm: sessionmaker[Session]) -> dict[str, int]:
+    """Retention sweep (ADR 0018); a no-op unless AOS_RETENTION_*_DAYS are set."""
+    from app.services.retention import sweep
+
+    if settings.retention_run_days <= 0 and settings.retention_upload_days <= 0:
+        return {}
+    done = sweep(sm, run_days=settings.retention_run_days, upload_days=settings.retention_upload_days)
+    return {"runs": done.runs, "uploads": done.uploads} if done.runs or done.uploads else {}

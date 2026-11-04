@@ -12,8 +12,8 @@ from app.auth.deps import AppSettings, DbSession, WorkspaceAccess, workspace_acc
 from app.db.models import Upload, UploadChunk, User
 from app.errors import Forbidden, NotFound
 from app.policy.permissions import Action, is_allowed
-from app.services.audit import audit
 from app.services.ratelimit import user_limit
+from app.services.retention import delete_upload as remove_upload
 from app.services.uploads import ingest_upload, search_chunks
 from app.storage import get_object_store
 
@@ -137,14 +137,5 @@ def delete_upload(
     upload = _get(db, access.workspace_id, upload_id)
     if upload.created_by != access.principal.user_id and not is_allowed(access.role, Action.DATA_DELETE):
         raise Forbidden("Only the uploader or an admin can delete this upload")
-    get_object_store().delete(upload.object_key)
-    db.delete(upload)
-    audit(
-        db,
-        "upload.delete",
-        actor_user_id=access.principal.user_id,
-        workspace_id=access.workspace_id,
-        target=str(upload_id),
-    )
-    db.commit()
+    remove_upload(db, get_object_store(), upload, actor_user_id=access.principal.user_id)
     return Response(status_code=204)

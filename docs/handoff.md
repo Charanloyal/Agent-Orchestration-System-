@@ -4,53 +4,38 @@ Uses the template from the context prompt (§4). Contains no secrets or private 
 
 ```text
 Project: Agent Orchestration System
-Current milestone: M11 (PRD Week 11), evaluation harness: DONE for fake agents. The live run
-  waits for an API key and a written budget approval. Next: M12 local controlled pilot.
+Current milestone: M12 (controlled pilot and deployment packaging) and M13 (retention,
+  deletion, audit): DONE on the repository side. Next: M14 load testing and recovery drills,
+  M15 UX/accessibility, M16 final report.
 
 Last completed vertical slice:
-  `python -m evaluation.run` drives every dev case through the real workflow for systems A
-  (orchestrated), B (single-agent baseline) and C (reviewer ablation) on an isolated database,
-  using the offline corpus and executable fault fixtures. A simulated human approves plans and
-  reports. It writes per-run records, exported reports, and a summary with denominators and
-  Wilson intervals. `python -m evaluation.blind` builds the blind human-scoring kit, and
-  `evaluation.score` merges two scorers with Cohen's kappa.
+  The root Dockerfile builds one image: the API serves the SPA on the same origin, the same
+  image runs the worker, and the dev issuer is excluded. render.yaml defines web + worker +
+  managed Postgres (validated against Render's Blueprint schema). Production refuses unsafe
+  settings and needs a sign-in allowlist. /readyz requires the schema at migration head, and
+  the worker waits for migrations and survives database outages. Admins can delete finished
+  runs (including checkpoints and export files); a retention sweep runs; audit events are
+  append-only. `seed-demo --sample-run` plus docs/demo/demo-script.md reproduce the demo.
 
 Architecture decisions accepted:
-  0010–0016 as before; 0017 evaluation harness, B/C definitions, simulated approvals, offline
-  corpus with manifest hashes, guards for held-out and live runs, proxy-only automatic support
-  metric, blind scoring.
+  0001–0017 as before; 0018 single-origin image, Render topology, production hardening;
+  0019 data lifecycle and append-only audit log.
 
-Evaluation data:
-  Dev set frozen: tag eval-dev-v1 (commit 37556c4). Held-out: 20 cases written after the
-  freeze, before prompt tuning, by the system's author (recorded limitation); not yet run.
-  Corpus v1: 80 documents (paraphrases of real docs, labelled as such, plus fictional
-  .example products), per-case folders, MANIFEST.json hashes.
+Database migrations:
+  0001 … 0008 (0008: audit_events append-only trigger). Dev DB `aos` at 0008.
 
-Database migrations added/applied:
-  0001 … 0007 (M11 needed no schema change). Separate database `aos_eval` for harness runs.
-
-Tests actually run and results (Windows, Python 3.14.7, PostgreSQL 17.11, Node 24.21):
-  backend:  ruff + format clean; mypy --strict clean (app + evaluation); full pytest re-run
-            for the M11 commit (see commit message for the count)
-  evaluation: eval/results/2026-10-16-dev-validation-fake-16c073, 90 runs (20 cases x A/B/C
-            + 3 repeats of 5 cases). FAKE-AGENT HARNESS VALIDATION, NOT A QUALITY RESULT:
-            outcome matched expected in 28/30 runs per system; the 2 mismatches (dev-12,
-            dev-13) are the fake writer drafting from a contact-sales or marketing page
-            instead of stopping. Citation validity 100%. Injected URLs never fetched. Model
-            faults ended FAILED with no report. $0 spent.
-  frontend/e2e: unchanged since M10 (vitest 25, Playwright 5), re-run before commit
-  CI:       M10 e8261f9 green on GitHub (per the user's screenshot)
+Tests actually run (Windows, Python 3.14.7, PostgreSQL 17.11, Node 24.21): see the latest
+  commit message and the README checks. A prod-like local run (AOS_ENV=prod, SPA served by
+  the API, separate worker, isolated database aos_prodlike) verified: readyz 200,
+  openapi/docs/metrics 404, /me 401, client routes return the app, immutable asset caching,
+  413 for a 1.5 MB body, worker waits for migrations, no secrets in logs.
 
 Checks not run:
-  Live model runs (no key; needs written budget approval). Held-out split (reserved).
-  Human scoring, user interviews (project lead). docker compose up locally.
+  Docker builds (no Docker locally; CI `containers` and `deploy-image` jobs build and
+  smoke-test them). Render deployment (no account access; manual steps in
+  docs/operations/deploy-render.md). Live-model evaluation (needs a key and a budget).
 
-Known gaps (planned):
-  live evaluation and human scoring (needs you); pilot packaging (M12); retention/deletion and
-  audits (M13); load and backup/restore (M14); accessibility polish and user guide (M15);
-  held-out rerun and final report (M16).
-
-Next bounded task: M12. Production-like local profile (TLS reverse proxy notes, secrets
-  guidance), migration and rollback procedure, seeded demo workspace with the planted-claim
-  demo, onboarding notes, demo script, and the P0 acceptance checklist.
+Known gaps:
+  M14 load test and backup/restore drill; M15 UI polish, accessibility, screenshots, user
+  guide; M16 final report. Live evaluation and human scoring need the project lead.
 ```
