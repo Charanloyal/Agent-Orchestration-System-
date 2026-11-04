@@ -21,12 +21,17 @@ function AppShell({ me }: { me: Me }) {
   const { workspaceId } = useParams();
   const signOut = useSignOut();
   const current = me.memberships.find((m) => m.workspace_id === workspaceId) ?? me.memberships[0];
+  const demoAgents = me.deployment?.agent_mode === "fake";
 
   return (
     <div className="shell">
+      <a className="skip-link" href="#main">
+        Skip to content
+      </a>
       <header className="topbar">
         <Link to="/" className="brand" aria-label="Agent Orchestration System home">
-          <span className="brand-mark" aria-hidden="true">◆</span> Agent Orchestration
+          <span className="brand-mark" aria-hidden="true">◆</span>
+          <span className="brand-name">Agent Orchestration</span>
         </Link>
         {current && (
           <nav className="topnav" aria-label="Workspace">
@@ -36,13 +41,22 @@ function AppShell({ me }: { me: Me }) {
             {current.role !== "reviewer" && <NavLink to={`/w/${current.workspace_id}/new`}>New brief</NavLink>}
             <NavLink to={`/w/${current.workspace_id}/documents`}>Documents</NavLink>
             {current.role !== "reviewer" && <NavLink to={`/w/${current.workspace_id}/usage`}>Usage</NavLink>}
+            {current.role === "admin" && <NavLink to={`/w/${current.workspace_id}/activity`}>Activity</NavLink>}
           </nav>
         )}
         <div className="topbar-right">
+          {demoAgents && (
+            <span
+              className="badge badge-waiting"
+              title="This deployment uses deterministic demo agents, not a language model. Reports show the workflow, not model quality."
+            >
+              Demo agents
+            </span>
+          )}
           {me.memberships.length > 1 && current && (
             <WorkspaceSwitcher me={me} currentId={current.workspace_id} />
           )}
-          {current && me.memberships.length <= 1 && <span className="muted">{current.workspace_name}</span>}
+          {current && me.memberships.length <= 1 && <span className="muted workspace-name">{current.workspace_name}</span>}
           <span className="user" title={me.email ?? undefined}>
             {me.display_name}
             {current && <span className="muted small"> · {current.role}</span>}
@@ -52,7 +66,7 @@ function AppShell({ me }: { me: Me }) {
           </button>
         </div>
       </header>
-      <main className="content">
+      <main className="content" id="main" tabIndex={-1}>
         {me.memberships.length === 0 ? (
           <div className="banner">
             You are signed in but not a member of any workspace yet. Ask a workspace admin to add{" "}

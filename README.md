@@ -8,6 +8,12 @@ brief → typed plan → **human plan approval** → bounded parallel research �
 structured review (at most 2 rounds) → **human approval of the exact report version** →
 export.
 
+![Report awaiting reviewer approval, with the automatic review history](docs/assets/screenshots/04-report-with-review.png)
+
+New here? Read the [user guide](docs/user-guide.md) (illustrated walkthrough), then the
+[demonstration script](docs/demo/demo-script.md). Stuck? See
+[troubleshooting](docs/troubleshooting.md).
+
 > **Status:** controlled-pilot build in progress. See [docs/README.md](docs/README.md) for
 > milestone status and [docs/handoff.md](docs/handoff.md) for the verified state. This is
 > a local, production-like pilot. **Do not expose it publicly**: the bundled dev identity
@@ -175,7 +181,8 @@ To sign in on this single origin, start both the API and the dev issuer with
 ## 5. Demo and deployment
 
 - **Demo:** `python -m app.cli seed-demo --sample-run`, then follow the 10-step
-  [demonstration script](docs/demo/demo-script.md).
+  [demonstration script](docs/demo/demo-script.md). The [user guide](docs/user-guide.md)
+  explains each screen.
 - **Render:** [`render.yaml`](render.yaml) and [deploy-render.md](docs/operations/deploy-render.md)
   (web + worker + managed Postgres; paid instance types; a real identity provider required).
 - **Operations:** [P0 checklist](docs/operations/p0-checklist.md) ·
@@ -278,4 +285,5 @@ Replace `.\.venv\Scripts\python.exe` with `.venv/bin/python` and `npm.cmd` with 
 ## Documentation
 
 [docs/README.md](docs/README.md) indexes the product brief, evaluation plan, threat model,
-architecture and all decision records.
+architecture and all decision records. For users: [user guide](docs/user-guide.md) and
+[troubleshooting](docs/troubleshooting.md).

@@ -19,7 +19,8 @@
 | **M12: controlled pilot and deployment packaging** | **Done** (repository side; the Render deploy itself needs an account, payment and an identity provider) | ADR 0018; `test_pilot_and_lifecycle.py`; CI `deploy-image`; [demo script](demo/demo-script.md), [deploy-render.md](operations/deploy-render.md), [P0 checklist](operations/p0-checklist.md) |
 | **M13: retention, deletion, audit** | **Done** | ADR 0019; `test_pilot_and_lifecycle.py`; [data-retention.md](operations/data-retention.md) |
 | **M14: reliability, load, recovery** | **Done** (local machine, fake providers) | [load-and-recovery.md](operations/load-and-recovery.md); `scripts/loadtest.py`, `scripts/backup_restore_drill.py` |
-| M15–M16 | In progress | see [handoff.md](handoff.md) |
+| **M15: UX, accessibility, user documentation** | **Done** | `RunPage.test.tsx`, `ActivityPage.test.tsx`, `e2e/workflow.spec.ts`; [user guide](user-guide.md) with screenshots from `e2e/screenshots.spec.ts`; [troubleshooting](troubleshooting.md) |
+| M16: final report | In progress | see [handoff.md](handoff.md) |
 
 ### Implemented behavior (verified by tests)
 
@@ -95,18 +96,31 @@
 - **Evidence ingestion (M5):** Tavily, offline-corpus and fake search; SSRF-safe pinned fetcher; isolated text-PDF extraction; uploads with content sniffing; workspace-scoped full-text retrieval; failed sources shown as not read.
 - **Frontend:**
   - Sign-in, workspace shell, runs list, brief form.
-  - Run page with live timeline, plan view, cited structured report with evidence panel,
-    and role-gated approvals.
+  - Run page with a workflow progress stepper, live timeline, plan view, cited structured
+    report with evidence panel, and role-gated approvals.
+  - Admin run deletion with confirmation; admin activity (audit) page.
+  - A "Demo agents" badge whenever fake agents are configured.
+  - Accessibility: skip link, per-page titles, text-plus-colour status,
+    reduced-motion support; responsive down to phone width.
 - **Delivery:**
   - ruff and `mypy --strict`.
   - GitHub Actions: backend on Postgres, spike, frontend typecheck/test/build, Playwright
     E2E, container builds.
   - Dockerfiles and `docker-compose.yml` (API, worker, dev IdP, web, Postgres).
 
-### Not implemented yet
+### Not done (needs people, money or accounts)
 
-- Live evaluation runs and human scoring, retention/deletion, load tests. All four agents are
-  LLM-backed when `AOS_AGENT_MODE=llm`; fakes are the default.
+- Live (model-backed) evaluation of systems A/B/C, the held-out run, and blind human
+  scoring: these need an API key, budget approval and two scorers.
+- User interviews (project lead).
+- The Render deployment itself: needs an account, payment and a real identity provider.
+
+All four agents are LLM-backed when `AOS_AGENT_MODE=llm`; fakes are the default.
+
+## Using the system
+
+- [User guide](user-guide.md) (illustrated) · [Troubleshooting](troubleshooting.md) ·
+  [Demonstration script](demo/demo-script.md)
 
 ## Product and planning
 

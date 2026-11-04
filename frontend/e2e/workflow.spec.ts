@@ -2,7 +2,7 @@ import { readFile } from "node:fs/promises";
 
 import { expect, test, type Page } from "@playwright/test";
 
-type DemoUser = "Alice Analyst" | "Bob Reviewer" | "Mallory Outsider";
+type DemoUser = "Alice Analyst" | "Bob Reviewer" | "Carol Admin" | "Mallory Outsider";
 
 async function signIn(page: Page, user: DemoUser): Promise<void> {
   await page.goto("/signin");
@@ -52,7 +52,8 @@ test("analyst submits a brief and approves the plan; reviewer approves the cited
 
   await page.getByRole("button", { name: "Approve report v1" }).click();
   await expect(page.getByTestId("run-state")).toHaveText("Succeeded");
-  await expect(page.getByText("Approved", { exact: true })).toBeVisible();
+  await expect(page.locator(".card-header .badge-success", { hasText: "Approved" })).toBeVisible();
+  await expect(page.getByRole("list", { name: "Workflow progress" }).locator(".step-done")).toHaveCount(6);
   await expect(page.getByTestId("stream-status")).toHaveText("Finished");
 
   const downloading = page.waitForEvent("download");
@@ -113,6 +114,34 @@ test("an analyst cancels a run that is waiting for plan approval", async ({ page
   await expect(page.getByTestId("run-state")).toHaveText("Cancelled");
   await expect(page.getByRole("button", { name: "Approve plan v1" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Cancel run" })).toHaveCount(0);
+});
+
+test("an admin deletes a finished run and the activity log keeps the record", async ({ page }) => {
+  await signIn(page, "Carol Admin");
+  await expect(page.getByText("Demo agents")).toBeVisible();
+  await page.getByRole("link", { name: "New brief", exact: true }).first().click();
+  await page.getByLabel("Topic").fill("A run the admin will delete");
+  await page.getByLabel("Intended audience").fill("Nobody");
+  await page.getByLabel("Research question 1").fill("Is deletion complete?");
+  await page.getByRole("button", { name: "Submit brief" }).click();
+  await expect(page.getByTestId("run-state")).toHaveText("Awaiting plan approval");
+  await expect(page.getByRole("list", { name: "Workflow progress" }).locator('[aria-current="step"]')).toContainText(
+    "Plan approval",
+  );
+
+  await page.getByRole("button", { name: "Cancel run" }).click();
+  await page.getByRole("button", { name: "Yes, cancel run" }).click();
+  await expect(page.getByTestId("run-state")).toHaveText("Cancelled");
+  const runUrl = page.url();
+
+  await page.getByRole("button", { name: "Delete run" }).click();
+  await page.getByRole("button", { name: "Yes, delete permanently" }).click();
+  await expect(page).toHaveURL(/\/w\/[0-9a-f-]{36}\/runs$/);
+  await page.goto(runUrl);
+  await expect(page.getByRole("alert")).toContainText("Not found");
+
+  await page.getByRole("link", { name: "Activity" }).click();
+  await expect(page.getByRole("table", { name: "Workspace activity log" })).toContainText("Carol Admin deleted a run");
 });
 
 test("a member of another workspace cannot open the run", async ({ page }) => {

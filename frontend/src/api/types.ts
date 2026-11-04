@@ -33,6 +33,16 @@ export type Me = {
   display_name: string;
   csrf_token: string;
   memberships: Membership[];
+  deployment: { environment: string; agent_mode: "fake" | "llm" };
+};
+
+export type AuditEvent = {
+  id: number;
+  action: string;
+  actor: string | null;
+  target: string | null;
+  details: Record<string, unknown>;
+  created_at: string;
 };
 
 export type SourceType = "public_web" | "vendor_docs" | "uploaded_documents";

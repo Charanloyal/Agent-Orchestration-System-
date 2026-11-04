@@ -4,18 +4,25 @@ Uses the template from the context prompt (§4). Contains no secrets or private 
 
 ```text
 Project: Agent Orchestration System
-Current milestone: M12 (controlled pilot and deployment packaging) and M13 (retention,
-  deletion, audit): DONE on the repository side. Next: M14 load testing and recovery drills,
-  M15 UX/accessibility, M16 final report.
+Current milestone: M12–M15 DONE on the repository side (pilot packaging; retention,
+  deletion, audit; reliability, load and recovery; UX, accessibility, user docs).
+  Next: M16 final report.
 
-Last completed vertical slice:
-  The root Dockerfile builds one image: the API serves the SPA on the same origin, the same
-  image runs the worker, and the dev issuer is excluded. render.yaml defines web + worker +
-  managed Postgres (validated against Render's Blueprint schema). Production refuses unsafe
-  settings and needs a sign-in allowlist. /readyz requires the schema at migration head, and
-  the worker waits for migrations and survives database outages. Admins can delete finished
-  runs (including checkpoints and export files); a retention sweep runs; audit events are
-  append-only. `seed-demo --sample-run` plus docs/demo/demo-script.md reproduce the demo.
+Last completed vertical slice (M15):
+  Run page workflow stepper (responsive grid on phones), admin "Delete run" with
+  confirmation, admin Activity page over the append-only audit log, a "Demo agents" badge
+  driven by /api/v1/auth/me `deployment.agent_mode`, a skip link, per-page document titles and
+  a compact mobile top bar. docs/user-guide.md embeds 12 screenshots captured from the real
+  stack by frontend/e2e/screenshots.spec.ts (AOS_SCREENSHOTS=1); docs/troubleshooting.md
+  maps real error messages and log lines to fixes.
+
+Earlier slices (M12–M14):
+  The single-origin image (API serves the SPA; same image runs the worker; no dev issuer)
+  and render.yaml (web + worker + managed Postgres, schema-validated). Production refuses
+  unsafe settings and needs an allowlist. /readyz requires the migration head; the worker
+  waits for migrations and survives database outages. Admin run deletion and a retention
+  sweep; append-only audit. Load test, crash takeover and a backup/restore drill
+  (docs/operations/load-and-recovery.md).
 
 Architecture decisions accepted:
   0001–0017 as before; 0018 single-origin image, Render topology, production hardening;
@@ -24,18 +31,20 @@ Architecture decisions accepted:
 Database migrations:
   0001 … 0008 (0008: audit_events append-only trigger). Dev DB `aos` at 0008.
 
-Tests actually run (Windows, Python 3.14.7, PostgreSQL 17.11, Node 24.21): see the latest
-  commit message and the README checks. A prod-like local run (AOS_ENV=prod, SPA served by
-  the API, separate worker, isolated database aos_prodlike) verified: readyz 200,
-  openapi/docs/metrics 404, /me 401, client routes return the app, immutable asset caching,
-  413 for a 1.5 MB body, worker waits for migrations, no secrets in logs.
+Tests actually run for M15 (Windows, Python 3.14.7, PostgreSQL 17.11, Node 24.21):
+  backend ruff + format + mypy clean, pytest 398 passed / 1 live test deselected; frontend
+  typecheck clean, vitest 35 passed, build OK, Playwright 6 passed (plus the opt-in
+  screenshot spec). M14 measurements: 20 readers p95 158 ms, 0 errors; 10 concurrent
+  workflows with 0 integrity or isolation violations; crash takeover 5.89 s with a 6 s
+  lease; graceful stop 0.6–0.7 s; restore drill PASS.
 
 Checks not run:
   Docker builds (no Docker locally; CI `containers` and `deploy-image` jobs build and
   smoke-test them). Render deployment (no account access; manual steps in
   docs/operations/deploy-render.md). Live-model evaluation (needs a key and a budget).
+  Screen-reader testing with real assistive technology.
 
 Known gaps:
-  M14 load test and backup/restore drill; M15 UI polish, accessibility, screenshots, user
-  guide; M16 final report. Live evaluation and human scoring need the project lead.
+  M16 final report. Live evaluation, held-out run, human scoring and user interviews need
+  the project lead.
 ```

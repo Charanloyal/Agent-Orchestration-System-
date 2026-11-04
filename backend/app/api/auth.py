@@ -137,16 +137,22 @@ class MembershipOut(BaseModel):
     role: str
 
 
+class DeploymentOut(BaseModel):
+    environment: str
+    agent_mode: str
+
+
 class MeOut(BaseModel):
     user_id: uuid.UUID
     email: str | None
     display_name: str
     csrf_token: str
     memberships: list[MembershipOut]
+    deployment: DeploymentOut
 
 
 @router.get("/me", response_model=MeOut)
-def me(principal: CurrentPrincipal, db: DbSession) -> MeOut:
+def me(principal: CurrentPrincipal, db: DbSession, settings: AppSettings) -> MeOut:
     rows = db.execute(
         select(Membership.workspace_id, Workspace.name, Membership.role)
         .join(Workspace, Workspace.id == Membership.workspace_id)
@@ -159,4 +165,5 @@ def me(principal: CurrentPrincipal, db: DbSession) -> MeOut:
         display_name=principal.display_name,
         csrf_token=principal.csrf_token,
         memberships=[MembershipOut(workspace_id=w, workspace_name=n, role=r) for w, n, r in rows],
+        deployment=DeploymentOut(environment=settings.env, agent_mode=settings.agent_mode),
     )

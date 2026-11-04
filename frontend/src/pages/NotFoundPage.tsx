@@ -1,6 +1,8 @@
 import { Link } from "react-router";
+import { useDocumentTitle } from "../api/hooks";
 
 export function NotFoundPage() {
+  useDocumentTitle("Page not found");
   return (
     <div className="empty">
       <h1>Page not found</h1>

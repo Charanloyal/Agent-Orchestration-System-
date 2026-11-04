@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
-import { Link, useOutletContext, useParams } from "react-router";
+import { Link, useNavigate, useOutletContext, useParams } from "react-router";
 
 import {
   isTerminal,
   useDecide,
+  useDeleteRun,
+  useDocumentTitle,
   useEvidence,
   useExportReport,
   useReportVersion,
@@ -24,6 +26,7 @@ import type {
   ReviewRound,
   RunDetail,
   RunEvent,
+  RunState,
   Severity,
 } from "../api/types";
 import { PlanEditor } from "../components/PlanEditor";
@@ -36,6 +39,7 @@ import {
   formatTime,
   REVIEW_OUTCOMES,
   SEVERITY_TONES,
+  STATE_LABELS,
 } from "../format";
 
 type Tab = "report" | "plan" | "evidence";
@@ -47,6 +51,7 @@ export function RunPage() {
   const [epoch, setEpoch] = useState(0);
   const stream = useRunEvents(runId, epoch);
   const [tab, setTab] = useState<Tab | null>(null);
+  useDocumentTitle(run.data?.topic ?? "Run");
 
   if (run.isPending) return <Spinner label="Loading run…" />;
   if (run.isError) return <ErrorBanner error={run.error} title="Could not load this run" />;
@@ -72,6 +77,8 @@ export function RunPage() {
           <StateBadge state={detail.state} />
         </div>
       </div>
+
+      <WorkflowProgress run={detail} />
 
       {detail.state === "CANCEL_REQUESTED" && (
         <div className="banner banner-warning" role="status">
@@ -117,33 +124,81 @@ export function RunPage() {
   );
 }
 
+const STAGES = ["Brief", "Plan approval", "Research", "Draft & review", "Report approval", "Approved"] as const;
+
+const STAGE_OF_STATE: Partial<Record<RunState, number>> = {
+  QUEUED: 1,
+  PLANNING: 1,
+  AWAITING_PLAN_APPROVAL: 1,
+  RESEARCHING: 2,
+  WRITING: 3,
+  REVIEWING: 3,
+  AWAITING_REPORT_APPROVAL: 4,
+  SUCCEEDED: 6,
+};
+
+/** Where the run is in the controlled workflow; stopped runs show where they stopped. */
+export function workflowStage(run: RunDetail): { index: number; stopped: boolean } {
+  const known = STAGE_OF_STATE[run.state];
+  if (known !== undefined) return { index: known, stopped: false };
+  const decided = (kind: "plan" | "report") => run.decisions.some((d) => d.kind === kind);
+  const index = decided("report") ? 4 : run.report ? 3 : decided("plan") ? 2 : 1;
+  return { index, stopped: true };
+}
+
+function WorkflowProgress({ run }: { run: RunDetail }) {
+  const { index, stopped } = workflowStage(run);
+  return (
+    <ol className="stepper" aria-label="Workflow progress">
+      {STAGES.map((label, i) => {
+        const status =
+          i < index ? "done" : i === index ? (stopped ? "stopped" : i === 1 || i === 4 ? "waiting" : "current") : "todo";
+        const spoken = { done: "completed", current: "in progress", waiting: "in progress or waiting for a person",
+                         stopped: `stopped (${STATE_LABELS[run.state] ?? run.state})`, todo: "not started" }[status];
+        return (
+          <li key={label} className={`step step-${status}`} aria-current={i === index ? "step" : undefined}>
+            <span className="step-marker" aria-hidden="true">
+              {status === "done" ? "✓" : status === "stopped" ? "!" : i + 1}
+            </span>
+            <span className="step-label">{label}</span>
+            <span className="visually-hidden">: {spoken}</span>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
 function RunActions({ run, role, onRetried }: { run: RunDetail; role: string | undefined; onRetried: () => void }) {
   const cancel = useRunAction(run.id, "cancel");
   const retry = useRunAction(run.id, "retry");
-  const [confirming, setConfirming] = useState(false);
+  const remove = useDeleteRun(run.id, run.workspace_id);
+  const navigate = useNavigate();
+  const [confirming, setConfirming] = useState<"cancel" | "delete" | null>(null);
   const canAct = role === "analyst" || role === "admin";
   if (!canAct) return null;
   const cancellable = !isTerminal(run.state) && run.state !== "CANCEL_REQUESTED";
-  const error = cancel.error ?? retry.error;
+  const deletable = role === "admin" && isTerminal(run.state);
+  const error = cancel.error ?? retry.error ?? remove.error;
 
   return (
     <div className="run-actions row wrap">
-      {cancellable && !confirming && (
-        <button type="button" className="btn btn-secondary" onClick={() => setConfirming(true)}>
+      {cancellable && confirming !== "cancel" && (
+        <button type="button" className="btn btn-secondary" onClick={() => setConfirming("cancel")}>
           Cancel run
         </button>
       )}
-      {cancellable && confirming && (
+      {cancellable && confirming === "cancel" && (
         <div className="row wrap" role="group" aria-label="Confirm cancellation">
           <span className="small">Stop this run? This cannot be undone.</span>
-          <button type="button" className="btn btn-ghost" onClick={() => setConfirming(false)}>
+          <button type="button" className="btn btn-ghost" onClick={() => setConfirming(null)}>
             Keep running
           </button>
           <button
             type="button"
             className="btn btn-danger"
             disabled={cancel.isPending}
-            onClick={() => cancel.mutate(undefined, { onSettled: () => setConfirming(false) })}
+            onClick={() => cancel.mutate(undefined, { onSettled: () => setConfirming(null) })}
           >
             Yes, cancel run
           </button>
@@ -158,6 +213,31 @@ function RunActions({ run, role, onRetried }: { run: RunDetail; role: string | u
         >
           Retry from last checkpoint
         </button>
+      )}
+      {deletable && confirming !== "delete" && (
+        <button type="button" className="btn btn-ghost" onClick={() => setConfirming("delete")}>
+          Delete run
+        </button>
+      )}
+      {deletable && confirming === "delete" && (
+        <div className="row wrap" role="group" aria-label="Confirm deletion">
+          <span className="small">
+            Permanently delete this run, its evidence, reports and exports? The activity log keeps a record.
+          </span>
+          <button type="button" className="btn btn-ghost" onClick={() => setConfirming(null)}>
+            Keep it
+          </button>
+          <button
+            type="button"
+            className="btn btn-danger"
+            disabled={remove.isPending}
+            onClick={() =>
+              remove.mutate(undefined, { onSuccess: () => navigate(`/w/${run.workspace_id}/runs`, { replace: true }) })
+            }
+          >
+            Yes, delete permanently
+          </button>
+        </div>
       )}
       {error && <ErrorBanner error={error} title="Action failed" />}
     </div>

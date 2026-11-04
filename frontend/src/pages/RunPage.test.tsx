@@ -10,10 +10,11 @@ import { RunPage } from "./RunPage";
 const WS = "11111111-1111-1111-1111-111111111111";
 const RUN = "22222222-2222-2222-2222-222222222222";
 
-function me(role: "analyst" | "reviewer"): Me {
+function me(role: "analyst" | "reviewer" | "admin"): Me {
   return {
     user_id: "u1", email: "u@example.test", display_name: "U", csrf_token: "t",
     memberships: [{ workspace_id: WS, workspace_name: "Team", role }],
+    deployment: { environment: "test", agent_mode: "fake" },
   };
 }
 
@@ -40,10 +41,12 @@ function run(overrides: Partial<RunDetail> = {}): RunDetail {
   };
 }
 
-function renderRun(role: "analyst" | "reviewer", detail: RunDetail, extra: Parameters<typeof mockFetch>[0] = []) {
+function renderRun(role: "analyst" | "reviewer" | "admin", detail: RunDetail, extra: Parameters<typeof mockFetch>[0] = []) {
   const calls = mockFetch([{ path: `/api/v1/runs/${RUN}`, body: detail }, ...extra]);
-  renderRoutes([{ element: <Outlet context={me(role)} />, children: [{ path: "runs/:runId", element: <RunPage /> }] }],
-               `/runs/${RUN}`);
+  renderRoutes([{ element: <Outlet context={me(role)} />, children: [
+    { path: "runs/:runId", element: <RunPage /> },
+    { path: "w/:workspaceId/runs", element: <p>Runs list</p> },
+  ] }], `/runs/${RUN}`);
   return calls;
 }
 
@@ -93,6 +96,32 @@ describe("RunPage", () => {
     expect(await screen.findByText(/No new steps, tool calls or model calls will start/)).toBeInTheDocument();
     expect(calls.filter((c) => c.method === "POST").map((c) => c.url)).toEqual([`/api/v1/runs/${RUN}/cancel`]);
     expect(screen.queryByRole("button", { name: "Cancel run" })).not.toBeInTheDocument();
+  });
+
+  it("shows workflow progress, including where a stopped run stopped", async () => {
+    renderRun("analyst", run());
+    const progress = await screen.findByRole("list", { name: "Workflow progress" });
+    const current = within(progress).getByText("Plan approval").closest("li");
+    expect(current).toHaveAttribute("aria-current", "step");
+    expect(within(progress).getByText("Brief").closest("li")).toHaveClass("step-done");
+    expect(document.title).toContain("Compare search tools");
+  });
+
+  it("lets only admins delete finished runs, after confirmation", async () => {
+    const finished = run({ state: "SUCCEEDED", pending_decision: null, decisions: [] });
+    const calls = renderRun("admin", finished, [{ method: "DELETE", path: `/api/v1/runs/${RUN}`, status: 204, body: null }]);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Delete run" }));
+    expect(calls.some((c) => c.method === "DELETE")).toBe(false);
+    await user.click(screen.getByRole("button", { name: "Yes, delete permanently" }));
+    expect(await screen.findByText("Runs list")).toBeInTheDocument();
+    expect(calls.filter((c) => c.method === "DELETE").map((c) => c.url)).toEqual([`/api/v1/runs/${RUN}`]);
+  });
+
+  it("does not offer deletion to analysts or for active runs", async () => {
+    renderRun("analyst", run({ state: "SUCCEEDED", pending_decision: null }));
+    await screen.findByRole("list", { name: "Workflow progress" });
+    expect(screen.queryByRole("button", { name: "Delete run" })).not.toBeInTheDocument();
   });
 
   it("offers a retry for failed runs", async () => {

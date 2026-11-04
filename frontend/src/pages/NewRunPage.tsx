@@ -2,7 +2,7 @@ import { useMemo, useState, type FormEvent } from "react";
 import { useNavigate, useParams } from "react-router";
 
 import { ApiError, newIdempotencyKey } from "../api/client";
-import { useCreateRun } from "../api/hooks";
+import { useCreateRun, useDocumentTitle } from "../api/hooks";
 import type { BriefInput, SourceType } from "../api/types";
 import { Card, ErrorBanner } from "../components/ui";
 
@@ -19,6 +19,7 @@ const splitList = (value: string): string[] =>
     .filter(Boolean);
 
 export function NewRunPage() {
+  useDocumentTitle("New brief");
   const { workspaceId = "" } = useParams();
   const navigate = useNavigate();
   const createRun = useCreateRun(workspaceId);

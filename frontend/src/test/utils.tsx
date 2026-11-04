@@ -22,6 +22,7 @@ export function mockFetch(routes: MockRoute[]) {
       (r) => (r.method ?? "GET") === method && (typeof r.path === "string" ? url === r.path : r.path.test(url)),
     );
     if (!route) return new Response(JSON.stringify({ error: { code: "not_found", message: "no mock" } }), { status: 404 });
+    if (route.status === 204) return new Response(null, { status: 204 });
     return new Response(JSON.stringify(route.body), {
       status: route.status ?? 200,
       headers: { "Content-Type": "application/json", "x-request-id": "req-test" },

@@ -11,6 +11,7 @@ const WS = "11111111-1111-1111-1111-111111111111";
 const me: Me = {
   user_id: "u1", email: "a@example.test", display_name: "Ana", csrf_token: "csrf",
   memberships: [{ workspace_id: WS, workspace_name: "Team", role: "analyst" }],
+  deployment: { environment: "test", agent_mode: "fake" },
 };
 
 const doc = {

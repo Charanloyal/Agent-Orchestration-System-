@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { api, ApiError, download, saveBlob, setCsrfToken } from "./client";
 import type {
   Artifact,
+  AuditEvent,
   BriefInput,
   Decision,
   Evidence,
@@ -225,6 +226,32 @@ export function useDecide(runId: string) {
       ),
     onSettled: () => client.invalidateQueries({ queryKey: keys.run(runId) }),
   });
+}
+
+export function useDeleteRun(runId: string, workspaceId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: () => api<void>(`/api/v1/runs/${runId}`, { method: "DELETE" }),
+    onSuccess: () => {
+      client.removeQueries({ queryKey: keys.run(runId) });
+      void client.invalidateQueries({ queryKey: keys.runs(workspaceId) });
+    },
+  });
+}
+
+export function useAuditLog(workspaceId: string, enabled: boolean) {
+  return useQuery({
+    queryKey: ["audit", workspaceId],
+    queryFn: () => api<AuditEvent[]>(`/api/v1/workspaces/${workspaceId}/audit?limit=100`),
+    enabled,
+  });
+}
+
+/** Keeps the browser tab title meaningful for each page (screen readers announce it too). */
+export function useDocumentTitle(title: string | null | undefined) {
+  useEffect(() => {
+    document.title = title ? `${title} · Agent Orchestration` : "Agent Orchestration System";
+  }, [title]);
 }
 
 export function useRunAction(runId: string, action: "cancel" | "retry") {

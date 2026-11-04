@@ -38,6 +38,8 @@ export const BACKEND_ENV: Record<string, string> = {
 
 export default defineConfig({
   testDir: "./e2e",
+  // Documentation screenshots are captured on demand (AOS_SCREENSHOTS=1), not as a test.
+  testIgnore: process.env.AOS_SCREENSHOTS ? [] : ["**/screenshots.spec.ts"],
   timeout: 90_000,
   expect: { timeout: 20_000 },
   fullyParallel: false,

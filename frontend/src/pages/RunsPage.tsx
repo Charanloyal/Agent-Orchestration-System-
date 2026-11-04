@@ -1,11 +1,12 @@
 import { Link, useOutletContext, useParams } from "react-router";
 
-import { useRuns } from "../api/hooks";
+import { useDocumentTitle, useRuns } from "../api/hooks";
 import type { Me } from "../api/types";
 import { Card, EmptyState, ErrorBanner, Spinner, StateBadge } from "../components/ui";
 import { formatDateTime } from "../format";
 
 export function RunsPage() {
+  useDocumentTitle("Runs");
   const { workspaceId = "" } = useParams();
   const me = useOutletContext<Me>();
   const role = me.memberships.find((m) => m.workspace_id === workspaceId)?.role;

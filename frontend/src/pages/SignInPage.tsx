@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { Navigate, useSearchParams } from "react-router";
 
-import { useMe } from "../api/hooks";
+import { useDocumentTitle, useMe } from "../api/hooks";
 import { fetchHealth } from "../api/health";
 import { Spinner } from "../components/ui";
 
 export function SignInPage() {
+  useDocumentTitle("Sign in");
   const me = useMe();
   const [params] = useSearchParams();
   const next = params.get("next") ?? "/";

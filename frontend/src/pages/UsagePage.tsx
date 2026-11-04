@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router";
 
-import { useWorkspaceUsage } from "../api/hooks";
+import { useDocumentTitle, useWorkspaceUsage } from "../api/hooks";
 import { Card, EmptyState, ErrorBanner, Spinner, StateBadge } from "../components/ui";
 import { formatDateTime } from "../format";
 
@@ -11,6 +11,7 @@ const PERIODS = [7, 30, 90] as const;
 /** Estimated spend for the workspace (FR-09). Figures come from the configured price schedule
  *  and provider-reported usage, not from an invoice. */
 export function UsagePage() {
+  useDocumentTitle("Usage");
   const { workspaceId = "" } = useParams();
   const [days, setDays] = useState<number>(30);
   const usage = useWorkspaceUsage(workspaceId, days);

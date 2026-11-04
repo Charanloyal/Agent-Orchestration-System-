@@ -1,6 +1,7 @@
 import { createBrowserRouter, type RouteObject } from "react-router";
 
 import { HomeRedirect, RequireAuth } from "./components/AppShell";
+import { ActivityPage } from "./pages/ActivityPage";
 import { NewRunPage } from "./pages/NewRunPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
 import { RunPage } from "./pages/RunPage";
@@ -19,6 +20,7 @@ export const routes: RouteObject[] = [
       { path: "w/:workspaceId/new", element: <NewRunPage /> },
       { path: "w/:workspaceId/documents", element: <UploadsPage /> },
       { path: "w/:workspaceId/usage", element: <UsagePage /> },
+      { path: "w/:workspaceId/activity", element: <ActivityPage /> },
       { path: "runs/:runId", element: <RunPage /> },
     ],
   },

@@ -57,6 +57,7 @@ def test_full_sign_in_flow_creates_session(client: TestClient, db: object, oidc_
     assert body["email"] == "alice@example.test"
     assert body["display_name"] == "Alice Analyst"
     assert len(body["csrf_token"]) >= 32
+    assert body["deployment"] == {"environment": "test", "agent_mode": "fake"}, "UI can label demo agents"
 
 
 def test_callback_state_is_single_use(client: TestClient, db: object, oidc_against: Any) -> None:

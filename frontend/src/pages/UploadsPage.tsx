@@ -1,7 +1,7 @@
 import { useRef, useState, type FormEvent } from "react";
 import { useOutletContext, useParams } from "react-router";
 
-import { useDeleteUpload, useUploadFile, useUploadSearch, useUploads } from "../api/hooks";
+import { useDeleteUpload, useDocumentTitle, useUploadFile, useUploads, useUploadSearch } from "../api/hooks";
 import type { Me } from "../api/types";
 import { Card, EmptyState, ErrorBanner, Spinner } from "../components/ui";
 import { formatDateTime } from "../format";
@@ -10,6 +10,7 @@ const formatSize = (bytes: number) =>
   bytes >= 1_000_000 ? `${(bytes / 1_000_000).toFixed(1)} MB` : `${Math.max(1, Math.round(bytes / 1000))} KB`;
 
 export function UploadsPage() {
+  useDocumentTitle("Documents");
   const { workspaceId = "" } = useParams();
   const me = useOutletContext<Me>();
   const role = me.memberships.find((m) => m.workspace_id === workspaceId)?.role;
