@@ -27,11 +27,11 @@ criteria and the evidence that verifies them. Updated at M12 (2026-11-03).
 
 | Gate | Target | Evidence | Status |
 | --- | --- | --- | --- |
-| API p95 | < 500 ms for metadata endpoints at 20 concurrent clients | Load test ([load-and-recovery.md](../operations/load-and-recovery.md), M14) | Open (M14) |
-| Throughput | 5 concurrent end-to-end runs without corruption, budget races or leakage | Load test (fake providers, M14) | Open (M14) |
+| API p95 | < 500 ms for metadata endpoints at 20 concurrent clients | [load-and-recovery.md](../operations/load-and-recovery.md): p95 158 ms, 6,800 requests, 0 errors (local laptop, fake providers) | Met locally; not measured on Render |
+| Throughput | 5 concurrent end-to-end runs without corruption, budget races or leakage | Same document: 2 × 5 concurrent runs, all succeeded, 0 integrity or isolation violations | Met (fake providers) |
 | Recovery | 10/10 crash scenarios preserve committed results with no duplicates | `test_worker_recovery.py` | Verified |
 | Citation integrity | 100% of citation IDs resolve to run evidence | `validate_citations` on every draft; evaluation citation validity 100% (fake agents, 90 runs) | Verified for the harness; live run pending |
 | Evidence support | ≥ 90% of sampled claims supported, with denominator and CI | Blind human sample (`evaluation.blind`) | **Open**: needs a live run and two human scorers |
 | Completion | ≥ 90% of answerable briefs produce a reviewable draft | Fake agents: 18/18 answerable dev runs per system (harness validation only) | **Open** for real models |
 | Control tests | 0 unauthorized tool calls or cross-workspace disclosures | Authz matrix; injected-URL fixtures (never fetched); SSRF suite | Verified (automated); no external penetration test |
-| Operability | Backup restore, rollback, readiness and provider-failure alerts tested | Readiness tests; restore drill (M14); rollback documented, not rehearsed on Render | Partly |
+| Operability | Backup restore, rollback, readiness and provider-failure alerts tested | Readiness tests; restore drill PASS; provider-outage breaker test; alert rules; rollback documented, not rehearsed on Render | Partly (hosted rollback rehearsal open) |

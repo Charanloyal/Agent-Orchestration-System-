@@ -360,6 +360,8 @@ def main(argv: list[str] | None = None) -> int:
 
     signal.signal(signal.SIGINT, request_stop)
     signal.signal(signal.SIGTERM, request_stop)
+    if hasattr(signal, "SIGBREAK"):  # Windows: Ctrl+Break is the console's graceful stop
+        signal.signal(signal.SIGBREAK, request_stop)
     wait_for_database(settings, stopping)
     log.info("worker started", extra={"worker": worker_id})
     run_loop(settings, worker_id, stopping, run_id=args.run_id)

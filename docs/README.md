@@ -18,7 +18,8 @@
 | **M11: evaluation harness** | **Done** (fake-agent validation only; live run awaits a key and budget approval) | ADR 0017; `test_evaluation.py`, [eval/results](../eval/results/README.md) |
 | **M12: controlled pilot and deployment packaging** | **Done** (repository side; the Render deploy itself needs an account, payment and an identity provider) | ADR 0018; `test_pilot_and_lifecycle.py`; CI `deploy-image`; [demo script](demo/demo-script.md), [deploy-render.md](operations/deploy-render.md), [P0 checklist](operations/p0-checklist.md) |
 | **M13: retention, deletion, audit** | **Done** | ADR 0019; `test_pilot_and_lifecycle.py`; [data-retention.md](operations/data-retention.md) |
-| M14–M16 | In progress | see [handoff.md](handoff.md) |
+| **M14: reliability, load, recovery** | **Done** (local machine, fake providers) | [load-and-recovery.md](operations/load-and-recovery.md); `scripts/loadtest.py`, `scripts/backup_restore_drill.py` |
+| M15–M16 | In progress | see [handoff.md](handoff.md) |
 
 ### Implemented behavior (verified by tests)
 
@@ -46,6 +47,11 @@
   - Version- and digest-bound decisions.
   - Persisted timeline with SSE replay.
   - Evidence with provenance.
+- **Reliability (M14):**
+  - Load test: 20 readers p95 158 ms with 0 errors; 10 concurrent workflows; integrity
+    and isolation checks.
+  - Recovery: crash takeover within the lease; graceful shutdown under 1 s.
+  - Backup/restore drill: PASS (local machine, fake providers).
 - **Pilot packaging and data lifecycle (M12–M13):**
   - Single-origin production image (API serves the SPA; same image runs the worker; no dev
     issuer) and a Render Blueprint validated against Render's schema.

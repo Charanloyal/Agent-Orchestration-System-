@@ -1,0 +1,151 @@
+{
+  "started_at": "2026-11-04T12:00:48.729145+00:00",
+  "finished_at": "2026-11-04T12:02:09.347838+00:00",
+  "environment": {
+    "os": "Windows-11-10.0.26200-SP0",
+    "python": "3.14.7",
+    "cpu_count": 14,
+    "machine": "AMD64"
+  },
+  "parameters": {
+    "clients": 20,
+    "duration": 30.0,
+    "runs": 5,
+    "workers": 2,
+    "analysts": 5,
+    "lease_seconds": 6.0,
+    "run_timeout": 180.0,
+    "out": "..\\docs\\operations\\load-results\\2026-11-03-local.json"
+  },
+  "agents": "deterministic fake agents and fake search (platform overhead only)",
+  "results": {
+    "A_concurrent_workflows": {
+      "runs": 5,
+      "succeeded": 5,
+      "final_states": {
+        "SUCCEEDED": 5
+      },
+      "errors": [],
+      "automated_seconds": {
+        "median": 1.13,
+        "p95": 1.34,
+        "max": 1.34
+      },
+      "wall_seconds_incl_simulated_approvals": {
+        "median": 1.16,
+        "max": 1.38
+      },
+      "phase_seconds": 1.68,
+      "db_connections": {
+        "peak": 17,
+        "mean": 16.3
+      }
+    },
+    "B_read_latency": {
+      "requests": 6800,
+      "errors_5xx_or_network": 0,
+      "error_rate": 0.0,
+      "latency_ms": {
+        "p50": 80.4,
+        "p95": 158.26,
+        "p99": 183.86,
+        "max": 381.7
+      },
+      "by_endpoint_p95_ms": {
+        "GET /auth/me": 138.96,
+        "GET /runs (list)": 153.48,
+        "GET /runs/{id}": 163.44,
+        "GET /runs/{id}/evidence": 152.02,
+        "GET /runs/{id}/timeline": 160.28
+      },
+      "status_counts": {
+        "200": 6800
+      },
+      "clients": 20,
+      "seconds": 30.0,
+      "requests_per_second": 226.7,
+      "db_connections": {
+        "peak": 26,
+        "mean": 23.1
+      }
+    },
+    "C_mixed": {
+      "reads": {
+        "requests": 6731,
+        "errors_5xx_or_network": 0,
+        "error_rate": 0.0,
+        "latency_ms": {
+          "p50": 81.25,
+          "p95": 158.41,
+          "p99": 185.29,
+          "max": 379.5
+        },
+        "by_endpoint_p95_ms": {
+          "GET /auth/me": 144.92,
+          "GET /runs (list)": 139.17,
+          "GET /runs/{id}": 164.57,
+          "GET /runs/{id}/evidence": 156.58,
+          "GET /runs/{id}/timeline": 162.78
+        },
+        "status_counts": {
+          "200": 6731
+        }
+      },
+      "workflows": {
+        "runs": 5,
+        "succeeded": 5,
+        "final_states": {
+          "SUCCEEDED": 5
+        },
+        "errors": [],
+        "automated_seconds": {
+          "median": 1.75,
+          "p95": 2.05,
+          "max": 2.05
+        },
+        "wall_seconds_incl_simulated_approvals": {
+          "median": 2.03,
+          "max": 2.35
+        }
+      },
+      "db_connections": {
+        "peak": 26,
+        "mean": 23.0
+      }
+    },
+    "integrity": {
+      "runs_checked": 10,
+      "runs_with_more_report_versions_than_review_rounds_allow": 0,
+      "duplicate_task_results": 0,
+      "tool_calls_left_started": 0,
+      "runs_over_tool_limit": 0,
+      "runs_over_budget": 0,
+      "reservations_left_reserved": 0
+    },
+    "cross_workspace": {
+      "list_other_workspace_status": 404,
+      "other_workspace_run_reads_not_404": 0,
+      "own_workspace_runs_visible": 0
+    },
+    "memory_mb_after_load": {
+      "api": 159.5,
+      "worker-1": 186.8,
+      "worker-2": 185.9
+    },
+    "graceful_worker_shutdown_seconds": {
+      "worker-1": 0.69,
+      "worker-2": 0.6
+    },
+    "D_recovery": {
+      "lease_seconds": 6.0,
+      "crash_point": "after_task_commit",
+      "doomed_worker_exit_code": 137,
+      "tasks_committed_before_crash": 1,
+      "seconds_from_crash_to_takeover": 5.89,
+      "seconds_from_crash_to_reviewable_draft": 6.13,
+      "final_state": "SUCCEEDED",
+      "duplicate_task_results": 0,
+      "abandoned_tool_calls_recorded": 0
+    }
+  }
+}

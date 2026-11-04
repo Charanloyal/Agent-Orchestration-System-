@@ -1,0 +1,25 @@
+{
+  "at": "2026-11-04T12:02:12.762577+00:00",
+  "environment": {
+    "os": "Windows-11-10.0.26200-SP0",
+    "pg_dump": "pg_dump (PostgreSQL) 17.11"
+  },
+  "source_db": "aos_load",
+  "target_db": "aos_restore_drill",
+  "dump_bytes": 120014,
+  "dump_seconds": 0.72,
+  "restore_seconds": 0.8,
+  "tables_compared": 28,
+  "rows_total": 1250,
+  "row_count_mismatches": {},
+  "fingerprints_equal": true,
+  "fingerprints": {
+    "alembic_version": "0008",
+    "runs_md5": "b9bcdb705f997678ef01deabb64241ea",
+    "reports_md5": "04bb2477ac7ea8cd0cf62806b3a8bdc9",
+    "approvals_md5": "636495511658628eedbe8b50c7e477d7",
+    "audit_trigger_present": true
+  },
+  "restored_schema_current_for_app": true,
+  "verdict": "PASS"
+}

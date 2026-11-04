@@ -35,7 +35,11 @@ every push; "manual" items must be redone for each environment.
 - [x] The production image migrates, starts web and worker, serves the SPA and stops the
       worker gracefully (CI `deploy-image`).
 - [x] Worker survives a database outage and waits for migrations (automated).
-- [ ] Backup/restore drill on isolated databases ([load-and-recovery.md](load-and-recovery.md), M14).
+- [x] Backup/restore drill on isolated databases: PASS, 28 tables and 1,250 rows identical
+      ([load-and-recovery.md](load-and-recovery.md)).
+- [x] Load: 20 concurrent readers p95 158 ms with 0 errors; 2 × 5 concurrent workflows with
+      0 integrity violations; crash takeover within the lease (same document; local machine,
+      fake providers).
 - [x] Alert rules and incident runbook ([alerts.yml](alerts.yml), [runbook.md](runbook.md)).
 - [ ] **Manual, per environment:** identity provider registered; allowlist set; the 10-step
       verification in [deploy-render.md](deploy-render.md#4-verify-the-deployment) recorded.
