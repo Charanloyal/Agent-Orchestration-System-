@@ -20,7 +20,7 @@
 | **M13: retention, deletion, audit** | **Done** | ADR 0019; `test_pilot_and_lifecycle.py`; [data-retention.md](operations/data-retention.md) |
 | **M14: reliability, load, recovery** | **Done** (local machine, fake providers) | [load-and-recovery.md](operations/load-and-recovery.md); `scripts/loadtest.py`, `scripts/backup_restore_drill.py` |
 | **M15: UX, accessibility, user documentation** | **Done** | `RunPage.test.tsx`, `ActivityPage.test.tsx`, `e2e/workflow.spec.ts`; [user guide](user-guide.md) with screenshots from `e2e/screenshots.spec.ts`; [troubleshooting](troubleshooting.md) |
-| M16: final report | In progress | see [handoff.md](handoff.md) |
+| M16: final report | **Done** (report written from measured results; the live and held-out evaluation are **blocked**: no API key, budget approval or human scorers) | [report/final-report.md](report/final-report.md), [appendices](report/appendices.md) |
 
 ### Implemented behavior (verified by tests)
 
@@ -121,6 +121,13 @@ All four agents are LLM-backed when `AOS_AGENT_MODE=llm`; fakes are the default.
 
 - [User guide](user-guide.md) (illustrated) · [Troubleshooting](troubleshooting.md) ·
   [Demonstration script](demo/demo-script.md)
+
+## Final report
+
+- [Final project report](report/final-report.md): 19 sections, architecture, state,
+  sequence and ER diagrams, measured results, limitations and verified references.
+- [Appendices](report/appendices.md): commands, hashes, API surface, schemas and defects
+  found.
 
 ## Product and planning
 

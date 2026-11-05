@@ -138,8 +138,10 @@ See [troubleshooting.md](troubleshooting.md) for setup and error-message help.
 
 **Documents** (analysts) accepts text-based PDF, `.txt` and `.md` files up to 10 MB. The type
 is decided from the file content, not from its name or the browser's declared type. Uploaded
-documents are used only by briefs whose source policy allows *Uploaded documents*. Deleting
-an upload removes its stored file and extracted passages.
+documents are used only by briefs whose source policy allows *Uploaded documents*. The
+uploader or an admin can delete an upload. Deletion removes the stored file and its
+searchable text. Passages already used as evidence in a run stay with that run as part of its
+immutable record, until the run itself is deleted.
 
 ## 9. Mobile and accessibility
 

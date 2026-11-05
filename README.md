@@ -12,12 +12,15 @@ export.
 
 New here? Read the [user guide](docs/user-guide.md) (illustrated walkthrough), then the
 [demonstration script](docs/demo/demo-script.md). Stuck? See
-[troubleshooting](docs/troubleshooting.md).
+[troubleshooting](docs/troubleshooting.md). The [final project report](docs/report/final-report.md)
+describes the design, the measured results and the limitations.
 
-> **Status:** controlled-pilot build in progress. See [docs/README.md](docs/README.md) for
-> milestone status and [docs/handoff.md](docs/handoff.md) for the verified state. This is
-> a local, production-like pilot. **Do not expose it publicly**: the bundled dev identity
-> provider is for local use only.
+> **Status:** milestones M3–M16 are done on the repository side. This is a controlled-pilot
+> build that has been verified locally and in CI, but it has **not been deployed** and is
+> **not production-ready**. The live-model evaluation has not been run. See
+> [docs/README.md](docs/README.md) for milestone status and [docs/handoff.md](docs/handoff.md)
+> for the verified state. **Do not expose it publicly**: the bundled dev identity provider is
+> for local use only.
 
 ## Repository layout
 

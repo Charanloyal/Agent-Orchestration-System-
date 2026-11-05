@@ -4,11 +4,19 @@ Uses the template from the context prompt (§4). Contains no secrets or private 
 
 ```text
 Project: Agent Orchestration System
-Current milestone: M12–M15 DONE on the repository side (pilot packaging; retention,
-  deletion, audit; reliability, load and recovery; UX, accessibility, user docs).
-  Next: M16 final report.
+Current milestone: M3–M16 DONE on the repository side. M16 (final report) is written
+  from measured results only: docs/report/final-report.md and appendices.md. Nothing is
+  in progress. Remaining work needs the project lead (see Known gaps).
 
-Last completed vertical slice (M15):
+Last completed slice (M16):
+  Final report with 19 sections; architecture, state, sequence and ER diagrams; 29
+  references, each checked against arXiv, Crossref or the publisher on 2026-11-04;
+  dataset hashes (dev e9b07361…, held-out 828c4882…, corpus manifest 967f7c06…,
+  unchanged since M11). The live and held-out evaluation is marked BLOCKED, at the project
+  lead's choice on 2026-11-04 (no API key, no budget approval, no human scorers). The
+  held-out set has still never been run.
+
+Previous slice (M15):
   Run page workflow stepper (responsive grid on phones), admin "Delete run" with
   confirmation, admin Activity page over the append-only audit log, a "Demo agents" badge
   driven by /api/v1/auth/me `deployment.agent_mode`, a skip link, per-page document titles and
@@ -44,7 +52,13 @@ Checks not run:
   docs/operations/deploy-render.md). Live-model evaluation (needs a key and a budget).
   Screen-reader testing with real assistive technology.
 
-Known gaps:
-  M16 final report. Live evaluation, held-out run, human scoring and user interviews need
-  the project lead.
+Known gaps (need the project lead):
+  1. Live evaluation: put a key in backend/.env, approve a budget of at most USD 10 in
+     writing, then follow docs/evaluation/evaluation-plan.md "Live run checklist": smoke
+     run, dev split, then the held-out split once.
+  2. Blind human scoring with two scorers (python -m evaluation.blind / evaluation.score).
+  3. User interviews (docs/product/interview-guide.md).
+  4. Render deployment (docs/operations/deploy-render.md): account, payment, a real OIDC
+     provider, allowlist, first admin.
+  After 1–2, update report sections 13.5, 14 and 17 with the measured results only.
 ```
