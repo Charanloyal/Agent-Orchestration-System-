@@ -1,10 +1,10 @@
-# Initial threat model
+# Threat model
 
-- **Status:** Initial (Week 1). Revisit at Week 5 (fetching), Week 8 (export) and Week 13
-  (hardening).
-- **Scope:** the target pilot architecture in PRD §3. Most controls are **not implemented
-  yet**; the status column says which are.
-- Passing the planned tests reduces risk; it does not prove immunity.
+- **Status:** Revised 2026-11-06 for v1.0 (access model, deployment variants). Earlier
+  revisions: Week 1 (initial), Weeks 5, 8 and 13.
+- **Scope:** the pilot architecture in PRD §3 as implemented. The status column says what is
+  implemented and how it is verified.
+- Passing the tests reduces risk; it does not prove immunity.
 
 ## Assets
 
@@ -51,8 +51,13 @@ None of these can grant permissions, call tools or approve anything.
 | T13 | Data sent to a model provider without permission (I) | Employer documents uploaded | Pilot allows public or synthetic data only; document provider retention terms ([ADR 0002](../decisions/0002-model-provider.md)) | Policy review | Policy proposed |
 | T14 | Supply-chain compromise (T) | Malicious dependency or binary | Exact version pins and lockfiles; dependency scanning in CI; verify checksums where published | CI scan | Planned W3/W13 |
 | T15 | Request flooding / quota exhaustion (D) | Scripted run creation or login attempts; outsider burning a team's quota | Per-user, per-workspace and per-client fixed-window limits in PostgreSQL with `Retry-After`; workspace counter only after membership check; provider circuit breaker | `test_observability.py` rate-limit and breaker tests | **Implemented (M10)**; load-tested locally at 20 clients (M14) |
-| T16 | Misconfigured or open production deployment (S/E) | Dev issuer exposed publicly; any account at a public identity provider signs in and spends budget; OpenAPI exposed | Start-up refuses dev issuer, http URLs, insecure cookies and a missing allowlist in prod; sign-in allowlist on verified email; dev issuer excluded from the production image; OpenAPI/docs off in prod | `test_unsafe_production_settings_refuse_to_start`, `test_allowlist_refuses_uninvited_accounts…`, CI `deploy-image` | **Implemented (M12)** |
+| T16 | Misconfigured or open production deployment (S/E) | Dev issuer exposed publicly; any account at a public identity provider signs in and spends budget; OpenAPI exposed | Start-up refuses the dev issuer, http URLs, insecure cookies, no platform admin, and open signup with model agents in prod; sign-in decided on the *verified* email only (ADR 0021); dev issuer excluded from the production image; OpenAPI/docs off in prod | `test_unsafe_production_settings_refuse_to_start`, `test_access.py`, CI `deploy-image` + `smoke_prod.py` | **Implemented (M12, v1.0)** |
 | T17 | Data kept longer than needed / incomplete deletion (I) | Deleted run still readable through checkpoints or export files | Run deletion removes brief, cascades, checkpoints and export files; retention sweep; documented backup window | `test_admin_deletes_a_finished_run_completely…`, `test_retention_sweep…` | **Implemented (M13)**; backups keep data until they expire |
+| T18 | Account enumeration and spam through access requests (I/D) | Probing whether `ceo@company.com` has access; scripted request floods | One identical `202` answer for new, pending, allowed and denied emails; one pending row per email; per-client limit (5/hour); same-origin only; audit without the email; decided requests deleted after 90 days | `test_access_requests_answer_identically_whatever_the_email`, `…_rate_limited_per_client`, `…_only_taken_in_request_mode_and_same_origin` | **Implemented (v1.0)**; a distributed flood can still fill the queue (bounded per email; bulk deny is an operator task) |
+| T19 | Login CSRF / session fixation through the OIDC callback (S) | Attacker completes sign-in with their own account and sends the victim the callback URL | The callback requires the `aos_login` cookie bound to `state` (HttpOnly, SameSite=Lax, path-scoped, 10 min); state is single-use; nonce and PKCE as before | `test_callback_from_another_browser_is_refused`, `test_login_binds_the_attempt_to_this_browser`, `test_callback_state_is_single_use` | **Implemented (v1.0)** |
+| T20 | Privilege escalation through invitations or access administration (E) | A workspace admin invites themselves into another workspace; a member calls admin routes; an invitation silently promotes an existing member | Invitations are workspace-scoped (`members.manage`, 404 to outsiders); admin routes answer 404 to non-platform-admins; platform admins exist only in environment config; accepting an invitation never changes an existing role; removing access revokes sessions and pending invitations | `test_authz.py` (generated matrix incl. new routes), `test_admin_routes_are_invisible_to_everyone_else`, `test_removing_access_signs_the_person_out…` | **Implemented (v1.0)** |
+| T21 | Rollback to an incompatible build (T/D) | Old build runs against a schema it cannot handle and corrupts data | Compatibility window in the database (ADR 0020): readiness and the worker refuse schemas that do not list the build; never ready on an older schema | `test_previous_build_stays_ready_on_a_newer_compatible_schema`, `test_a_build_is_never_ready_on_an_older_schema` | **Implemented (v1.0)**; correctness depends on breaking migrations deleting rows (reviewed rule) |
+| T22 | Loss of uploaded originals on an ephemeral disk (A/I) | Redeploy wipes `/srv/data/objects` | Every read path uses Postgres; re-uploading restores an original; documented limitation with an upgrade path (ADR 0022) | `test_text_and_pdf_uploads_are_indexed_and_searchable` (restore case) | **Mitigated**; a persistent store is the fix before a document-heavy pilot |
 
 ## Local development notes (current state)
 

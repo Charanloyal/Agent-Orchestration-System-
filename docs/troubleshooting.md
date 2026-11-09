@@ -13,9 +13,9 @@ an `X-Request-ID` header. Search the JSON logs for that ID to find the server-si
 | --- | --- | --- |
 | `GET /readyz` returns 503 `not_ready`, *"Database unavailable or not migrated"* | PostgreSQL is not running, or `AOS_DATABASE_URL` is wrong | Start PostgreSQL. Check the URL in `backend/.env`. |
 | `GET /readyz` returns 503, *"...not at the expected migration head"* | Code is newer than the schema | `.\.venv\Scripts\python.exe -m alembic upgrade head` |
-| Worker logs `database schema not at migration head; waiting` | Same: the worker never migrates; it waits for the API's migration step | Run the migration (on Render, the web service's pre-deploy command does this). The worker continues by itself. |
+| Worker logs `database schema not compatible with this build; waiting` | The database is behind this build (no migration yet), or newer and no longer lists this build (ADR 0020) | Behind: run the migration (on Render, the pre-deploy step or start-up does this); the worker continues by itself. Newer: deploy a build at or after the database revision. `/readyz` gives the same reason. |
 | Worker logs `database not reachable or not migrated; retrying` or `database unavailable; pausing` | Database outage | Nothing to do in the application; it backs off (up to 30 s) and resumes. Fix the database. |
-| The API refuses to start: `unsafe production configuration: ...` | `AOS_ENV=prod` with a setting that is unsafe in production | Fix every item listed. Examples: an https `AOS_PUBLIC_URL` and a real https `AOS_OIDC_ISSUER`; `AOS_COOKIE_SECURE=true`; an allowlist via `AOS_ALLOWED_EMAILS` or `AOS_ALLOWED_EMAIL_DOMAINS`. The bundled dev issuer is always refused in production. |
+| The API refuses to start: `unsafe production configuration: ...` | `AOS_ENV=prod` with a setting that is unsafe in production | Fix every item listed. Examples: an https `AOS_PUBLIC_URL` and a real https `AOS_OIDC_ISSUER`; `AOS_COOKIE_SECURE=true`; at least one address in `AOS_PLATFORM_ADMIN_EMAILS`; not `AOS_SIGNUP_MODE=open` with `AOS_AGENT_MODE=llm`. The bundled dev issuer is always refused in production. |
 | Runs stay **Queued** | No worker is running | `.\.venv\Scripts\python.exe -m app.workers.runner` (from `backend`) |
 | The sign-in page shows *"API unavailable"* | API not running on port 8000, or the Vite proxy cannot reach it | Start uvicorn (README step 2). With a corporate proxy, see the README section on proxies. |
 
@@ -23,11 +23,18 @@ an `X-Request-ID` header. Search the JSON logs for that ID to find the server-si
 
 | Symptom | Cause | Fix |
 | --- | --- | --- |
-| 503 `identity_provider_unavailable` | The OIDC issuer cannot be reached | Locally, start `python -m devtools.dev_oidc` (port 8001). In a deployment, check `AOS_OIDC_ISSUER` and outbound network access. |
-| *"Your account is not invited to this deployment"* | Email not on the allowlist | Add the address to `AOS_ALLOWED_EMAILS`, or its domain to `AOS_ALLOWED_EMAIL_DOMAINS`, then restart. The denial is audited without storing the email. |
-| *"Sign-in was cancelled or denied by the identity provider"* | The user cancelled at the provider, or it returned an error | Retry. Check the provider's client configuration and that its redirect URI is `<AOS_PUBLIC_URL>/api/v1/auth/callback`. |
-| Signed in, but *"not a member of any workspace yet"* | Sign-in creates a user, not a membership | An admin adds the user to a workspace (or run `python -m app.cli seed-demo` locally). |
-| 403 `forbidden` on an unsafe request | Missing CSRF header or a cross-origin request | Use the web app (it sends the header automatically). Scripts must send `X-CSRF-Token` with the `csrf_token` value from `GET /api/v1/auth/me`, and a matching `Origin`. |
+| *"We couldn't reach …"* (`/signin?error=provider_unavailable`) | The OIDC issuer cannot be reached | Locally, start `python -m devtools.dev_oidc` (port 8001). In a deployment, check `AOS_OIDC_ISSUER` and outbound network access; the API log line `identity provider unavailable` has the detail. |
+| *"This account doesn't have access yet"* / *"isn't invited yet"* (`not_allowed`) | The verified email is not a platform admin, not allowlisted, not on the access list and has no pending invitation | Invite it from **Settings**, approve its request on **Access**, or add it to the access list. The denial is audited without storing the email. |
+| *"That sign-in attempt expired or was started in another tab"* (`login_expired`) | The attempt is older than 10 minutes, was already used, or the browser lacks the `aos_login` cookie (another browser, blocked cookies) | Start again from the same tab. Allow first-party cookies for the site. |
+| *"We couldn't verify the response from …"* (`login_failed`) | Token exchange or ID-token verification failed | Check `AOS_OIDC_CLIENT_ID` / `AOS_OIDC_CLIENT_SECRET`, the redirect URI `<AOS_PUBLIC_URL>/api/v1/auth/callback` at the provider, and the server clock. |
+| *"… did not confirm an email address"* (`email_unverified`) | The provider returned no verified email | Use an account with a verified email; check the `email` scope. |
+| *"Sign-in was cancelled …"* (`provider_denied`) or *"… reported a problem"* (`provider_error`) | The user cancelled, or the provider returned an error | Retry. Check the provider's client configuration. |
+| *"Too many sign-in attempts …"* (`rate_limited`) | More than `AOS_RATE_LOGIN_PER_IP_5MIN` attempts from one address | Wait five minutes. |
+| Signed in, but on the **Welcome** page | Signed in without a workspace membership | Create a workspace (if allowed), or ask a workspace admin to invite you. Locally, `python -m app.cli seed-demo`. |
+| *"Your session ended"* | The session expired, was signed out elsewhere, or access was removed | Sign in again; you return to the same page. |
+| *"Not permitted. Your role in this workspace can't …"* | The role lacks that permission | Ask a workspace admin to change your role. |
+| *"This page is out of date"* (403 on an unsafe request) | Missing CSRF header or a cross-origin request | Reload. Scripts must send `X-CSRF-Token` with the `csrf_token` value from `GET /api/v1/auth/me`, and a matching `Origin`. |
+| *"Only platform admins can create workspaces here"* | `AOS_WORKSPACE_CREATION=platform_admins` (the production default) | A platform admin creates the workspace and invites you as admin. |
 
 ## Using the application
 

@@ -14,19 +14,58 @@ deterministic **demo agents** (no language model). Re-capture them with
 | --- | --- |
 | **Analyst** | Submit briefs, approve or edit plans, upload documents, cancel and retry runs, see usage |
 | **Reviewer** | Read runs and evidence, approve or reject reports |
-| **Admin** | Everything above, plus manage members, delete finished runs, read the activity log |
+| **Admin** | Everything above, plus invite and manage members, rename the workspace, delete finished runs, read the activity log |
 
 Each workspace is isolated. You see only the workspaces you belong to, and resources in other
 workspaces behave as if they do not exist.
+
+**Platform admins** are set in the deployment's configuration (not in the app). They decide
+who may sign in to the whole deployment (section 10). They see workspace content only where
+they are members.
 
 ## 1. Sign in
 
 ![Sign-in page](assets/screenshots/01-sign-in.png)
 
-Sign-in goes through your organisation's identity provider (OpenID Connect). In a pilot, only
-allow-listed email addresses or domains can sign in; others see *"Your account is not invited
-to this deployment"*. Locally, the dev identity provider offers the demo users Alice (analyst),
-Bob (reviewer), Carol (admin) and Mallory (another workspace).
+Choose **Continue with …** (for example *Continue with Google*). Sign-in goes through the
+deployment's identity provider (OpenID Connect); the app never sees your password. Only
+verified email addresses count.
+
+If sign-in does not complete, the page says why and what to do:
+
+| Message starts with | Meaning |
+| --- | --- |
+| *This account doesn't have access yet* / *isn't invited yet* | You signed in correctly but are not on this deployment's access list. Request access (if offered) or ask a workspace admin to invite your email |
+| *Sign-in was cancelled* | You cancelled at the provider |
+| *That sign-in attempt expired or was started in another tab* | Start again from this tab |
+| *We couldn't reach …* | The identity provider is unavailable; try again shortly |
+| *… did not confirm an email address* | Use an account whose email is verified |
+| *Too many sign-in attempts* | Wait a few minutes |
+
+If your session ends while you work (it expired, or an administrator removed your access),
+the next action takes you back here with *"Your session ended"*. After signing in you return
+to the page you were on.
+
+Locally, the dev identity provider offers the demo users Alice (analyst), Bob (reviewer),
+Carol (admin, and platform admin in the E2E setup), Mallory (another workspace), and two
+unseeded people for trying access: **Dana** (to invite) and **Erin** (to request access).
+
+## Getting access
+
+![Request access](assets/screenshots/14-request-access.png)
+
+There are two ways in, depending on the deployment:
+
+- **An invitation.** A workspace admin invites your email with a role. Sign in with that
+  address and you land in the workspace. Invitations expire after 14 days.
+- **A request.** When the sign-in page shows **Request access**, send your work email, name
+  and an optional reason. You get the same confirmation whatever happens next. A platform
+  admin approves or denies; once approved, sign in with the same email.
+
+Signed in but in no workspace yet? The welcome page lets you **start a workspace** (where the
+deployment allows it; you become its admin) or tells you which email to give an admin.
+
+![Welcome page](assets/screenshots/16-onboarding.png)
 
 ## 2. Write a brief
 
@@ -116,7 +155,8 @@ provider. Amounts are estimates from configured price schedules, not a provider 
 ![Activity log](assets/screenshots/11-activity-log.png)
 
 **Activity** (admins only) is the workspace audit log: plan and report decisions, exports,
-cancellations, retries, member changes, uploads and deletions (including retention clean-ups).
+cancellations, retries, invitations, member changes, uploads and deletions (including
+retention clean-ups).
 Entries hold ids and counts, never report or source content. A database trigger rejects edits
 and deletions, so the application cannot rewrite history. Only a database superuser could
 bypass it. Entries remain after the runs they mention are deleted. Sign-in denials belong to
@@ -143,15 +183,54 @@ uploader or an admin can delete an upload. Deletion removes the stored file and 
 searchable text. Passages already used as evidence in a run stay with that run as part of its
 immutable record, until the run itself is deleted.
 
-## 9. Mobile and accessibility
+> **Hosted demo storage.** On the Render deployment the original files live on a disk that is
+> wiped when the service restarts or redeploys. The extracted text, search, evidence and
+> reports are in the database and are not affected. Uploading the same file again restores
+> the original. Do not treat the demo as an archive for your files.
+
+## 9. Workspace settings (admins)
+
+![Workspace settings](assets/screenshots/13-workspace-settings.png)
+
+**Settings** lets workspace admins:
+
+- rename the workspace;
+- change a member's role, or remove them (you are asked to confirm). A workspace always keeps
+  at least one admin; the page explains when a change would break that;
+- **invite people** by email and role. Someone who already has an account is added at once;
+  anyone else joins the first time they sign in with that address. No email is sent, so tell
+  them the address of the app;
+- see pending invitations (with their expiry) and revoke them.
+
+## 10. Access (platform admins)
+
+![Access requests](assets/screenshots/15-access-requests.png)
+
+Platform admins see **Access** in the top bar, with the number of requests waiting.
+
+- **Access requests**: approve (optionally straight into a workspace, with a role) or deny.
+  Decided requests are listed below and deleted after 90 days.
+- **Access list**: the people who may sign in besides platform admins and allowlisted domains.
+  Removing someone signs them out everywhere and revokes their pending invitations; their
+  memberships and work stay, so access can be restored.
+
+## 11. Mobile, dark mode and accessibility
 
 ![Run page on a phone](assets/screenshots/12-mobile-run.png)
 
-- The interface works on narrow screens: the top bar compacts and the stepper wraps into a
-  grid.
-- A **Skip to content** link is the first focusable element on every page.
-- Every page sets a descriptive browser title.
-- Status uses text as well as colour.
-- Animations respect *reduce motion*.
-- All controls are reachable by keyboard; the E2E suite drives the main workflow through
-  accessible names and roles.
+- Every page works on screens 360 px wide: the top bar compacts, the stepper wraps into a
+  grid, and tables keep their essential columns.
+- **Dark mode** follows your operating system setting, with the same contrast as the light
+  theme.
+
+![Dark mode](assets/screenshots/17-dark-mode.png)
+
+- A **Skip to content** link is the first focusable element on every page, and every page
+  sets a descriptive browser title.
+- Status uses text as well as colour; animations respect *reduce motion*.
+- All controls work with the keyboard. Confirmations take focus, and Escape backs out.
+- Notifications appear bottom-right (bottom of the screen on phones). Screen readers
+  announce them.
+- Every page is checked against WCAG 2.2 A/AA rules with axe-core, in light and dark mode,
+  on every test run. Manual screen-reader checks are listed in
+  [product/accessibility-checklist.md](product/accessibility-checklist.md).

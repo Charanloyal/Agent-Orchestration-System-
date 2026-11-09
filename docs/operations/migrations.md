@@ -13,8 +13,18 @@ schema (checkpoints) and creates or upgrades it itself (`setup_checkpointer`).
 3. **Models and migrations agree.** `test_models_match_migrations` fails on drift.
    Autogenerate (`alembic revision --autogenerate`) is a starting point. Triggers and
    functions (e.g. 0008) are written by hand.
-4. **Readiness checks the head.** `/readyz` returns 503 until the database is at the code's
-   head revision; the worker waits for it.
+4. **Declare compatibility** ([ADR 0020](../decisions/0020-schema-compatibility-window.md)).
+   Every migration from 0009 on maintains the `schema_compatibility` table:
+   - additive (the previous build still works on the new schema): insert the new revision,
+     keep the other rows:
+     `op.execute("INSERT INTO schema_compatibility (code_revision) VALUES ('0011')")`;
+   - breaking for older code (drop, rename, NOT NULL without default, changed meaning): also
+     delete the rows of the revisions it breaks, so those builds report not-ready instead of
+     failing at runtime;
+   - `downgrade()` deletes its own row.
+5. **Readiness checks compatibility.** `/readyz` returns 503 (and the worker waits) unless
+   the database is at the code's head, or at a newer revision that lists the code's head.
+   It is never ready on an older schema. The messages say which case applies.
 
 ## Apply
 
@@ -24,13 +34,16 @@ cd backend
 .\.venv\Scripts\python.exe -m alembic upgrade head     # local / compose
 ```
 
-On Render, `alembic upgrade head` is the web service's pre-deploy command. If it fails, the
-deploy fails and the previous version keeps serving.
+On Render, `alembic upgrade head` is the web service's pre-deploy command (`render.yaml`) or
+runs at start-up (`render.free.yaml`). If it fails, the deploy fails and the previous version
+keeps serving.
 
 ## Roll back
 
-Prefer rolling back **code** (redeploy the previous build). Schema downgrades are rarely
-needed because migrations are additive. If one is needed:
+Prefer rolling back **code** (redeploy the previous build). Within the compatibility window
+the previous build is ready on the newer schema, so no schema change is needed; rehearsal 2
+in [deploy-render.md](deploy-render.md#rehearsal-2-rollback-across-the-access-model-migration-0010)
+exercises this. If a schema downgrade is really needed:
 
 1. Take a backup (below) and stop the worker.
 2. Rehearse on a copy: restore the backup into a scratch database, then run
@@ -68,3 +81,5 @@ point `AOS_DATABASE_URL` at it after verification.
 | 0006 | Review findings, report exports |
 | 0007 | Rate-limit counters |
 | 0008 | Append-only trigger on audit events |
+| 0009 | `schema_compatibility` table: the window of code revisions that may run (ADR 0020) |
+| 0010 | Access list, access requests, workspace invitations; current members copied onto the access list (ADR 0021). Additive: 0009 stays compatible |

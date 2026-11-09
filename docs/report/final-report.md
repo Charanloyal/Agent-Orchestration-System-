@@ -511,7 +511,7 @@ Design points:
 
 ## 10. Security and threat model
 
-The full STRIDE-style [threat model](../security/threat-model.md) lists 17 threats. The most
+The full STRIDE-style [threat model](../security/threat-model.md) lists 22 threats. The most
 important controls:
 
 | Threat | Control | Verification |
@@ -524,8 +524,10 @@ important controls:
 | Fabricated citations | Citation IDs validated against run evidence; deterministic support checks | Planted-claim test and E2E |
 | XSS via reports | UI renders text nodes only; export escapes Markdown and allows only http(s) links | Escaping tests; unsafe-URL UI test |
 | Budget race | Transactional reservation | 10-thread race test |
-| Session theft or CSRF | OIDC code + PKCE [24]; HTTP-only Secure SameSite cookies; CSRF token and Origin check on every unsafe request | Route-generated CSRF matrix |
-| Unsafe production configuration | Startup refuses the dev issuer, http URLs, insecure cookies, a missing allowlist and test settings; OpenAPI off | `test_unsafe_production_settings_refuse_to_start`; CI `deploy-image` |
+| Session theft or CSRF | OIDC code + PKCE [24]; HTTP-only Secure SameSite cookies; CSRF token and Origin check on every unsafe request; each sign-in attempt bound to its browser (login CSRF) | Route-generated CSRF matrix; `test_callback_from_another_browser_is_refused` |
+| Unsafe production configuration | Startup refuses the dev issuer, http URLs, insecure cookies, no platform admin, open signup with model agents, and test settings; OpenAPI off | `test_unsafe_production_settings_refuse_to_start`; CI `deploy-image` with `smoke_prod.py` |
+| Unauthorised sign-in, account enumeration | Sign-in only for verified emails that are platform admins, allowlisted, on the access list or invited (ADR 0021); access requests answer identically for every email and are rate-limited; admin routes answer 404 | `test_access.py`; E2E `access.spec.ts` |
+| Rollback onto an incompatible schema | Database-declared compatibility window checked by readiness and the worker (ADR 0020) | `test_previous_build_stays_ready_on_a_newer_compatible_schema`, `test_a_build_is_never_ready_on_an_older_schema` |
 | Secrets in logs or traces | Redacting JSON logger; allowlisted trace attributes | `test_logging.py`, `test_observability.py` |
 
 **Residual risks** are recorded in the threat model and the
@@ -707,6 +709,16 @@ All results below were measured. Where something was not measured, this section 
 | Browser E2E (Playwright, real API, worker, dev IdP and database) | **6 passed**: full approval journey; planted unsupported figure caught and revised; cancel; admin delete with audit retained; cross-workspace 404; uploaded-document research |
 | CI (GitHub Actions) | All 6 jobs green (backend, frontend, E2E, spike, container builds, production-image smoke test) for every milestone commit through M15 (`369d93b`) |
 
+**v1.0 re-run (2026-11-09, same machine):**
+
+| Suite | Result |
+| --- | --- |
+| Backend lint, format, strict typing | ruff clean; format clean; `mypy --strict`: no issues in 101 source files |
+| Backend tests | **463 passed**, 1 deselected (live provider); adds the access model, login binding, compatibility window, smoke script and single-service runner |
+| Frontend | typecheck clean; **79 unit tests** in 14 files passed; production build OK |
+| Browser E2E | **13 passed**: the 6 journeys above, invitation, access request with approval and onboarding, session expiry, axe-core WCAG 2.2 A/AA on every page in light and dark mode, every page at 360 px, keyboard use, and the screenshot capture |
+| CI | Not yet run for v1.0: the commits are local until the owner approves the push |
+
 ### 13.2 Reliability
 
 | Experiment | Result |
@@ -805,7 +817,8 @@ The comparison that would answer research questions 1–2 needs three things:
 1. **A live run.** At least the dev split with a real model under an approved budget (at
    most USD 10, ADR 0005), then the held-out split once. Not performed: no API key was
    provided and no budget was approved. On 2026-11-04 the project lead chose to have this
-   final report mark the live evaluation as blocked.
+   final report mark the live evaluation as blocked, and the live run was again not approved
+   for v1.0 (2026-11-06).
 2. **Blind human scoring.** At least 30 sampled claims per system by two independent scorers,
    using `evaluation.blind` and `evaluation.score`. Not performed: there were no scorers.
 3. **Analysis.** Per-system support, coverage and abstention, with Wilson intervals and κ.
@@ -826,14 +839,19 @@ piece of future work (Section 16).
 3. **Synthetic corpus.** The offline corpus measures orchestration behaviour under controlled
    conditions, not open-web research quality.
 4. **No users.** User interviews were not carried out, so the problem statement remains a
-   hypothesis. No usability study, screen-reader session or formal WCAG audit was performed.
-   Accessibility is tested only automatically (roles and names, skip link, focus target).
+   hypothesis. The interview, usability-study and screen-reader materials are prepared
+   (v1.0) but no session was run. Accessibility is tested automatically only: axe-core WCAG
+   2.2 A/AA rules on every page in light and dark mode, a 360 px layout check and a keyboard
+   test. Automated rules cover only part of WCAG; this is not a conformance claim.
 5. **Simulated approvals.** Harness approvals are automatic. Reviewer effort (minutes per
    decision) has not been measured.
-6. **Not deployed.** The Render Blueprint and production image are verified in CI, but no
-   hosted deployment exists. It requires an account, payment (workers and pre-deploy commands
-   need paid plans) and a real identity provider. Render's filesystem is ephemeral, so uploads
-   and exports would need persistent storage for a longer pilot.
+6. **Not deployed.** The Render Blueprints (`render.yaml`, and the single-service
+   `render.free.yaml`) and the production image are verified in CI, including a read-only
+   production smoke test, but no hosted deployment exists and neither rollback rehearsal has
+   been performed there. Both need the owner's Render and Google Cloud accounts. Render's
+   filesystem is ephemeral: nothing a report depends on is lost (every read path uses
+   Postgres, and re-uploading restores an original), but a longer pilot with documents needs
+   persistent storage.
 7. **Single-machine measurements.** Load and recovery figures come from one laptop with fake
    providers.
 8. **Deterministic support checks are a proxy.** Lexical and numeric matching can miss
@@ -854,8 +872,9 @@ piece of future work (Section 16).
    study of the approval screens, including reviewer time per decision.
 4. **Better abstention:** detect "evidence unavailable" semantically (the dev-12/13 failure)
    before drafting.
-5. **Hosted pilot:** deploy on Render with a real identity provider and persistent object
-   storage (for example, S3-compatible), and rehearse rollback there.
+5. **Hosted pilot:** deploy on Render with Google sign-in following
+   [deploy-render.md](../operations/deploy-render.md), run both rollback rehearsals, and add
+   persistent object storage (for example, S3-compatible) before document-heavy use.
 6. **Security hardening:** dependency and container scanning in CI, an external penetration
    test, PostgreSQL row-level security as defence in depth, and an accessibility audit
    against WCAG 2.2 AA.
@@ -884,6 +903,13 @@ scoring could not be carried out within this project's constraints. The honest c
 therefore one of engineering feasibility, not of quality improvement. As the multi-agent
 failure literature suggests [11], extra agents should be justified by measurement, and this
 project leaves behind the instrument to do exactly that.
+
+Version 1.0 makes the system usable by people other than its author: invitations, reviewed
+access requests and platform administration; sign-in failures that explain themselves; a
+rollback path across database migrations that is enforced by the database and tested; and an
+interface checked for accessibility on every page. What remains open (the hosted deployment,
+the live evaluation and the user research) needs accounts, budget and people, and each step
+is written down so that it can be carried out and recorded.
 
 ## 18. References
 

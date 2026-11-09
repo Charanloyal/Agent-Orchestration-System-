@@ -1,6 +1,9 @@
 # 0018: Single-origin production image, Render topology and production hardening
 
-- **Status:** Accepted
+- **Status:** Accepted; amended by [0020](0020-schema-compatibility-window.md) (readiness
+  accepts a compatible newer schema), [0021](0021-access-model.md) (platform admins replace
+  the required allowlist) and [0022](0022-deployment-variants-ephemeral-storage.md)
+  (free single-service variant, storage behaviour)
 - **Date:** 2026-11-03
 - **Requirements:** PRD week 12 (controlled pilot), NFR security; threat model T3, T10, T11,
   T15; ADR 0004 (deployment target), ADR 0009 (identity)
@@ -58,7 +61,8 @@ A hosted pilot on Render needs three things:
    - fault injection enabled.
 
    The dev issuer itself also refuses `AOS_ENV=prod`.
-5. **Sign-in allowlist** (`AOS_ALLOWED_EMAILS`, `AOS_ALLOWED_EMAIL_DOMAINS`, required in prod).
+5. **Sign-in allowlist** (`AOS_ALLOWED_EMAILS`, `AOS_ALLOWED_EMAIL_DOMAINS`, required in prod;
+   since ADR 0021 optional, with `AOS_PLATFORM_ADMIN_EMAILS` required instead).
    It matches the provider's *verified* email. Uninvited accounts get no user row and no
    session; the refusal is audited without storing the address. Without this, anyone with an
    account at a public identity provider could create workspaces and runs.

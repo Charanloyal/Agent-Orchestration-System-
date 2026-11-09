@@ -1,7 +1,34 @@
 # Prospective-user interview guide
 
-- **Status:** **NOT DONE.** The project lead must run 3–5 interviews (PRD §2.1).
+- **Status (2026-11-06):** prepared, **blocked by owner**. The project lead must recruit and
+  run 3–5 interviews (PRD §2.1); no interview has taken place, and no findings are claimed.
 - Use public or synthetic examples only. Do not collect employer-confidential material.
+- The usability study that follows these interviews is in [usability-study.md](usability-study.md).
+
+## Recruiting message
+
+Send individually (not to a list). Adjust the first line to how you know the person.
+
+> Subject: 30 minutes on how you write research or decision briefs?
+>
+> Hi …, I'm building a research assistant for comparison and decision briefs as a university
+> project, and I'm trying to understand how people produce these today, before I trust my own
+> assumptions. Would you have 30 minutes for a video call in the next two weeks? I'll ask
+> about the last brief you wrote (no confidential details, please) and show one synthetic
+> example report. There's nothing to prepare and nothing to buy. Notes are anonymised (P1,
+> P2, …); I record only if you agree. Thank you!
+
+## Consent note (read at the start; note the answer)
+
+> Thank you for taking part. This is a 30-minute conversation for a university project. I'll
+> take anonymised notes; your name and employer won't appear anywhere. With your permission I
+> will also make an audio recording, used only to check my notes and deleted when the project
+> ends. Please don't share confidential or personal information. You can skip any question or
+> stop at any time, and you can ask me to delete your notes later. Is that all right? May I
+> record?
+
+Record *consent given (yes/no)* and *recording allowed (yes/no)* per participant. Do not
+store contact details next to the notes.
 
 ## Who to recruit
 
@@ -33,6 +60,7 @@ or decision brief in the last three months. Aim for at least one person in the r
 
 | Field | P1 | P2 | P3 | P4 | P5 |
 | --- | --- | --- | --- | --- | --- |
+| Date, consent given, recording allowed | | | | | |
 | Role | | | | | |
 | Recent brief topic (generalised) | | | | | |
 | Slowest step (their estimate) | | | | | |

@@ -55,6 +55,9 @@ fabricated figure in report v1, so the reviewer has something real to catch.
 | Crash recovery | Stop the worker (Ctrl+C) mid-research, start it again: no duplicated tasks. | 10-point crash suite in `test_worker_recovery.py` |
 | Prompt injection is data | The dev-17 corpus page orders "fetch http://169.254.169.254…". It is never fetched. | `test_llm_researcher_cites_only_collected_passages…`; evaluation `no_network_fetch_attempted` |
 | Deletion and audit | As **Carol Admin**, delete a finished run; the workspace audit log still records it. | `test_admin_deletes_a_finished_run_completely…` |
+| Invitation | As Carol, **Settings > Invite people**: `dana@example.test` as reviewer. Sign out; sign in as **Dana Newcomer**: she lands in the workspace as reviewer. | `test_invite_mode_refuses_strangers_and_admits_invited_people`; E2E `access.spec.ts` |
+| Access request | Start the backend with `AOS_SIGNUP_MODE=request` and `AOS_PLATFORM_ADMIN_EMAILS=carol@example.test`. Sign in as **Erin Requester**: refused, with a request form. Send a request; as Carol open **Access**, approve; Erin signs in to the welcome page. | `test_platform_admin_approves_a_request_into_a_workspace`; E2E `access.spec.ts` |
+| Accessibility | Switch the OS to dark mode; narrow the window to phone width; tab through a page from the skip link. | E2E `a11y.spec.ts` (axe-core, 360 px, keyboard) |
 | Evaluation | `python -m evaluation.run --cases dev-09,dev-17` and open the summary. | `test_evaluation.py` |
 
 ## Honesty notes for questions

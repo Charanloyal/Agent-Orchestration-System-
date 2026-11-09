@@ -1,6 +1,8 @@
 # Data retention, deletion and public-demo data policy
 
-See [ADR 0019](../decisions/0019-data-lifecycle-audit.md) for the design.
+See [ADR 0019](../decisions/0019-data-lifecycle-audit.md) for the design, and
+[ADR 0021](../decisions/0021-access-model.md) / [ADR 0022](../decisions/0022-deployment-variants-ephemeral-storage.md)
+for access data and storage.
 
 ## What is stored
 
@@ -12,7 +14,10 @@ See [ADR 0019](../decisions/0019-data-lifecycle-audit.md) for the design.
 | Exports | Object store (Markdown copy) + Postgres (record and digest) | The report as exported |
 | Workflow checkpoints | Postgres schema `lg` | Workflow state per run |
 | Timeline events, cost ledger | Postgres | Structured summaries; no prompts or source text |
-| Audit events | Postgres | Who did what, when, to which id; no content |
+| Audit events | Postgres | Who did what, when, to which id; no content and no requester emails |
+| Access list | Postgres | Email, how it was added, optional note, who added it |
+| Access requests | Postgres | Email, name, optional message, decision |
+| Workspace invitations | Postgres | Email, role, inviter, expiry, outcome |
 | Logs, traces, metrics | stdout / tracing backend | Ids, counts and timings; secrets redacted; no content |
 
 ## Retention
@@ -22,6 +27,10 @@ See [ADR 0019](../decisions/0019-data-lifecycle-audit.md) for the design.
 | Finished runs and everything derived from them | Kept | 30 days after the last update | Worker retention sweep (`AOS_RETENTION_RUN_DAYS`) |
 | Uploads | Kept | 30 days after upload | Worker retention sweep (`AOS_RETENTION_UPLOAD_DAYS`) |
 | Unfinished runs | Never swept | Never swept | Cancel first, then they age out |
+| Decided access requests | 90 days after the decision | 90 days | Worker retention sweep (`AOS_RETENTION_ACCESS_REQUEST_DAYS`); pending requests are kept until decided |
+| Access list entries | Until a platform admin removes them | Same | Removal also revokes the person's sessions |
+| Invitations | Kept as a record (accepted, revoked or expired) | Same | Removed with their workspace |
+| Stored originals and export copies on Render | Until the next restart or deploy | Same | Ephemeral disk; re-uploading restores an original |
 | Audit events | Kept | Kept | Append-only; removal only by a database owner |
 | Database backups | Operator's choice | Render plan's backup window | Deleted data persists in backups until they expire |
 
@@ -31,13 +40,17 @@ See [ADR 0019](../decisions/0019-data-lifecycle-audit.md) for the design.
   run** in the UI). This removes it, its derived data, its checkpoints and its export files.
 - **An upload:** the uploader or an admin deletes it on the Documents page. Passages already
   copied into runs stay with those runs until the runs are deleted.
+- **Access:** a platform admin removes an email from the access list on the Access page; a
+  denied request is deleted with the others after 90 days. To have a request deleted sooner,
+  ask a platform admin.
 - **Not possible:** audit events cannot be deleted through the application.
 
 ## Public-demo data policy
 
 The hosted demo is a *controlled pilot*:
 
-- Sign-in is limited to an allowlist.
+- Sign-in is limited to platform admins, the access list and invited people; others can
+  request access.
 - It runs **deterministic fake agents** unless an approved budget enables a model.
 
 Rules for users:
