@@ -1,3 +1,4 @@
+import pytest
 from fastapi.testclient import TestClient
 
 
@@ -11,6 +12,18 @@ def test_health_returns_ok(client: TestClient) -> None:
 
 def test_healthz_is_liveness_only(client: TestClient) -> None:
     assert client.get("/healthz").json() == {"status": "ok"}
+
+
+def test_version_names_the_build_and_its_migration_head(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    from app.db import schema_state
+    from app.version import __version__
+
+    monkeypatch.setenv("RENDER_GIT_COMMIT", "0123456789abcdef0123")
+    body = client.get("/version").json()
+    head = ",".join(sorted(schema_state.migration_heads()))
+    assert body == {"version": __version__, "commit": "0123456789ab", "migration_head": head}
 
 
 def test_readyz_checks_migrated_database(client: TestClient, db: object) -> None:

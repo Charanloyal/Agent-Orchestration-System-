@@ -51,6 +51,9 @@ from app.config import get_settings
 from app.db.base import Base
 from app.db.models import Membership, Role, User, Workspace
 
+# Tables whose rows are written by migrations and must survive the per-test truncation.
+MIGRATION_DATA = frozenset({"schema_compatibility"})
+
 
 def run_alembic(*args: str) -> None:
     from alembic import command
@@ -79,7 +82,8 @@ def db(migrated_database: None) -> Iterator[Session]:
 
     with get_sessionmaker()() as session:
         yield session
-    tables = ", ".join(f'"{t.name}"' for t in Base.metadata.sorted_tables)
+    # Rows written by migrations themselves (the compatibility window) are schema, not test data.
+    tables = ", ".join(f'"{t.name}"' for t in Base.metadata.sorted_tables if t.name not in MIGRATION_DATA)
     with get_engine().begin() as conn:
         conn.execute(text(f"TRUNCATE {tables} RESTART IDENTITY CASCADE"))
 

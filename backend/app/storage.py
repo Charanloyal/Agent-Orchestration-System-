@@ -22,6 +22,8 @@ class ObjectStore(Protocol):
 
     def get(self, key: str) -> bytes: ...
 
+    def exists(self, key: str) -> bool: ...
+
     def delete(self, key: str) -> None: ...
 
 
@@ -51,6 +53,9 @@ class LocalObjectStore:
 
     def get(self, key: str) -> bytes:
         return self._path(key).read_bytes()
+
+    def exists(self, key: str) -> bool:
+        return self._path(key).is_file()
 
     def delete(self, key: str) -> None:
         self._path(key).unlink(missing_ok=True)

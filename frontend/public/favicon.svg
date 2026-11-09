@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <title>Agent Orchestration System</title>
+  <rect width="64" height="64" rx="14" fill="#3b4fd8"/>
+  <path d="M32 11 53 32 32 53 11 32Z" fill="#ffffff"/>
+  <path d="M32 22 42 32 32 42 22 32Z" fill="#3b4fd8"/>
+</svg>

@@ -15,6 +15,11 @@ from app.config import Settings
 from app.db.models import AuthSession
 
 _TOUCH_INTERVAL = timedelta(minutes=5)
+# Binds a sign-in attempt to the browser that started it (login CSRF protection): the
+# callback only accepts a `state` that matches this cookie. Scoped to the callback path.
+LOGIN_COOKIE = "aos_login"
+LOGIN_COOKIE_PATH = "/api/v1/auth/callback"
+LOGIN_COOKIE_MAX_AGE = 600
 
 
 def sha256_hex(value: str) -> str:
@@ -76,4 +81,22 @@ def clear_session_cookie(response: Response, settings: Settings) -> None:
         secure=settings.cookie_secure,
         httponly=True,
         samesite="lax",
+    )
+
+
+def set_login_cookie(response: Response, state: str, settings: Settings) -> None:
+    response.set_cookie(
+        LOGIN_COOKIE,
+        state,
+        max_age=LOGIN_COOKIE_MAX_AGE,
+        httponly=True,
+        secure=settings.cookie_secure,
+        samesite="lax",
+        path=LOGIN_COOKIE_PATH,
+    )
+
+
+def clear_login_cookie(response: Response, settings: Settings) -> None:
+    response.delete_cookie(
+        LOGIN_COOKIE, path=LOGIN_COOKIE_PATH, secure=settings.cookie_secure, httponly=True, samesite="lax"
     )

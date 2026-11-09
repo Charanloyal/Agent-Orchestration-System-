@@ -91,6 +91,7 @@ class Settings(BaseSettings):
     rate_upload_per_user_hour: int = 30
     rate_export_per_user_hour: int = 60
     rate_login_per_ip_5min: int = 30
+    rate_access_request_per_ip_hour: int = 5
     # Provider circuit breaker: consecutive transient failures before opening, and cooldown.
     breaker_failure_threshold: int = 5
     breaker_cooldown_seconds: float = 60.0
@@ -98,6 +99,8 @@ class Settings(BaseSettings):
     # email. Empty means "anyone the identity provider authenticates" and is refused in prod.
     allowed_emails: str = ""
     allowed_email_domains: str = ""
+    # Name shown on the sign-in button ("Continue with ..."). Unset: derived from the issuer.
+    oidc_provider_label: str | None = None
     # Single-origin deployment: when set, the API also serves the built SPA from this folder.
     static_dir: Path | None = None
     # Largest accepted request body for JSON endpoints; uploads get upload_max_bytes + 1 MB.
@@ -116,7 +119,21 @@ class Settings(BaseSettings):
             d.strip().lower().lstrip("@") for d in self.allowed_email_domains.split(",") if d.strip()
         )
 
+    @property
+    def provider_label(self) -> str:
+        if self.oidc_provider_label:
+            return self.oidc_provider_label
+        host = (urlsplit(self.oidc_issuer).hostname or "").lower()
+        if host == "accounts.google.com":
+            return "Google"
+        if host == "login.microsoftonline.com":
+            return "Microsoft"
+        if _is_local_url(self.oidc_issuer):
+            return "dev sign-in"
+        return "your organization"
+
     def email_allowed(self, email: str | None) -> bool:
+        """With no allowlist configured, anyone passes (refused in prod)."""
         if not self.allowed_email_set and not self.allowed_domain_set:
             return True
         if not email:

@@ -18,7 +18,11 @@ from app.main import app
 from app.policy.permissions import ROLE_PERMISSIONS, Action
 from tests.conftest import SAMPLE_BRIEF, LoggedIn
 
-PUBLIC_ROUTES = {("GET", "/api/v1/auth/login"), ("GET", "/api/v1/auth/callback")}
+PUBLIC_ROUTES = {
+    ("GET", "/api/v1/auth/login"),
+    ("GET", "/api/v1/auth/callback"),
+    ("GET", "/api/v1/auth/config"),
+}
 UNSAFE = {"POST", "PUT", "PATCH", "DELETE"}
 
 

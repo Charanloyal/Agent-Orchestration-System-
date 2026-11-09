@@ -1,11 +1,23 @@
-"""Operational tables: rate-limit counters (ADR 0016)."""
+"""Operational tables: rate-limit counters (ADR 0016) and the schema compatibility window
+(ADR 0020)."""
 
 from datetime import datetime
 
 from sqlalchemy import DateTime, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db.base import Base
+from app.db.base import Base, CreatedAtMixin
+
+
+class SchemaCompatibility(CreatedAtMixin, Base):
+    """Code revisions (Alembic heads) that may run against this database. Every additive
+    migration inserts its own revision and keeps the older rows, so the previous build stays
+    ready after a migration and can be rolled back to. A migration that breaks older code
+    deletes the rows it invalidates (ADR 0020)."""
+
+    __tablename__ = "schema_compatibility"
+
+    code_revision: Mapped[str] = mapped_column(String(32), primary_key=True)
 
 
 class RateLimitCounter(Base):

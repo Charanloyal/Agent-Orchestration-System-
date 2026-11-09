@@ -18,9 +18,18 @@ from app.config import Settings
 
 
 def sign_in_via_dev_issuer(client: TestClient, subject: str, next_path: str = "/runs") -> httpx.Response:
+    authorize_url = start_sign_in(client, next_path)
+    return client.get(consent(authorize_url, subject), follow_redirects=False)
+
+
+def start_sign_in(client: TestClient, next_path: str = "/runs") -> str:
     start = client.get("/api/v1/auth/login", params={"next": next_path}, follow_redirects=False)
-    assert start.status_code == 302
-    authorize_url = start.headers["location"]
+    assert start.status_code == 302, start.headers.get("location")
+    return start.headers["location"]
+
+
+def consent(authorize_url: str, subject: str) -> str:
+    """Pick `subject` on the dev issuer's page; returns the app callback path and query."""
     with httpx.Client(trust_env=False) as browser:
         page = browser.get(authorize_url)
         assert page.status_code == 200
@@ -37,19 +46,23 @@ def sign_in_via_dev_issuer(client: TestClient, subject: str, next_path: str = "/
                 "scope",
             )
         }
-        consent = browser.post(authorize_url.split("?")[0], data={**form, "subject": subject})
-    assert consent.status_code == 302
-    callback = urlparse(consent.headers["location"])
-    return client.get(f"{callback.path}?{callback.query}", follow_redirects=False)
+        answer = browser.post(authorize_url.split("?")[0], data={**form, "subject": subject})
+    assert answer.status_code == 302
+    callback = urlparse(answer.headers["location"])
+    return f"{callback.path}?{callback.query}"
 
 
 def test_full_sign_in_flow_creates_session(client: TestClient, db: object, oidc_against: Any) -> None:
     response = sign_in_via_dev_issuer(client, "dev-alice")
     assert response.status_code == 302
     assert response.headers["location"] == "/runs"
-    cookie = response.headers["set-cookie"].lower()
-    assert "httponly" in cookie
-    assert "samesite=lax" in cookie
+    cookies = response.headers.get_list("set-cookie")
+    session_cookie = next(c for c in cookies if c.startswith("aos_session=")).lower()
+    assert "httponly" in session_cookie
+    assert "samesite=lax" in session_cookie
+    assert any(c.startswith("aos_login=") and "max-age=0" in c.lower() for c in cookies), (
+        "the one-time login cookie is cleared"
+    )
 
     me = client.get("/api/v1/auth/me")
     assert me.status_code == 200
@@ -60,38 +73,73 @@ def test_full_sign_in_flow_creates_session(client: TestClient, db: object, oidc_
     assert body["deployment"] == {"environment": "test", "agent_mode": "fake"}, "UI can label demo agents"
 
 
-def test_callback_state_is_single_use(client: TestClient, db: object, oidc_against: Any) -> None:
+def test_login_binds_the_attempt_to_this_browser(client: TestClient, db: object, oidc_against: Any) -> None:
     start = client.get("/api/v1/auth/login", follow_redirects=False)
-    query = {k: v[0] for k, v in parse_qs(urlparse(start.headers["location"]).query).items()}
-    with httpx.Client(trust_env=False) as browser:
-        consent = browser.post(
-            start.headers["location"].split("?")[0],
-            data={
-                **{
-                    k: query[k]
-                    for k in (
-                        "client_id",
-                        "redirect_uri",
-                        "state",
-                        "nonce",
-                        "code_challenge",
-                        "scope",
-                    )
-                },
-                "subject": "dev-bob",
-            },
-        )
-    callback = urlparse(consent.headers["location"])
-    first = client.get(f"{callback.path}?{callback.query}", follow_redirects=False)
-    assert first.status_code == 302
-    replay = client.get(f"{callback.path}?{callback.query}", follow_redirects=False)
-    assert replay.status_code == 400
-    assert replay.json()["error"]["code"] == "oidc_error"
+    cookie = start.headers["set-cookie"]
+    state = parse_qs(urlparse(start.headers["location"]).query)["state"][0]
+    assert cookie.startswith(f"aos_login={state};")
+    lowered = cookie.lower()
+    assert "httponly" in lowered and "samesite=lax" in lowered
+    assert "path=/api/v1/auth/callback" in lowered and "max-age=600" in lowered
 
 
-def test_unknown_state_rejected(client: TestClient, db: object, oidc_against: Any) -> None:
-    response = client.get("/api/v1/auth/callback", params={"code": "x", "state": "forged"})
-    assert response.status_code == 400
+def test_callback_from_another_browser_is_refused(client: TestClient, db: object, oidc_against: Any) -> None:
+    """Login CSRF: an attacker's valid code and state, replayed in a victim's browser, must
+    not sign the victim into the attacker's account."""
+    callback = consent(start_sign_in(client), "dev-mallory")
+    client.cookies.clear()
+    response = client.get(callback, follow_redirects=False)
+    assert response.status_code == 302
+    assert response.headers["location"] == "/signin?error=login_expired"
+    assert client.get("/api/v1/auth/me").status_code == 401
+
+
+@pytest.mark.parametrize(
+    ("query", "error"),
+    [
+        ({"error": "access_denied"}, "provider_denied"),
+        ({"error": "server_error"}, "provider_error"),
+        ({"state": "s"}, "login_failed"),
+        ({"code": "c", "state": "forged"}, "login_expired"),
+    ],
+)
+def test_callback_failures_return_to_the_sign_in_page(
+    client: TestClient, db: object, query: dict[str, str], error: str
+) -> None:
+    response = client.get("/api/v1/auth/callback", params=query, follow_redirects=False)
+    assert response.status_code == 302
+    assert response.headers["location"] == f"/signin?error={error}"
+
+
+def test_auth_config_is_public_and_reveals_no_accounts(client: TestClient) -> None:
+    response = client.get("/api/v1/auth/config")
+    assert response.status_code == 200
+    assert response.json() == {"provider_label": "dev sign-in", "signup_mode": "open"}
+
+
+@pytest.mark.parametrize(
+    ("issuer", "label"),
+    [
+        ("https://accounts.google.com", "Google"),
+        ("https://login.microsoftonline.com/tenant/v2.0", "Microsoft"),
+        ("https://sso.example.org", "your organization"),
+        ("http://127.0.0.1:8001", "dev sign-in"),
+    ],
+)
+def test_provider_label_is_derived_from_the_issuer(issuer: str, label: str) -> None:
+    assert Settings(env="test", oidc_issuer=issuer).provider_label == label
+    assert (
+        Settings(env="test", oidc_issuer=issuer, oidc_provider_label="Acme SSO").provider_label == "Acme SSO"
+    )
+
+
+def test_callback_state_is_single_use(client: TestClient, db: object, oidc_against: Any) -> None:
+    callback = consent(start_sign_in(client), "dev-bob")
+    first = client.get(callback, follow_redirects=False)
+    assert first.status_code == 302 and first.headers["location"] == "/runs"
+    replay = client.get(callback, follow_redirects=False)
+    assert replay.status_code == 302
+    assert replay.headers["location"] == "/signin?error=login_expired"
 
 
 def test_logout_revokes_session(client: TestClient, db: object, oidc_against: Any) -> None:
@@ -221,6 +269,42 @@ def test_unsigned_and_hmac_tokens_rejected(verifier: OidcClient) -> None:
 def test_unverified_email_is_not_trusted(verifier: OidcClient, signing_key: rsa.RSAPrivateKey) -> None:
     claims = verifier.verify_id_token(token(signing_key, email_verified=False), nonce="n1")
     assert claims.email is None
+
+
+GOOGLE = "https://accounts.google.com"
+
+
+@pytest.mark.parametrize(
+    ("iss", "accepted"),
+    [(GOOGLE, True), ("accounts.google.com", True), ("https://accounts.google.com.evil.test", False)],
+)
+def test_google_issuer_is_accepted_in_both_documented_forms(
+    signing_key: rsa.RSAPrivateKey, iss: str, accepted: bool
+) -> None:
+    jwk: dict[str, Any] = RSAAlgorithm.to_jwk(signing_key.public_key(), as_dict=True)  # type: ignore[assignment]
+    jwk.update({"kid": "k1", "alg": "RS256"})
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("openid-configuration"):
+            return httpx.Response(
+                200,
+                json={
+                    "issuer": GOOGLE,
+                    "authorization_endpoint": f"{GOOGLE}/o/oauth2/v2/auth",
+                    "token_endpoint": "https://oauth2.googleapis.com/token",
+                    "jwks_uri": "https://www.googleapis.com/oauth2/v3/certs",
+                },
+            )
+        return httpx.Response(200, json={"keys": [jwk]})
+
+    settings = Settings(oidc_issuer=GOOGLE, oidc_client_id=CLIENT_ID, env="test")
+    google = OidcClient(settings, httpx.Client(transport=httpx.MockTransport(handler)))
+    if accepted:
+        claims = google.verify_id_token(token(signing_key, iss=iss), nonce="n1")
+        assert claims.issuer == GOOGLE, "users are keyed by the configured issuer, whatever the form"
+    else:
+        with pytest.raises(OidcError):
+            google.verify_id_token(token(signing_key, iss=iss), nonce="n1")
 
 
 def test_backchannel_rewrites_server_calls_but_keeps_public_issuer(signing_key: rsa.RSAPrivateKey) -> None:

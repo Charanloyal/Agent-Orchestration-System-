@@ -63,8 +63,8 @@ def test_unsafe_production_settings_refuse_to_start(override: dict[str, Any], me
         Settings(**{**SAFE_PROD, **override})
 
 
-def test_unreachable_identity_provider_is_a_503_with_an_actionable_message(
-    client: TestClient, db: Session
+def test_unreachable_identity_provider_sends_people_back_with_a_clear_reason(
+    client: TestClient, db: Session, caplog: pytest.LogCaptureFixture
 ) -> None:
     import httpx
 
@@ -79,9 +79,9 @@ def test_unreachable_identity_provider_is_a_503_with_an_actionable_message(
         response = client.get("/api/v1/auth/login", follow_redirects=False)
     finally:
         app.dependency_overrides.pop(get_oidc_client, None)
-    assert response.status_code == 503
-    assert response.json()["error"]["code"] == "identity_provider_unavailable"
-    assert "AOS_OIDC_ISSUER" in response.json()["error"]["message"]
+    assert response.status_code == 302
+    assert response.headers["location"] == "/signin?error=provider_unavailable"
+    assert "AOS_OIDC_ISSUER" in caplog.text, "operators get the actionable detail in the log"
 
 
 def test_production_app_hides_openapi_and_docs() -> None:
@@ -111,7 +111,7 @@ def test_allowlist_refuses_uninvited_accounts_without_creating_a_user(
     allowlist("bob@example.test")
     denied = sign_in_via_dev_issuer(client, "dev-alice")
     assert denied.status_code == 302 and denied.headers["location"] == "/signin?error=not_allowed"
-    assert "set-cookie" not in denied.headers
+    assert "aos_session" not in denied.headers.get("set-cookie", ""), "no session for a refused account"
     assert db.scalar(select(func.count()).select_from(User).where(User.email == "alice@example.test")) == 0
     event = db.scalars(select(AuditEvent).where(AuditEvent.action == "auth.denied")).one()
     assert "alice" not in str(event.details), "the refused address is not stored"

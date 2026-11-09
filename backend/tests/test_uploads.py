@@ -62,6 +62,23 @@ def test_text_and_pdf_uploads_are_indexed_and_searchable(
     )
     assert duplicate.status_code == 200 and duplicate.json()["id"] == body["id"]
 
+    # Render's disk is ephemeral: if the stored original vanished, the same upload restores it.
+    from app.storage import get_object_store
+
+    store, upload_id = get_object_store(), body["id"]
+    key = f"uploads/{team['home'].id}/{body['sha256']}"
+    store.delete(key)
+    assert not store.exists(key)
+    restored = upload(
+        client,
+        analyst,
+        team["home"],
+        "again.pdf",
+        make_pdf(["Encryption at rest uses AES-256.", "Keys rotate every 90 days."], title="Whitepaper"),
+    )
+    assert restored.status_code == 200 and restored.json()["id"] == upload_id
+    assert store.exists(key)
+
     hits = client.get(
         f"/api/v1/workspaces/{team['home'].id}/uploads/search", params={"q": "key rotation"}
     ).json()

@@ -371,19 +371,20 @@ def main(argv: list[str] | None = None) -> int:
 
 def wait_for_database(settings: Settings, stopping: threading.Event, max_delay: float = 30.0) -> None:
     """At boot the database may still be starting, or this worker may have deployed before
-    the API's pre-deploy migration ran. Wait (capped backoff) until the schema is at this
-    code's migration head, instead of crash-looping or running against an old schema."""
+    the API's pre-deploy migration ran. Wait (capped backoff) until the schema is one this
+    code can run on (its migration head, or a newer schema that declares it compatible,
+    ADR 0020), instead of crash-looping or running against an old schema."""
     delay = 1.0
     while not stopping.is_set():
         try:
             with get_sessionmaker()() as db:
-                current = schema_state.current_revisions(db)
-            if current == schema_state.migration_heads():
+                status = schema_state.schema_status(db)
+            if status.compatible:
                 setup_checkpointer(settings)
                 return
             log.warning(
-                "database schema not at migration head; waiting",
-                extra={"current": sorted(current), "expected": sorted(schema_state.migration_heads())},
+                "database schema not compatible with this build; waiting",
+                extra={"current": sorted(status.current), "expected": sorted(status.expected)},
             )
         except (*OperationalError_, ProgrammingError) as exc:
             log.warning(

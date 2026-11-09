@@ -162,17 +162,20 @@ jobs:
       - uses: actions/setup-python@v7
         with:
           python-version: "3.14"
-      - name: Validate render.yaml against Render's published Blueprint schema
+      - name: Validate render.yaml and render.free.yaml against Render's published Blueprint schema
         run: |
           python -m pip install --quiet jsonschema pyyaml
           curl -fsSL https://render.com/schema/render.yaml.json -o "$RUNNER_TEMP/render.schema.json"
           python - <<'EOF'
           import json, os, sys, jsonschema, yaml
           schema = json.load(open(os.path.join(os.environ["RUNNER_TEMP"], "render.schema.json")))
-          errors = list(jsonschema.Draft7Validator(schema).iter_errors(yaml.safe_load(open("render.yaml"))))
-          for e in errors:
-              print("render.yaml:", "/".join(map(str, e.path)), e.message[:300])
-          sys.exit(1 if errors else 0)
+          failed = False
+          for name in ("render.yaml", "render.free.yaml"):
+              errors = list(jsonschema.Draft7Validator(schema).iter_errors(yaml.safe_load(open(name))))
+              for e in errors:
+                  print(f"{name}:", "/".join(map(str, e.path)), e.message[:300])
+              failed = failed or bool(errors)
+          sys.exit(1 if failed else 0)
           EOF
       - name: Build the production image
         run: docker build -t aos:ci .
@@ -182,27 +185,41 @@ jobs:
           ENVS="-e AOS_ENV=prod -e AOS_DATABASE_URL=postgresql://postgres:ci-only-ephemeral@127.0.0.1:5432/aos \
             -e AOS_COOKIE_SECURE=true -e AOS_PUBLIC_URL=https://aos.example.org \
             -e AOS_OIDC_ISSUER=https://login.example.org -e AOS_OIDC_CLIENT_ID=ci-client \
-            -e AOS_ALLOWED_EMAIL_DOMAINS=example.org"
+            -e AOS_ALLOWED_EMAIL_DOMAINS=example.org \
+            -e AOS_BUILD_COMMIT=${GITHUB_SHA}"
           docker run --rm --network host $ENVS aos:ci alembic upgrade head
           docker run -d --name web --network host $ENVS -e PORT=10000 aos:ci
           docker run -d --name worker --network host $ENVS aos:ci python -m app.workers.runner
           for i in $(seq 1 30); do curl -fsS http://127.0.0.1:10000/readyz && break; sleep 2; done
-          curl -fsS http://127.0.0.1:10000/readyz
-          curl -fsS http://127.0.0.1:10000/ | grep -q 'id="root"'
-          curl -fsS http://127.0.0.1:10000/runs/client-side-route | grep -q 'id="root"'
-          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:10000/api/openapi.json)" = 404
-          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:10000/api/v1/auth/me)" = 401
-          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:10000/metrics)" = 404
+          python backend/scripts/smoke_prod.py http://127.0.0.1:10000 --allow-http --idp-unreachable \
+            --expect-commit "${GITHUB_SHA}" --expect-signup-mode invite
           if docker exec web test -e /srv/backend/devtools; then echo "dev issuer shipped"; exit 1; fi
-          docker exec web python -c "from app.storage import get_object_store as s; s().put('ci/probe.txt', b'ok'); assert s().get('ci/probe.txt') == b'ok'"
+          docker exec web python -c "from app.storage import get_object_store as s; s().put('ci/probe.txt', b'ok'); assert s().get('ci/probe.txt') == b'ok' and s().exists('ci/probe.txt')"
           sleep 5
           docker logs worker 2>&1 | grep -q '"worker started"'
           if docker logs web 2>&1 | grep -q 'ci-only-ephemeral'; then echo "secret in logs"; exit 1; fi
           if docker logs worker 2>&1 | grep -q 'ci-only-ephemeral'; then echo "secret in logs"; exit 1; fi
           docker stop -t 30 worker
           docker logs worker 2>&1 | grep -q '"worker stopped"'
+          docker stop -t 30 web
+      - name: Single-service variant (render.free.yaml) migrates, runs the worker and serves
+        run: |
+          set -eu
+          ENVS="-e AOS_ENV=prod -e AOS_DATABASE_URL=postgresql://postgres:ci-only-ephemeral@127.0.0.1:5432/aos \
+            -e AOS_COOKIE_SECURE=true -e AOS_PUBLIC_URL=https://aos.example.org \
+            -e AOS_OIDC_ISSUER=https://login.example.org -e AOS_OIDC_CLIENT_ID=ci-client \
+            -e AOS_ALLOWED_EMAIL_DOMAINS=example.org"
+          docker run -d --name single --network host $ENVS -e PORT=10001 aos:ci \
+            python -m app.serve --migrate --with-worker
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:10001/readyz && break; sleep 2; done
+          python backend/scripts/smoke_prod.py http://127.0.0.1:10001 --allow-http --idp-unreachable
+          sleep 5
+          docker logs single 2>&1 | grep -q '"worker started"'
+          docker stop -t 30 single
+          docker logs single 2>&1 | grep -q '"worker stopped"'
       - if: always()
         name: Container logs
         run: |
           docker logs web || true
           docker logs worker || true
+          docker logs single || true

@@ -22,6 +22,8 @@ from app.errors import AppError
 
 ALLOWED_ID_TOKEN_ALGS = ["RS256", "PS256", "ES256"]
 _METADATA_TTL_SECONDS = 3600
+# Google documents that its ID tokens carry either form of the issuer.
+_ISSUER_ALIASES = {"https://accounts.google.com": ("accounts.google.com",)}
 
 
 class OidcError(AppError):
@@ -123,7 +125,7 @@ class OidcClient:
                 key=key,
                 algorithms=[alg],
                 audience=self.settings.oidc_client_id,
-                issuer=self.settings.oidc_issuer,
+                issuer=[self.settings.oidc_issuer, *_ISSUER_ALIASES.get(self.settings.oidc_issuer, ())],
                 leeway=60,
                 options={"require": ["exp", "iat", "iss", "aud", "sub"]},
             )

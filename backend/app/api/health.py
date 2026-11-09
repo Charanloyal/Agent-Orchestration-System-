@@ -1,4 +1,5 @@
 import hmac
+import os
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Header
@@ -9,12 +10,19 @@ from app.auth.deps import AppSettings, DbSession
 from app.db import schema_state
 from app.errors import AppError, NotFound, Unauthenticated
 from app.observability.metrics import http_metrics, workflow_metrics
+from app.version import __version__
 
 router = APIRouter(tags=["health"])
 
 
 class HealthResponse(BaseModel):
     status: Literal["ok"]
+
+
+class VersionResponse(BaseModel):
+    version: str
+    commit: str | None
+    migration_head: str
 
 
 class NotReady(AppError):
@@ -34,16 +42,29 @@ def healthz() -> HealthResponse:
     return HealthResponse(status="ok")
 
 
+@router.get("/version", response_model=VersionResponse)
+def version() -> VersionResponse:
+    """Which build is serving, for deploy and rollback checks (scripts/smoke_prod.py). Render
+    sets RENDER_GIT_COMMIT; elsewhere AOS_BUILD_COMMIT may. No database access, no secrets."""
+    commit = os.environ.get("RENDER_GIT_COMMIT") or os.environ.get("AOS_BUILD_COMMIT")
+    return VersionResponse(
+        version=__version__,
+        commit=commit[:12] if commit else None,
+        migration_head=",".join(sorted(schema_state.migration_heads())),
+    )
+
+
 @router.get("/readyz", response_model=HealthResponse)
 def readyz(db: DbSession) -> HealthResponse:
-    """Readiness: the database is reachable *and* migrated to the code's head revision. A
-    deploy whose migrations did not run must not receive traffic (Render health check)."""
+    """Readiness: the database is reachable *and* its schema is one this code can run on: the
+    code's head revision, or a newer revision that declares this code compatible (ADR 0020).
+    A deploy whose migrations did not run must not receive traffic (Render health check)."""
     try:
-        current = schema_state.current_revisions(db)
+        status = schema_state.schema_status(db)
     except Exception as exc:
         raise NotReady("Database unavailable or not migrated") from exc
-    if current != schema_state.migration_heads():
-        raise NotReady("Database schema is not at the expected migration head; run `alembic upgrade head`")
+    if not status.compatible:
+        raise NotReady(status.reason)
     return HealthResponse(status="ok")
 
 

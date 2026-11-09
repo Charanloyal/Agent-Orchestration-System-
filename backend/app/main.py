@@ -6,6 +6,7 @@ from app.errors import install_error_handlers
 from app.observability.logging import configure_logging, startup_summary
 from app.observability.middleware import RequestContextMiddleware
 from app.observability.tracing import configure_tracing
+from app.version import __version__
 from app.web import BodySizeLimitMiddleware, mount_spa
 
 
@@ -16,7 +17,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     prod = settings.env == "prod"
     app = FastAPI(
         title="Agent Orchestration System API",
-        version="0.4.0",
+        version=__version__,
         # Interactive docs and the schema document are development aids, not public surface.
         docs_url=None if prod else "/api/docs",
         redoc_url=None,

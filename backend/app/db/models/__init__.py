@@ -8,7 +8,7 @@ from app.db.models.identity import (
     User,
     Workspace,
 )
-from app.db.models.ops import RateLimitCounter
+from app.db.models.ops import RateLimitCounter, SchemaCompatibility
 from app.db.models.reports import ReportExport, ReviewFindingRow
 from app.db.models.runs import (
     Approval,
@@ -43,6 +43,7 @@ __all__ = [
     "Run",
     "RunEvent",
     "RunJob",
+    "SchemaCompatibility",
     "Source",
     "TaskResult",
     "ToolExecution",
