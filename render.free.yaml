@@ -46,6 +46,8 @@ services:
         value: "30"
       - key: AOS_RETENTION_UPLOAD_DAYS
         value: "30"
+      - key: AOS_SIGNUP_MODE
+        value: request
       - key: AOS_DATABASE_URL
         fromDatabase:
           name: aos-db
@@ -60,8 +62,7 @@ services:
         sync: false
       - key: AOS_OIDC_CLIENT_SECRET
         sync: false
-      # Who may sign in (at least one is required in prod), e.g. "you@gmail.com".
-      - key: AOS_ALLOWED_EMAILS
+      - key: AOS_PLATFORM_ADMIN_EMAILS
         sync: false
       - key: AOS_METRICS_TOKEN
         generateValue: true

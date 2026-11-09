@@ -1,3 +1,4 @@
+from app.db.models.access import AccessListEntry, AccessRequest, WorkspaceInvitation
 from app.db.models.billing import BudgetReservation
 from app.db.models.identity import (
     AuditEvent,
@@ -26,6 +27,8 @@ from app.db.models.runs import (
 from app.db.models.uploads import Upload, UploadChunk
 
 __all__ = [
+    "AccessListEntry",
+    "AccessRequest",
     "Approval",
     "AuditEvent",
     "AuthSession",
@@ -51,4 +54,5 @@ __all__ = [
     "UploadChunk",
     "User",
     "Workspace",
+    "WorkspaceInvitation",
 ]

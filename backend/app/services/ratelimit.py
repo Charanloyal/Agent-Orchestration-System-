@@ -42,7 +42,8 @@ def enforce(key: str, limit: int, window_seconds: int) -> None:
         )
 
 
-def _ip_key(request: Request) -> str:
+def client_key(request: Request) -> str:
+    """Hashed client address: rate-limit keys never hold a raw IP."""
     host = request.client.host if request.client else "unknown"
     return hashlib.sha256(host.encode()).hexdigest()[:32]
 
@@ -67,7 +68,7 @@ def workspace_run_limit(workspace_id: uuid.UUID, settings: AppSettings) -> None:
 
 
 def login_limit(request: Request, settings: AppSettings) -> None:
-    enforce(f"login:ip:{_ip_key(request)}", settings.rate_login_per_ip_5min, 300)
+    enforce(f"login:ip:{client_key(request)}", settings.rate_login_per_ip_5min, 300)
 
 
 def purge_old_windows(days: int = 1) -> int:

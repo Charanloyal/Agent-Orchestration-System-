@@ -37,6 +37,10 @@ envVarGroups:
         value: "30"
       - key: AOS_RETENTION_UPLOAD_DAYS
         value: "30"
+      # Access model (ADR 0021): visitors can ask for access from the sign-in page; a platform
+      # admin approves. Use "invite" to accept invited people only.
+      - key: AOS_SIGNUP_MODE
+        value: request
 
 services:
   - type: web
@@ -68,10 +72,10 @@ services:
         sync: false
       - key: AOS_OIDC_CLIENT_SECRET
         sync: false
-      # Who may sign in (at least one is required in prod), e.g. "you@university.edu".
-      - key: AOS_ALLOWED_EMAILS
-        sync: false
-      - key: AOS_ALLOWED_EMAIL_DOMAINS
+      # Who manages access for the whole deployment (required in prod), e.g. "you@gmail.com".
+      # Optional extras, set in the Dashboard if wanted: AOS_ALLOWED_EMAILS and
+      # AOS_ALLOWED_EMAIL_DOMAINS (always allowed to sign in).
+      - key: AOS_PLATFORM_ADMIN_EMAILS
         sync: false
       - key: AOS_METRICS_TOKEN
         generateValue: true
@@ -99,7 +103,5 @@ services:
         sync: false
       - key: AOS_OIDC_CLIENT_ID
         sync: false
-      - key: AOS_ALLOWED_EMAILS
-        sync: false
-      - key: AOS_ALLOWED_EMAIL_DOMAINS
+      - key: AOS_PLATFORM_ADMIN_EMAILS
         sync: false

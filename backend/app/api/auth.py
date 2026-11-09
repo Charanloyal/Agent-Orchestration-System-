@@ -41,6 +41,7 @@ from app.auth.sessions import (
 from app.config import Settings
 from app.db.models import Membership, OidcLoginState, User, Workspace
 from app.errors import TooManyRequests
+from app.services import access
 from app.services.audit import audit
 from app.services.ratelimit import login_limit
 
@@ -71,9 +72,7 @@ class AuthConfigOut(BaseModel):
 @router.get("/config", response_model=AuthConfigOut)
 def auth_config(settings: AppSettings) -> AuthConfigOut:
     """Public: what the sign-in page should offer. Reveals no account information."""
-    restricted = bool(settings.allowed_email_set or settings.allowed_domain_set)
-    mode: Literal["invite", "open"] = "invite" if restricted else "open"
-    return AuthConfigOut(provider_label=settings.provider_label, signup_mode=mode)
+    return AuthConfigOut(provider_label=settings.provider_label, signup_mode=settings.effective_signup_mode)
 
 
 @router.get("/login", include_in_schema=True)
@@ -149,7 +148,8 @@ def callback(
         log.warning("sign-in response did not verify: %s", exc.message)
         return _to_signin("login_failed", settings)
 
-    if not settings.email_allowed(identity.email):
+    decision = access.sign_in_decision(db, settings, identity.email)
+    if not decision.allowed:
         # Authenticated by the provider but not invited to this deployment. No user row or
         # session is created; the attempt is audited without the email itself.
         reason = "email_unverified" if identity.email is None else "not_allowed"
@@ -161,9 +161,16 @@ def callback(
         )
         db.commit()
         return _to_signin(reason, settings)
+    assert identity.email is not None
     user = upsert_user(db, identity)
+    accepted = access.accept_invitations(db, user, identity.email)
     raw, session = create_session(db, user.id, settings)
-    audit(db, "auth.login", actor_user_id=user.id, details={"session_id": str(session.id)})
+    audit(
+        db,
+        "auth.login",
+        actor_user_id=user.id,
+        details={"session_id": str(session.id), "via": decision.reason, "invitations": len(accepted)},
+    )
     db.commit()
 
     response = RedirectResponse(login_state.next_path, status_code=302)
@@ -219,6 +226,12 @@ class MeOut(BaseModel):
     csrf_token: str
     memberships: list[MembershipOut]
     deployment: DeploymentOut
+    is_platform_admin: bool
+    can_create_workspace: bool
+
+
+def can_create_workspace(settings: Settings, email: str | None) -> bool:
+    return settings.effective_workspace_creation == "everyone" or settings.is_platform_admin(email)
 
 
 @router.get("/me", response_model=MeOut)
@@ -236,4 +249,6 @@ def me(principal: CurrentPrincipal, db: DbSession, settings: AppSettings) -> MeO
         csrf_token=principal.csrf_token,
         memberships=[MembershipOut(workspace_id=w, workspace_name=n, role=r) for w, n, r in rows],
         deployment=DeploymentOut(environment=settings.env, agent_mode=settings.agent_mode),
+        is_platform_admin=settings.is_platform_admin(principal.email),
+        can_create_workspace=can_create_workspace(settings, principal.email),
     )

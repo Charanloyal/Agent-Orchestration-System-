@@ -61,6 +61,8 @@ def test_smoke_checks_pass_against_the_app(smoke: ModuleType, oidc_against: Any)
     assert failed == PROD_ONLY, [(r.name, r.detail) for r in results if not r.ok]
     names = {r.name for r in results}
     assert {"login redirects to the identity provider", "redirect URI", "login cookie"} <= names
+    cross = next(r for r in results if r.name == "cross-origin writes refused")
+    assert cross.detail.endswith("-> 403"), "this build has the endpoint, so its origin check must refuse"
 
 
 def test_smoke_checks_report_a_wrong_build_and_an_identity_provider_outage(smoke: ModuleType) -> None:

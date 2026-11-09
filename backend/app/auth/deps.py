@@ -69,6 +69,17 @@ def get_principal(request: Request, db: DbSession, settings: AppSettings) -> Pri
 CurrentPrincipal = Annotated[Principal, Depends(get_principal)]
 
 
+def get_platform_admin(principal: CurrentPrincipal, settings: AppSettings) -> Principal:
+    """Deployment-wide access management (ADR 0021). Everyone else gets 404, so these routes
+    do not reveal that they exist."""
+    if not settings.is_platform_admin(principal.email):
+        raise NotFound("Not found")
+    return principal
+
+
+PlatformAdmin = Annotated[Principal, Depends(get_platform_admin)]
+
+
 @dataclass(frozen=True)
 class WorkspaceAccess:
     workspace_id: uuid.UUID

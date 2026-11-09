@@ -32,6 +32,7 @@ SAFE_PROD: dict[str, Any] = {
     "oidc_client_id": "aos-pilot",
     "public_url": "https://aos.example.org",
     "allowed_email_domains": "example.org",
+    "platform_admin_emails": "Ops@Example.org",
 }
 
 
@@ -42,6 +43,11 @@ def test_safe_production_settings_are_accepted() -> None:
     settings = Settings(**SAFE_PROD)
     assert settings.email_allowed("Ana@Example.org") and not settings.email_allowed("eve@evil.test")
     assert not settings.email_allowed(None), "unverified or missing email never passes an allowlist"
+    assert settings.effective_signup_mode == "invite", "prod defaults to invite-only sign-in"
+    assert settings.effective_workspace_creation == "platform_admins"
+    assert settings.is_platform_admin("ops@example.org") and not settings.is_platform_admin("ana@example.org")
+    without_allowlist = Settings(**{**SAFE_PROD, "allowed_email_domains": ""})
+    assert without_allowlist.effective_signup_mode == "invite", "no allowlist no longer means anyone"
 
 
 @pytest.mark.parametrize(
@@ -54,7 +60,8 @@ def test_safe_production_settings_are_accepted() -> None:
         ({"oidc_client_id": "aos-local"}, "dev OIDC issuer"),
         ({"oidc_backchannel_url": "http://127.0.0.1:8001"}, "AOS_OIDC_BACKCHANNEL_URL"),
         ({"public_url": "http://aos.example.org"}, "AOS_PUBLIC_URL"),
-        ({"allowed_email_domains": ""}, "allowlist"),
+        ({"platform_admin_emails": ""}, "AOS_PLATFORM_ADMIN_EMAILS"),
+        ({"signup_mode": "open", "agent_mode": "llm"}, "AOS_SIGNUP_MODE"),
         ({"crash_at": "after_research"}, "AOS_CRASH_AT"),
     ],
 )

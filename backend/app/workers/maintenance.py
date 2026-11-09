@@ -69,10 +69,18 @@ def reap_exhausted_jobs(sm: sessionmaker[Session], batch: int = 50) -> int:
 
 
 def run_retention(settings: Settings, sm: sessionmaker[Session]) -> dict[str, int]:
-    """Retention sweep (ADR 0018); a no-op unless AOS_RETENTION_*_DAYS are set."""
+    """Retention sweeps (ADR 0018, 0021). Runs and uploads only when AOS_RETENTION_*_DAYS are
+    set; decided access requests after AOS_RETENTION_ACCESS_REQUEST_DAYS (default 90)."""
+    from app.services.access import purge_decided_requests
     from app.services.retention import sweep
 
-    if settings.retention_run_days <= 0 and settings.retention_upload_days <= 0:
-        return {}
-    done = sweep(sm, run_days=settings.retention_run_days, upload_days=settings.retention_upload_days)
-    return {"runs": done.runs, "uploads": done.uploads} if done.runs or done.uploads else {}
+    removed: dict[str, int] = {}
+    if settings.retention_run_days > 0 or settings.retention_upload_days > 0:
+        done = sweep(sm, run_days=settings.retention_run_days, upload_days=settings.retention_upload_days)
+        removed.update({k: v for k, v in (("runs", done.runs), ("uploads", done.uploads)) if v})
+    if settings.retention_access_request_days > 0:
+        with sm() as db, db.begin():
+            requests = purge_decided_requests(db, settings.retention_access_request_days)
+        if requests:
+            removed["access_requests"] = requests
+    return removed

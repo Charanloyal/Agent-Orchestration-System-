@@ -96,9 +96,21 @@ class Settings(BaseSettings):
     breaker_failure_threshold: int = 5
     breaker_cooldown_seconds: float = 60.0
     # Sign-in allowlist (ADR 0018). Comma-separated; matched against the provider's *verified*
-    # email. Empty means "anyone the identity provider authenticates" and is refused in prod.
+    # email. These addresses and domains may always sign in, whatever the signup mode.
     allowed_emails: str = ""
     allowed_email_domains: str = ""
+    # Access model (ADR 0021). Who may sign in besides the allowlist and platform admins:
+    # - invite: people on the in-app access list or with a pending workspace invitation;
+    # - request: the same, plus a public "request access" form that platform admins review;
+    # - open: anyone with a verified email (refused in prod together with model agents).
+    # Unset: open in dev/test when no allowlist is configured, otherwise invite.
+    signup_mode: Literal["invite", "request", "open"] | None = None
+    # Comma-separated verified emails that manage access for the whole deployment. Required
+    # in prod, so someone can always approve requests and administer the access list.
+    platform_admin_emails: str = ""
+    # Who may create workspaces. Unset: everyone in dev/test, platform admins in prod.
+    workspace_creation: Literal["everyone", "platform_admins"] | None = None
+    invitation_ttl_days: int = 14
     # Name shown on the sign-in button ("Continue with ..."). Unset: derived from the issuer.
     oidc_provider_label: str | None = None
     # Single-origin deployment: when set, the API also serves the built SPA from this folder.
@@ -108,6 +120,8 @@ class Settings(BaseSettings):
     # Data retention (ADR 0018). 0 disables a sweep.
     retention_run_days: int = 0
     retention_upload_days: int = 0
+    # Decided (approved or denied) access requests are removed after this many days.
+    retention_access_request_days: int = 90
 
     @property
     def allowed_email_set(self) -> frozenset[str]:
@@ -118,6 +132,24 @@ class Settings(BaseSettings):
         return frozenset(
             d.strip().lower().lstrip("@") for d in self.allowed_email_domains.split(",") if d.strip()
         )
+
+    @property
+    def platform_admin_set(self) -> frozenset[str]:
+        return frozenset(e.strip().lower() for e in self.platform_admin_emails.split(",") if e.strip())
+
+    @property
+    def effective_signup_mode(self) -> Literal["invite", "request", "open"]:
+        if self.signup_mode is not None:
+            return self.signup_mode
+        if self.env != "prod" and not self.allowed_email_set and not self.allowed_domain_set:
+            return "open"
+        return "invite"
+
+    @property
+    def effective_workspace_creation(self) -> Literal["everyone", "platform_admins"]:
+        if self.workspace_creation is not None:
+            return self.workspace_creation
+        return "platform_admins" if self.env == "prod" else "everyone"
 
     @property
     def provider_label(self) -> str:
@@ -133,13 +165,19 @@ class Settings(BaseSettings):
         return "your organization"
 
     def email_allowed(self, email: str | None) -> bool:
-        """With no allowlist configured, anyone passes (refused in prod)."""
+        """Legacy allowlist check: with no allowlist configured, anyone passes."""
         if not self.allowed_email_set and not self.allowed_domain_set:
             return True
+        return self.email_on_allowlist(email)
+
+    def email_on_allowlist(self, email: str | None) -> bool:
         if not email:
             return False
         email = email.lower()
         return email in self.allowed_email_set or email.rsplit("@", 1)[-1] in self.allowed_domain_set
+
+    def is_platform_admin(self, email: str | None) -> bool:
+        return email is not None and email.lower() in self.platform_admin_set
 
     @field_validator("public_url", "oidc_issuer")
     @classmethod
@@ -164,8 +202,15 @@ class Settings(BaseSettings):
                 problems.append("AOS_OIDC_BACKCHANNEL_URL must not point at a local dev issuer in prod")
             if not self.public_url.startswith("https://"):
                 problems.append("AOS_PUBLIC_URL must use https")
-            if not self.allowed_email_set and not self.allowed_domain_set:
-                problems.append("set AOS_ALLOWED_EMAILS and/or AOS_ALLOWED_EMAIL_DOMAINS (sign-in allowlist)")
+            if not self.platform_admin_set:
+                problems.append(
+                    "set AOS_PLATFORM_ADMIN_EMAILS (at least one person must be able to manage access)"
+                )
+            if self.effective_signup_mode == "open" and self.agent_mode == "llm":
+                problems.append(
+                    "AOS_SIGNUP_MODE=open lets any verified account spend model budget; use invite or "
+                    "request with AOS_AGENT_MODE=llm"
+                )
             if self.crash_at:
                 problems.append("AOS_CRASH_AT is a test-only setting")
             if problems:

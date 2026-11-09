@@ -185,14 +185,14 @@ jobs:
           ENVS="-e AOS_ENV=prod -e AOS_DATABASE_URL=postgresql://postgres:ci-only-ephemeral@127.0.0.1:5432/aos \
             -e AOS_COOKIE_SECURE=true -e AOS_PUBLIC_URL=https://aos.example.org \
             -e AOS_OIDC_ISSUER=https://login.example.org -e AOS_OIDC_CLIENT_ID=ci-client \
-            -e AOS_ALLOWED_EMAIL_DOMAINS=example.org \
+            -e AOS_PLATFORM_ADMIN_EMAILS=ops@example.org -e AOS_SIGNUP_MODE=request \
             -e AOS_BUILD_COMMIT=${GITHUB_SHA}"
           docker run --rm --network host $ENVS aos:ci alembic upgrade head
           docker run -d --name web --network host $ENVS -e PORT=10000 aos:ci
           docker run -d --name worker --network host $ENVS aos:ci python -m app.workers.runner
           for i in $(seq 1 30); do curl -fsS http://127.0.0.1:10000/readyz && break; sleep 2; done
           python backend/scripts/smoke_prod.py http://127.0.0.1:10000 --allow-http --idp-unreachable \
-            --expect-commit "${GITHUB_SHA}" --expect-signup-mode invite
+            --expect-commit "${GITHUB_SHA}" --expect-signup-mode request
           if docker exec web test -e /srv/backend/devtools; then echo "dev issuer shipped"; exit 1; fi
           docker exec web python -c "from app.storage import get_object_store as s; s().put('ci/probe.txt', b'ok'); assert s().get('ci/probe.txt') == b'ok' and s().exists('ci/probe.txt')"
           sleep 5
@@ -208,7 +208,7 @@ jobs:
           ENVS="-e AOS_ENV=prod -e AOS_DATABASE_URL=postgresql://postgres:ci-only-ephemeral@127.0.0.1:5432/aos \
             -e AOS_COOKIE_SECURE=true -e AOS_PUBLIC_URL=https://aos.example.org \
             -e AOS_OIDC_ISSUER=https://login.example.org -e AOS_OIDC_CLIENT_ID=ci-client \
-            -e AOS_ALLOWED_EMAIL_DOMAINS=example.org"
+            -e AOS_PLATFORM_ADMIN_EMAILS=ops@example.org -e AOS_SIGNUP_MODE=request"
           docker run -d --name single --network host $ENVS -e PORT=10001 aos:ci \
             python -m app.serve --migrate --with-worker
           for i in $(seq 1 30); do curl -fsS http://127.0.0.1:10001/readyz && break; sleep 2; done

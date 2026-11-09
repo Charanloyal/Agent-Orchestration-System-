@@ -7,6 +7,7 @@ from app.db.models import Role
 
 class Action(StrEnum):
     WORKSPACE_READ = "workspace.read"
+    WORKSPACE_MANAGE = "workspace.manage"
     MEMBERS_MANAGE = "members.manage"
     RUN_CREATE = "run.create"
     RUN_READ = "run.read"
