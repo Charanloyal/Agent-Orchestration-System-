@@ -1,22 +1,14 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { RouterProvider } from "react-router/dom";
 
-import { ApiError } from "./api/client";
+import { createQueryClient } from "./api/queryClient";
+import { Toaster } from "./components/toast";
 import { router } from "./router";
 import "./styles.css";
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      // Retry transient failures only; 4xx responses are definitive.
-      retry: (failureCount, error) =>
-        failureCount < 2 && !(error instanceof ApiError && error.status >= 400 && error.status < 500),
-      refetchOnWindowFocus: true,
-    },
-  },
-});
+const queryClient = createQueryClient();
 
 const rootElement = document.getElementById("root");
 if (!rootElement) {
@@ -27,6 +19,7 @@ createRoot(rootElement).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <RouterProvider router={router} />
+      <Toaster />
     </QueryClientProvider>
   </StrictMode>,
 );

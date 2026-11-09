@@ -1,4 +1,4 @@
-import type { ClaimKind, RunEvent, RunState, Severity } from "./api/types";
+import type { AccessSource, ClaimKind, Role, RunEvent, RunState, Severity } from "./api/types";
 
 export const STATE_LABELS: Record<RunState, string> = {
   QUEUED: "Queued",
@@ -127,6 +127,26 @@ export function formatDateTime(iso: string): string {
   return new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
 }
 
+export function formatDate(iso: string): string {
+  return new Date(iso).toLocaleDateString(undefined, { dateStyle: "medium" });
+}
+
 export function formatTime(iso: string): string {
   return new Date(iso).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }
+
+export const ROLE_LABELS: Record<Role, string> = { analyst: "Analyst", reviewer: "Reviewer", admin: "Admin" };
+
+export const ROLE_HELP: Record<Role, string> = {
+  analyst: "writes briefs, approves plans, uploads documents",
+  reviewer: "checks evidence and approves reports",
+  admin: "everything, plus members, settings and the activity log",
+};
+
+export const ACCESS_SOURCE_LABELS: Record<AccessSource, string> = {
+  admin: "Added by a platform admin",
+  request: "Approved request",
+  invitation: "Workspace invitation",
+  existing_member: "Member before invite-only sign-in",
+  seed: "Demo data",
+};

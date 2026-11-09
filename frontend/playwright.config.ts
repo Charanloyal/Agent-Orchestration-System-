@@ -34,6 +34,10 @@ export const BACKEND_ENV: Record<string, string> = {
   AOS_SSE_POLL_SECONDS: "0.3",
   AOS_WORKER_POLL_SECONDS: "0.3",
   AOS_LOG_JSON: "true",
+  // The access model as a public deployment would run it (ADR 0021): requests are reviewed
+  // by a platform admin; seeded demo people are on the access list.
+  AOS_SIGNUP_MODE: "request",
+  AOS_PLATFORM_ADMIN_EMAILS: "carol@example.test",
 };
 
 export default defineConfig({

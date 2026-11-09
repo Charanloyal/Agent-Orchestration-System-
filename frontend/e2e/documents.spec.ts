@@ -1,10 +1,9 @@
 import { expect, test } from "@playwright/test";
 
+import { signIn } from "./helpers";
+
 test("an uploaded document is researched and cited when the brief allows only documents", async ({ page }) => {
-  await page.goto("/signin");
-  await page.getByRole("link", { name: "Sign in with your organization" }).click();
-  await page.getByRole("button", { name: /Alice Analyst/ }).click();
-  await expect(page.locator(".topbar .user")).toContainText("Alice Analyst");
+  await signIn(page, "Alice Analyst");
 
   await page.getByRole("link", { name: "Documents" }).click();
   await page.getByLabel("Document file").setInputFiles({

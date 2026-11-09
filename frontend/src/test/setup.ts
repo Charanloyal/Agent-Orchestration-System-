@@ -2,7 +2,14 @@ import "@testing-library/jest-dom/vitest";
 import { afterEach } from "vitest";
 import { cleanup } from "@testing-library/react";
 
-afterEach(() => cleanup());
+import { resetUnauthorizedGuard } from "../api/session";
+import { clearToasts } from "../components/toast";
+
+afterEach(() => {
+  cleanup();
+  clearToasts();
+  resetUnauthorizedGuard();
+});
 
 // jsdom has no EventSource; a silent stub keeps components that stream events renderable.
 class StubEventSource {

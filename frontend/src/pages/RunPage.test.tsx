@@ -15,6 +15,7 @@ function me(role: "analyst" | "reviewer" | "admin"): Me {
     user_id: "u1", email: "u@example.test", display_name: "U", csrf_token: "t",
     memberships: [{ workspace_id: WS, workspace_name: "Team", role }],
     deployment: { environment: "test", agent_mode: "fake" },
+    is_platform_admin: false, can_create_workspace: true,
   };
 }
 

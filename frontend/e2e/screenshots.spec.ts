@@ -1,30 +1,10 @@
-import { mkdirSync } from "node:fs";
-import { resolve } from "node:path";
+import { expect, test } from "@playwright/test";
 
-import { expect, test, type Page } from "@playwright/test";
+import { shot, signIn, signOut } from "./helpers";
 
 // Captures the documentation screenshots from the real, running stack (dev IdP, API, worker,
-// web, Postgres) started by playwright.config.ts. Run with:  AOS_SCREENSHOTS=1 npx playwright test screenshots
-const OUT = resolve(import.meta.dirname, "..", "..", "docs", "assets", "screenshots");
-mkdirSync(OUT, { recursive: true });
-
-async function signIn(page: Page, user: string): Promise<void> {
-  await page.goto("/signin");
-  await expect(page.getByTestId("api-status")).toHaveText("API available");
-  await page.getByRole("link", { name: "Sign in with your organization" }).click();
-  await page.getByRole("button", { name: new RegExp(user) }).click();
-  await expect(page.locator(".topbar .user")).toContainText(user);
-}
-
-async function shot(page: Page, name: string, fullPage = true): Promise<void> {
-  await page.waitForTimeout(300); // let the live timeline settle
-  await page.screenshot({ path: resolve(OUT, `${name}.png`), fullPage });
-}
-
-async function signOut(page: Page): Promise<void> {
-  await page.getByRole("button", { name: "Sign out" }).click();
-  await expect(page).toHaveURL(/\/signin/);
-}
+// web, Postgres) started by playwright.config.ts. Run with:  AOS_SCREENSHOTS=1 npx playwright test
+// (access.spec.ts adds the access-model screenshots 13-16 in the same run).
 
 test.use({ viewport: { width: 1360, height: 900 } });
 
@@ -86,4 +66,11 @@ test("capture documentation screenshots", async ({ page, browser }) => {
   await expect(phone.getByTestId("run-state")).toHaveText("Succeeded");
   await shot(phone, "12-mobile-run", false);
   await phone.close();
+
+  const dark = await browser.newPage({ viewport: { width: 1360, height: 900 }, colorScheme: "dark" });
+  await signIn(dark, "Bob Reviewer");
+  await dark.goto(runUrl);
+  await expect(dark.getByTestId("run-state")).toHaveText("Succeeded");
+  await shot(dark, "17-dark-mode", false);
+  await dark.close();
 });

@@ -94,13 +94,15 @@ export function UploadsPage() {
         {uploads.isError && <ErrorBanner error={uploads.error} title="Could not load documents" />}
         {uploads.data?.length === 0 && <EmptyState title="No documents yet" />}
         {uploads.data && uploads.data.length > 0 && (
+          <div className="table-wrap">
           <table className="table">
+            <caption className="visually-hidden">Workspace documents</caption>
             <thead>
               <tr>
                 <th scope="col">Document</th>
-                <th scope="col">Size</th>
-                <th scope="col">Passages</th>
-                <th scope="col">Uploaded</th>
+                <th scope="col" className="hide-narrow">Size</th>
+                <th scope="col" className="hide-narrow">Passages</th>
+                <th scope="col" className="hide-narrow">Uploaded</th>
                 <th scope="col"><span className="visually-hidden">Actions</span></th>
               </tr>
             </thead>
@@ -111,10 +113,13 @@ export function UploadsPage() {
                     <strong>{u.title ?? u.filename}</strong>
                     <div className="small muted">{u.filename}{u.pages ? ` · ${u.pages} page(s)` : ""}</div>
                   </td>
-                  <td className="nowrap">{formatSize(u.size_bytes)}</td>
-                  <td>{u.chunks}</td>
-                  <td className="nowrap">{u.uploaded_by} · {formatDateTime(u.created_at)}</td>
-                  <td>
+                  <td className="nowrap hide-narrow">{formatSize(u.size_bytes)}</td>
+                  <td className="hide-narrow">{u.chunks}</td>
+                  <td className="hide-narrow">
+                    <div>{u.uploaded_by}</div>
+                    <div className="small muted nowrap">{formatDateTime(u.created_at)}</div>
+                  </td>
+                  <td className="cell-actions">
                     {(role === "admin" || u.uploaded_by_id === me.user_id) && (
                       <button type="button" className="btn btn-ghost" disabled={deleteUpload.isPending}
                               onClick={() => deleteUpload.mutate(u.id)} aria-label={`Delete ${u.filename}`}>
@@ -126,6 +131,7 @@ export function UploadsPage() {
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </Card>
     </div>

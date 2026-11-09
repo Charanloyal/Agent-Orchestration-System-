@@ -102,11 +102,12 @@ export function UsagePage() {
           </div>
 
           <Card title="Most expensive runs">
+            <div className="table-wrap">
             <table className="table">
               <thead>
                 <tr>
-                  <th scope="col">Run</th><th scope="col">State</th><th scope="col">Started</th>
-                  <th scope="col">Spend</th><th scope="col">Budget used</th>
+                  <th scope="col">Run</th><th scope="col">State</th><th scope="col" className="hide-narrow">Started</th>
+                  <th scope="col">Spend</th><th scope="col" className="hide-narrow">Budget used</th>
                 </tr>
               </thead>
               <tbody>
@@ -116,14 +117,15 @@ export function UsagePage() {
                     <tr key={r.run_id}>
                       <td><Link to={`/runs/${r.run_id}`}>{r.topic}</Link></td>
                       <td><StateBadge state={r.state} /></td>
-                      <td className="nowrap">{formatDateTime(r.created_at)}</td>
+                      <td className="nowrap hide-narrow">{formatDateTime(r.created_at)}</td>
                       <td>{money(r.committed)}</td>
-                      <td>{share.toFixed(1)}% of {money(r.budget)}</td>
+                      <td className="hide-narrow">{share.toFixed(1)}% of {money(r.budget)}</td>
                     </tr>
                   );
                 })}
               </tbody>
             </table>
+            </div>
           </Card>
         </>
       )}

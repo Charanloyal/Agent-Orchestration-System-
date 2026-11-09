@@ -1,21 +1,8 @@
 import { readFile } from "node:fs/promises";
 
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
 
-type DemoUser = "Alice Analyst" | "Bob Reviewer" | "Carol Admin" | "Mallory Outsider";
-
-async function signIn(page: Page, user: DemoUser): Promise<void> {
-  await page.goto("/signin");
-  await expect(page.getByTestId("api-status")).toHaveText("API available");
-  await page.getByRole("link", { name: "Sign in with your organization" }).click();
-  await page.getByRole("button", { name: new RegExp(user) }).click();
-  await expect(page.locator(".topbar .user")).toContainText(user);
-}
-
-async function signOut(page: Page): Promise<void> {
-  await page.getByRole("button", { name: "Sign out" }).click();
-  await expect(page).toHaveURL(/\/signin/);
-}
+import { signIn, signOut } from "./helpers";
 
 test("analyst submits a brief and approves the plan; reviewer approves the cited report", async ({ page }) => {
   await signIn(page, "Alice Analyst");

@@ -4,6 +4,9 @@ import { createMemoryRouter, RouterProvider, type RouteObject } from "react-rout
 import { render } from "@testing-library/react";
 import { vi } from "vitest";
 
+import { createQueryClient } from "../api/queryClient";
+import { Toaster } from "../components/toast";
+
 export type MockRoute = { method?: string; path: string | RegExp; status?: number; body: unknown };
 
 /** Replace fetch with a table of canned JSON responses and record every request. */
@@ -32,14 +35,23 @@ export function mockFetch(routes: MockRoute[]) {
   return calls;
 }
 
-export function renderRoutes(routes: RouteObject[], initialPath: string): ReturnType<typeof render> {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+/** Render routes with the app's real query client (global feedback and 401 handling) and the
+ *  toast region, without retries. `navigate` receives full-page redirects (session expiry). */
+export function renderRoutes(
+  routes: RouteObject[],
+  initialPath: string,
+  navigate: (url: string) => void = () => {},
+): ReturnType<typeof render> & { router: ReturnType<typeof createMemoryRouter> } {
+  const client = createQueryClient(navigate);
+  client.setDefaultOptions({ queries: { retry: false } });
   const router = createMemoryRouter(routes, { initialEntries: [initialPath] });
-  return render(
+  const view = render(
     <QueryClientProvider client={client}>
       <RouterProvider router={router} />
+      <Toaster />
     </QueryClientProvider>,
   );
+  return Object.assign(view, { router });
 }
 
 export function Wrapper({ children }: { children: ReactNode }) {
