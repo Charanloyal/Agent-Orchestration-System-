@@ -38,6 +38,9 @@ export type Me = {
   can_create_workspace: boolean;
 };
 
+/** GET /healthz: the release (app/version.py) and the deployed commit, if known. */
+export type Build = { status: "ok"; version: string; commit: string | null };
+
 export type SignupMode = "invite" | "request" | "open";
 
 export type AuthConfig = { provider_label: string; signup_mode: SignupMode };

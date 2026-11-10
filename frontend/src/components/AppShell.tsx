@@ -1,6 +1,6 @@
 import { Link, NavLink, Navigate, Outlet, useLocation, useOutletContext, useParams } from "react-router";
 
-import { useAdminSummary, useMe, useSignOut } from "../api/hooks";
+import { useAdminSummary, useBuild, useMe, useSignOut } from "../api/hooks";
 import type { Me } from "../api/types";
 import { OnboardingPage } from "../pages/OnboardingPage";
 import { ErrorBanner, Spinner } from "./ui";
@@ -72,7 +72,18 @@ function AppShell({ me }: { me: Me }) {
       <main className="content" id="main" tabIndex={-1}>
         <Outlet context={me} />
       </main>
+      <BuildFooter />
     </div>
+  );
+}
+
+/** The running release and commit, so a demo shows exactly which build is live. */
+function BuildFooter() {
+  const build = useBuild().data;
+  return (
+    <footer className="build-footer small muted">
+      {build && (build.commit ? `v${build.version} · ${build.commit.slice(0, 7)}` : `v${build.version}`)}
+    </footer>
   );
 }
 

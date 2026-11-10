@@ -87,7 +87,9 @@ def run(
 
     health = fetch(f"{base}/healthz")
     check(
-        "liveness", health.status == 200 and health.json() == {"status": "ok"}, f"/healthz -> {health.status}"
+        "liveness",
+        health.status == 200 and health.json().get("status") == "ok",
+        f"/healthz -> {health.status}",
     )
     ready = fetch(f"{base}/readyz")
     check("readiness", ready.status == 200, f"/readyz -> {ready.status} {ready.body[:160]!r}")
@@ -101,6 +103,12 @@ def run(
             "expected build",
             bool(commit) and (commit.startswith(expect_commit) or expect_commit.startswith(commit)),
             f"serving commit {commit or 'unknown'}, expected {expect_commit}",
+        )
+    if "commit" in health.json():  # builds before v1.0 name the commit only in /version
+        check(
+            "footer names the build",
+            health.json().get("commit") == info.get("commit"),
+            f"/healthz commit {health.json().get('commit')} (shown in the UI footer)",
         )
 
     for header, expected in (

@@ -78,6 +78,19 @@ describe("AppShell", () => {
     const link = await screen.findByRole("link", { name: "Access, 2 pending requests" });
     expect(link).toHaveAttribute("href", "/admin/access");
   });
+
+  it("names the running version and commit in the footer", async () => {
+    render(me("analyst", "fake"), [
+      { path: "/healthz", body: { status: "ok", version: "1.0.0", commit: "0123456789ab" } },
+    ]);
+    const footer = await screen.findByRole("contentinfo");
+    expect(await within(footer).findByText("v1.0.0 · 0123456")).toBeInTheDocument();
+  });
+
+  it("shows only the version when the build has no commit", async () => {
+    render(me("analyst", "fake"), [{ path: "/healthz", body: { status: "ok", version: "1.0.0", commit: null } }]);
+    expect(await within(await screen.findByRole("contentinfo")).findByText("v1.0.0")).toBeInTheDocument();
+  });
 });
 
 describe("HomeRedirect", () => {

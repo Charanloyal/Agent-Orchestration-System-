@@ -131,7 +131,7 @@ refused. It is read-only.
 | --- | --- | --- | --- |
 | 1 | Build and deploy succeeded | Render Deploys page shows "Live" (web and worker, or the single service) | |
 | 2 | Automated checks | `smoke_prod.py` exits 0 (attach `smoke.json`) | |
-| 3 | Serving the expected commit | `smoke_prod.py --expect-commit <sha>`, or `GET /version` | |
+| 3 | Serving the expected commit | `smoke_prod.py --expect-commit <sha>`, or `GET /version`; the page footer shows `v<version> · <first 7 characters of the commit>` | |
 | 4 | Sign-in | The platform admin signs in with Google; an uninvited account sees the request form | |
 | 5 | Access request | Request access from a second account; approve it into the workspace as analyst; that account signs in and lands in the workspace | |
 | 6 | Invitation | Invite a third address as reviewer; it joins with that role on first sign-in | |

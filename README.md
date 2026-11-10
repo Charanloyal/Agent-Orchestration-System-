@@ -117,7 +117,7 @@ without any model provider or cost.
 
 | Endpoint | Purpose |
 | --- | --- |
-| `GET /healthz` | Liveness |
+| `GET /healthz` | Liveness, with the release version and short commit (shown in the UI footer) |
 | `GET /readyz` | Readiness (database reachable, schema at the code's head or a newer compatible one; ADR 0020) |
 | `GET /version` | Serving build: version, commit, migration head |
 | `GET /api/docs` | Interactive OpenAPI docs (disabled in prod) |

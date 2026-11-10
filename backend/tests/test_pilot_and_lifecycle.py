@@ -190,7 +190,7 @@ def test_api_serves_the_built_frontend_with_client_side_routing(tmp_path: Path) 
     assert asset.status_code == 200 and "immutable" in asset.headers["cache-control"]
     api_missing = spa.get("/api/v1/does-not-exist")
     assert api_missing.status_code == 404 and api_missing.json()["error"]["code"] == "not_found"
-    assert spa.get("/healthz").json() == {"status": "ok"}
+    assert spa.get("/healthz").json()["status"] == "ok", "API routes win over the SPA fallback"
     assert "nope" not in spa.get("/../secret.txt").text and "nope" not in spa.get("/%2e%2e/secret.txt").text
 
 

@@ -19,6 +19,11 @@ class HealthResponse(BaseModel):
     status: Literal["ok"]
 
 
+class LivenessResponse(HealthResponse):
+    version: str
+    commit: str | None
+
+
 class VersionResponse(BaseModel):
     version: str
     commit: str | None
@@ -30,26 +35,32 @@ class NotReady(AppError):
     code = "not_ready"
 
 
+def build_commit() -> str | None:
+    """The deployed commit, shortened. Render sets RENDER_GIT_COMMIT; elsewhere AOS_BUILD_COMMIT may."""
+    commit = os.environ.get("RENDER_GIT_COMMIT") or os.environ.get("AOS_BUILD_COMMIT")
+    return commit[:12] if commit else None
+
+
 @router.get("/health", response_model=HealthResponse)
 def health() -> HealthResponse:
     """Liveness (kept for the Day-1 frontend check)."""
     return HealthResponse(status="ok")
 
 
-@router.get("/healthz", response_model=HealthResponse)
-def healthz() -> HealthResponse:
-    """Liveness: the process is serving requests. Checks no dependencies."""
-    return HealthResponse(status="ok")
+@router.get("/healthz", response_model=LivenessResponse)
+def healthz() -> LivenessResponse:
+    """Liveness: the process is serving requests. Checks no dependencies. Names the release and
+    commit, which the UI footer shows, so a demo shows exactly what is running."""
+    return LivenessResponse(status="ok", version=__version__, commit=build_commit())
 
 
 @router.get("/version", response_model=VersionResponse)
 def version() -> VersionResponse:
-    """Which build is serving, for deploy and rollback checks (scripts/smoke_prod.py). Render
-    sets RENDER_GIT_COMMIT; elsewhere AOS_BUILD_COMMIT may. No database access, no secrets."""
-    commit = os.environ.get("RENDER_GIT_COMMIT") or os.environ.get("AOS_BUILD_COMMIT")
+    """Which build is serving, for deploy and rollback checks (scripts/smoke_prod.py). No
+    database access, no secrets."""
     return VersionResponse(
         version=__version__,
-        commit=commit[:12] if commit else None,
+        commit=build_commit(),
         migration_head=",".join(sorted(schema_state.migration_heads())),
     )
 

@@ -10,6 +10,7 @@ import type {
   Artifact,
   AuditEvent,
   AuthConfig,
+  Build,
   BriefInput,
   Decision,
   Evidence,
@@ -60,6 +61,15 @@ export function useMe() {
       }
     },
     staleTime: 60_000,
+    retry: false,
+  });
+}
+
+export function useBuild() {
+  return useQuery({
+    queryKey: ["build"],
+    queryFn: () => api<Build>("/healthz"),
+    staleTime: Infinity,
     retry: false,
   });
 }

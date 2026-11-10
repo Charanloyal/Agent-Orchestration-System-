@@ -12,8 +12,31 @@ def test_health_returns_ok(client: TestClient) -> None:
     assert response.json() == {"status": "ok"}
 
 
-def test_healthz_is_liveness_only(client: TestClient) -> None:
-    assert client.get("/healthz").json() == {"status": "ok"}
+def test_healthz_is_liveness_only(client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.version import __version__
+
+    monkeypatch.delenv("RENDER_GIT_COMMIT", raising=False)
+    monkeypatch.delenv("AOS_BUILD_COMMIT", raising=False)
+    assert client.get("/healthz").json() == {"status": "ok", "version": __version__, "commit": None}
+
+
+def test_healthz_names_the_running_commit_for_the_demo(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("RENDER_GIT_COMMIT", "0123456789abcdef0123456789abcdef01234567")
+    assert client.get("/healthz").json()["commit"] == "0123456789ab"
+
+
+def test_the_backend_version_is_the_one_release_version() -> None:
+    """app/version.py is the version source; the frontend shows it from /healthz, and its
+    package.json must not drift from it."""
+    import json
+
+    from app.version import __version__
+    from tests.conftest import BACKEND_DIR
+
+    package = json.loads((BACKEND_DIR.parent / "frontend" / "package.json").read_text(encoding="utf-8"))
+    assert package["version"] == __version__
 
 
 def test_version_names_the_build_and_its_migration_head(
