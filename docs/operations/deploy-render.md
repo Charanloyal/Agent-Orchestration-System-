@@ -91,6 +91,7 @@ If a Blueprint was created from an earlier version of this repository:
 | No longer needed on the worker | `AOS_PUBLIC_URL`, `AOS_OIDC_ISSUER`, `AOS_OIDC_CLIENT_ID`, `AOS_PLATFORM_ADMIN_EMAILS` | May be deleted from `aos-worker`; it ignores them |
 | New (blueprint group) | `AOS_SIGNUP_MODE=request` | Synced from the blueprint; set `invite` to accept invited people only |
 | **Changed (blueprint group)** | `AOS_RETENTION_RUN_DAYS=0`, `AOS_RETENTION_UPLOAD_DAYS=0` | Synced from the blueprint; runs and uploads are kept until deleted (were 30 days) |
+| Behaviour change, no variable | Session cookie renamed to `__Host-aos_session` (login cookie `__Secure-aos_login`); HSTS, COOP and Permissions-Policy headers | Everyone signed in before the deploy signs in once more; the old `aos_session` cookie expires on its own |
 | Now optional | `AOS_ALLOWED_EMAILS`, `AOS_ALLOWED_EMAIL_DOMAINS` | Keep or delete; people on them can always sign in. Keep `AOS_ALLOWED_EMAILS` set until rehearsal 2 is done: the 0009 build still requires an allowlist |
 | Optional | `AOS_OIDC_PROVIDER_LABEL`, `AOS_WORKSPACE_CREATION`, `AOS_INVITATION_TTL_DAYS`, `AOS_RATE_ACCESS_REQUEST_PER_IP_HOUR`, `AOS_RETENTION_ACCESS_REQUEST_DAYS` | Defaults: derived label, `platform_admins`, 14, 5, 90 |
 | **New (blueprint group)** | `AOS_TRUSTED_PROXY_HOPS=1` on the web service | Synced from the blueprint ([ADR 0025](../decisions/0025-client-address-behind-proxy.md)); check 12 confirms the value |
@@ -120,10 +121,11 @@ Run the automated part first, from any machine with Python 3:
 python backend/scripts/smoke_prod.py https://<url> --expect-signup-mode request --json smoke.json
 ```
 
-It checks liveness, readiness, `/version`, security headers, the SPA and CSP, that the API
-docs and metrics are not public, the auth config, the redirect to the provider with PKCE and
-the right redirect URI, the login-binding cookie flags, friendly callback errors, and that a
-cross-origin write is refused. It is read-only.
+It checks liveness, readiness, `/version`, security headers (including HSTS, COOP and
+Permissions-Policy), the SPA and CSP, that the API docs and metrics are not public, the auth
+config, the redirect to the provider with PKCE and the right redirect URI, the login-binding
+cookie's flags and `__Secure-` name, friendly callback errors, and that a cross-origin write is
+refused. It is read-only.
 
 | # | Check | How | Result |
 | --- | --- | --- | --- |

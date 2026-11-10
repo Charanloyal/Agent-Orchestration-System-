@@ -103,12 +103,19 @@ def run(
             f"serving commit {commit or 'unknown'}, expected {expect_commit}",
         )
 
-    for header, expected in (("x-content-type-options", "nosniff"), ("x-frame-options", "DENY")):
+    for header, expected in (
+        ("x-content-type-options", "nosniff"),
+        ("x-frame-options", "DENY"),
+        ("strict-transport-security", "max-age=31536000"),
+        ("cross-origin-opener-policy", "same-origin"),
+    ):
         check(
             f"header {header}",
             health.headers.get(header) == expected,
             f"{header}: {health.headers.get(header)}",
         )
+    policy = health.headers.get("permissions-policy") or ""
+    check("header permissions-policy", "camera=()" in policy and "microphone=()" in policy, policy[:80])
     check("request id", bool(health.headers.get("x-request-id")), "responses carry x-request-id")
 
     page = fetch(f"{base}/")
@@ -160,7 +167,9 @@ def run(
             params.get("redirect_uri") == f"{base}/api/v1/auth/callback",
             f"redirect_uri={params.get('redirect_uri')}",
         )
-        cookie = next((c for c in login.cookies if c.startswith("aos_login=")), "").lower()
+        cookie = next(
+            (c for c in login.cookies if c.startswith(("__Secure-aos_login=", "aos_login="))), ""
+        ).lower()
         flags_ok = (
             "httponly" in cookie and "samesite=lax" in cookie and "path=/api/v1/auth/callback" in cookie
         )
@@ -168,6 +177,11 @@ def run(
             "login cookie",
             bool(cookie) and flags_ok and (not secure or "secure" in cookie),
             cookie[:20] + "...",
+        )
+        check(
+            "login cookie prefix",
+            "secure" not in cookie.split(";", 1)[-1] or cookie.startswith("__secure-"),
+            "a Secure login cookie is named __Secure-aos_login",
         )
 
     denied = fetch(f"{base}/api/v1/auth/callback?error=access_denied")

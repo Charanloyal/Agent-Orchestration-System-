@@ -14,7 +14,13 @@ from app.main import app, create_app
 from tests.conftest import BACKEND_DIR
 
 # Checks that only hold with production settings (the test app runs with env=test).
-PROD_ONLY = {"no API docs in prod", "metrics not public"}
+PROD_ONLY = {
+    "no API docs in prod",
+    "metrics not public",
+    "header strict-transport-security",
+    "header cross-origin-opener-policy",
+    "header permissions-policy",
+}
 
 
 def load_script() -> ModuleType:
@@ -60,7 +66,12 @@ def test_smoke_checks_pass_against_the_app(smoke: ModuleType, oidc_against: Any)
     failed = {r.name for r in results if not r.ok}
     assert failed == PROD_ONLY, [(r.name, r.detail) for r in results if not r.ok]
     names = {r.name for r in results}
-    assert {"login redirects to the identity provider", "redirect URI", "login cookie"} <= names
+    assert {
+        "login redirects to the identity provider",
+        "redirect URI",
+        "login cookie",
+        "login cookie prefix",
+    } <= names
     cross = next(r for r in results if r.name == "cross-origin writes refused")
     assert cross.detail.endswith("-> 403"), "this build has the endpoint, so its origin check must refuse"
 

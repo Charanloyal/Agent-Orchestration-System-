@@ -28,7 +28,6 @@ from sqlalchemy.orm import Session
 from app.auth.deps import AppSettings, CurrentPrincipal, DbSession, get_oidc_client
 from app.auth.oidc import IdentityClaims, OidcClient, OidcError, OidcUnavailable, new_pkce_pair
 from app.auth.sessions import (
-    LOGIN_COOKIE,
     clear_login_cookie,
     clear_session_cookie,
     create_session,
@@ -132,7 +131,7 @@ def callback(
         return _to_signin("login_expired", settings)
     db.delete(login_state)  # single use, even if the rest fails
     db.commit()
-    bound = request.cookies.get(LOGIN_COOKIE, "")
+    bound = request.cookies.get(settings.login_cookie, "")
     if not secrets.compare_digest(bound.encode(), state.encode()):
         # A valid state from a different browser: someone else's sign-in, or a stale tab.
         log.info("sign-in callback without a matching login cookie")

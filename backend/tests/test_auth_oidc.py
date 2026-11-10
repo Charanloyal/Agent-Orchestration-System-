@@ -84,6 +84,29 @@ def test_login_binds_the_attempt_to_this_browser(client: TestClient, db: object,
     assert "path=/api/v1/auth/callback" in lowered and "max-age=600" in lowered
 
 
+def test_secure_cookies_carry_browser_enforced_prefixes() -> None:
+    """With Secure cookies (required in prod) the session cookie is `__Host-` (Secure, Path=/,
+    no Domain: no subdomain can set or shadow it) and the login cookie, which is scoped to the
+    callback path, is `__Secure-`. Existing sessions simply sign in again."""
+    from starlette.responses import Response
+
+    from app.auth.sessions import set_login_cookie, set_session_cookie
+
+    secure = Settings(cookie_secure=True)
+    assert (secure.session_cookie, secure.login_cookie) == ("__Host-aos_session", "__Secure-aos_login")
+    response = Response()
+    set_session_cookie(response, "token", secure)
+    set_login_cookie(response, "state", secure)
+    session, login = response.headers.getlist("set-cookie")
+    assert session.startswith("__Host-aos_session=token;") and "Path=/;" in session
+    assert "Domain" not in session and "Secure" in session
+    assert login.startswith("__Secure-aos_login=state;") and "Secure" in login
+    plain = Settings(cookie_secure=False)
+    assert (plain.session_cookie, plain.login_cookie) == ("aos_session", "aos_login"), (
+        "browsers reject prefixed cookies without Secure, so local http keeps plain names"
+    )
+
+
 def test_callback_from_another_browser_is_refused(client: TestClient, db: object, oidc_against: Any) -> None:
     """Login CSRF: an attacker's valid code and state, replayed in a victim's browser, must
     not sign the victim into the attacker's account."""

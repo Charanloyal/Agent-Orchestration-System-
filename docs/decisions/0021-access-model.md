@@ -55,7 +55,8 @@ raw JSON error pages, and the callback accepted a valid `state` from any browser
 7. **Workspace creation** (`AOS_WORKSPACE_CREATION`): `everyone` in development,
    `platform_admins` by default in production.
 8. **Sign-in hardening.**
-   - `/login` sets a short-lived `aos_login` cookie (HttpOnly, SameSite=Lax, Secure in
+   - `/login` sets a short-lived login cookie (`aos_login`; `__Secure-aos_login` in prod)
+     (HttpOnly, SameSite=Lax, Secure in
      production, path `/api/v1/auth/callback`, 10 minutes) holding the `state`. The callback
      requires it. A valid `state` replayed in another browser (login CSRF) is refused.
    - Every failure redirects to `/signin?error=<code>` with one of `provider_denied`,

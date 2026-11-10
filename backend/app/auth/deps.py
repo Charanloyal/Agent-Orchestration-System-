@@ -49,7 +49,7 @@ def get_oidc_client() -> OidcClient:
 
 
 def get_principal(request: Request, db: DbSession, settings: AppSettings) -> Principal:
-    raw = request.cookies.get(settings.session_cookie_name)
+    raw = request.cookies.get(settings.session_cookie)
     session = resolve_session(db, raw) if raw else None
     if session is None:
         raise Unauthenticated("Sign in required")

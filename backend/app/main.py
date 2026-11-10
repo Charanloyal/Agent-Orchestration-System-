@@ -27,7 +27,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     )
     # Added first, so it runs inside the request-context middleware (errors carry request ids).
     app.add_middleware(BodySizeLimitMiddleware, settings=get_settings)
-    app.add_middleware(RequestContextMiddleware)
+    app.add_middleware(RequestContextMiddleware, production=prod)
     install_error_handlers(app)
     routers = (health.router, auth.router, access.router, workspaces.router, runs.router, uploads.router)
     for router in routers:

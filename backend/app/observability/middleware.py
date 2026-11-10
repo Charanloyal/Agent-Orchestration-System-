@@ -18,6 +18,13 @@ SECURITY_HEADERS = [
     (b"referrer-policy", b"no-referrer"),
     (b"cache-control", b"no-store"),
 ]
+# Production only: the site is served over https there, and HSTS on a local http origin would
+# make browsers refuse it afterwards.
+PRODUCTION_HEADERS = [
+    (b"strict-transport-security", b"max-age=31536000"),
+    (b"cross-origin-opener-policy", b"same-origin"),
+    (b"permissions-policy", b"camera=(), microphone=(), geolocation=(), payment=(), usb=()"),
+]
 
 
 class RequestContextMiddleware:
@@ -26,8 +33,9 @@ class RequestContextMiddleware:
     Pure ASGI (not BaseHTTPMiddleware) so streaming responses such as SSE are not buffered.
     """
 
-    def __init__(self, app: ASGIApp) -> None:
+    def __init__(self, app: ASGIApp, production: bool = False) -> None:
         self.app = app
+        self.headers = SECURITY_HEADERS + (PRODUCTION_HEADERS if production else [])
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
@@ -46,7 +54,7 @@ class RequestContextMiddleware:
                 headers = list(message.get("headers", []))
                 existing = {k.lower() for k, _ in headers}
                 headers.append((b"x-request-id", request_id.encode()))
-                headers.extend(h for h in SECURITY_HEADERS if h[0] not in existing)
+                headers.extend(h for h in self.headers if h[0] not in existing)
                 message["headers"] = headers
             await send(message)
 

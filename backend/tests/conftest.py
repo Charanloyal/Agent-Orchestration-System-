@@ -159,7 +159,7 @@ def login(db: Session, client: TestClient) -> Callable[[User], LoggedIn]:
         raw, session = create_session(db, user.id, get_settings())
         db.commit()
         client.cookies.clear()
-        client.cookies.set(get_settings().session_cookie_name, raw)
+        client.cookies.set(get_settings().session_cookie, raw)
         return LoggedIn(user, session.csrf_token)
 
     return do_login

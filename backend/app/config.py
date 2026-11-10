@@ -234,6 +234,17 @@ class Settings(BaseSettings):
     def oidc_redirect_uri(self) -> str:
         return f"{self.public_url}/api/v1/auth/callback"
 
+    @property
+    def session_cookie(self) -> str:
+        """With Secure cookies (prod) the browser enforces `__Host-`: Secure, Path=/, no Domain,
+        so no other origin under the same site can set or shadow the session."""
+        return f"__Host-{self.session_cookie_name}" if self.cookie_secure else self.session_cookie_name
+
+    @property
+    def login_cookie(self) -> str:
+        """Scoped to the callback path, so `__Secure-` (which allows a path) rather than `__Host-`."""
+        return "__Secure-aos_login" if self.cookie_secure else "aos_login"
+
     def sqlalchemy_url(self) -> str:
         if self.database_url is None:
             raise RuntimeError("AOS_DATABASE_URL is not configured")

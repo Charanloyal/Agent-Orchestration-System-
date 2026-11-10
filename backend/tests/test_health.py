@@ -1,6 +1,8 @@
 import pytest
 from fastapi.testclient import TestClient
 
+from app.config import Settings
+
 
 def test_health_returns_ok(client: TestClient) -> None:
     response = client.get("/health")
@@ -38,6 +40,25 @@ def test_responses_carry_request_id_and_security_headers(client: TestClient) -> 
 
     bogus = client.get("/healthz", headers={"X-Request-ID": "bad id with spaces"})
     assert bogus.headers["x-request-id"] != "bad id with spaces"
+
+
+PROD_ONLY_HEADERS = ("strict-transport-security", "cross-origin-opener-policy", "permissions-policy")
+
+
+def test_production_adds_transport_isolation_and_feature_headers() -> None:
+    from app.main import create_app
+    from tests.test_pilot_and_lifecycle import SAFE_PROD
+
+    with TestClient(create_app(Settings(**SAFE_PROD))) as prod:
+        headers = prod.get("/healthz").headers
+    assert headers["strict-transport-security"] == "max-age=31536000"
+    assert headers["cross-origin-opener-policy"] == "same-origin"
+    assert {"camera=()", "microphone=()", "geolocation=()"} <= set(headers["permissions-policy"].split(", "))
+
+
+def test_development_over_http_sends_no_hsts(client: TestClient) -> None:
+    headers = client.get("/healthz").headers
+    assert not any(name in headers for name in PROD_ONLY_HEADERS), "HSTS on http://127.0.0.1 would stick"
 
 
 def test_unknown_route_uses_error_envelope(client: TestClient) -> None:
