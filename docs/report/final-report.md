@@ -592,8 +592,12 @@ Line counts include blank lines and comments, measured on 2026-11-04:
   system.
 - **Production packaging.** One Docker image runs either the web service or the worker. It
   runs as a non-root user, excludes the dev identity provider and serves the SPA with a
-  strict content security policy. The Render Blueprint (`render.yaml`) defines web + worker +
-  managed PostgreSQL and is validated in CI against Render's published schema [29].
+  strict content security policy. Three Render Blueprints (`render.hybrid.yaml`, the chosen
+  topology; `render.yaml`; `render.free.yaml`) are validated in CI against Render's published
+  schema [29], and CI starts each topology from the image and smoke-tests it (ADR 0023).
+- **Deployment status.** Hosted URL, deployed commit and the measured hosted checks: PENDING
+  (needs owner). They are recorded in [rehearsals.md](../operations/rehearsals.md) from the
+  owner's evidence and will be copied here; no hosted result is claimed before then.
 
 ### 11.4 Development process
 

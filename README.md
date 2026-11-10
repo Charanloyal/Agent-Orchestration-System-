@@ -1,35 +1,103 @@
-# Agent Orchestration System
+﻿# Agent Orchestration System
 
-Evidence-backed research and report generation, with reliable multi-agent execution and
-human approval. Planner, researcher, writer and reviewer agents are coordinated by one
-controlled workflow:
+**Four AI agents research a question, cite their sources and review each other's work, and a
+person approves the plan and the final report before anything leaves the system.**
 
-brief → typed plan → **human plan approval** → bounded parallel research → cited draft →
-structured review (at most 2 rounds) → **human approval of the exact report version** →
-export.
+[![CI](https://github.com/Charanloyal/Agent-Orchestration-System-/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Charanloyal/Agent-Orchestration-System-/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
+**Live demo:** PENDING (the Render deployment is the next step; the URL goes here once it is
+verified). 15-credit AI/ML major project.
 
 ![Report awaiting reviewer approval, with the automatic review history](docs/assets/screenshots/04-report-with-review.png)
 
-New here? Read the [user guide](docs/user-guide.md) (illustrated walkthrough), then the
-[demonstration script](docs/demo/demo-script.md). Stuck? See
-[troubleshooting](docs/troubleshooting.md). The [final project report](docs/report/final-report.md)
-describes the design, the measured results and the limitations.
+## How it works
 
-> **Status:** v1.0 release candidate (`v1.0.0-pilot` once approved). The repository side is
-> complete and verified locally: backend, frontend, end-to-end and accessibility tests. CI
-> repeats them, builds the images and runs the production-image smoke tests when the commits
-> are pushed. It has **not been deployed yet**: the Render deployment, both rollback
-> rehearsals, the live-model evaluation and the user research need the owner's accounts,
-> budget and participants, and are prepared step by step. See
-> [docs/README.md](docs/README.md) for status and [docs/handoff.md](docs/handoff.md) for the
-> verified state. **Do not expose a local stack publicly**: the bundled dev identity provider
-> is for local use only.
+```text
+brief ──▶ planner ──▶ [HUMAN: approve plan] ──▶ researchers (parallel, bounded)
+      ──▶ writer (cited draft) ──▶ reviewer (≤ 2 revision rounds)
+      ──▶ [HUMAN: approve this exact report version] ──▶ export
+```
+
+| Agent | Does | Guarded by |
+| --- | --- | --- |
+| **Planner** | Turns the brief into a typed plan of research tasks | JSON-schema contract; a person approves or edits it |
+| **Researcher** (×N) | Searches, fetches and extracts evidence for one task | SSRF-safe fetcher, domain policy, budget reserved before every call |
+| **Writer** | Drafts the report; every factual sentence cites evidence | Citations validated against this run's evidence only |
+| **Reviewer** | Finds unsupported claims, figures and gaps; requests revisions | Deterministic checks plus the model; at most 2 rounds |
+
+The two **human approval gates** bind to a version and a digest: approving plan v2 never
+approves an edited v3, and the export records who approved which exact report.
+
+```mermaid
+flowchart LR
+  SPA["React SPA"] -- "same-origin HTTPS, cookie + CSRF" --> API["FastAPI: REST + SSE + SPA"]
+  API -- "OIDC code + PKCE" --> IDP["Google sign-in"]
+  API --> PG[("PostgreSQL 17: app data, jobs, leases, LangGraph checkpoints")]
+  W["Workers: LangGraph runtime"] -- "leases, fenced writes" --> PG
+  W -- "budget reserved first" --> LLM["Model (OpenAI-compatible)"]
+  W --> S["Search: Tavily / offline corpus"]
+```
+
+PostgreSQL is the only coordination medium: no message broker. Workers survive crashes
+(leases, fencing tokens, checkpoints), and a run waiting for a person holds no worker.
+Details: [final report §7–8](docs/report/final-report.md).
+
+## Evaluation
+
+Three systems on the same briefs ([evaluation plan](docs/evaluation/evaluation-plan.md),
+[ADR 0017](docs/decisions/0017-evaluation-harness.md)): **A** multi-agent with reviewer,
+**B** single-agent baseline, **C** multi-agent with a pass-through reviewer.
+
+| Measured (fake agents, harness validation; 30 runs per system) | A | B | C |
+| --- | --- | --- | --- |
+| Outcome matches expected | 28/30 (93%; 95% CI 79–98%) | 28/30 | 28/30 |
+| Citation validity | 70/70 (100%; 95–100%) | 56/56 | 70/70 |
+| Operational failures | 0/30 | 0/30 | 0/30 |
+| Human gate bypassed / injected URL fetched | 0/30 / 0/30 | 0/30 / 0/30 | 0/30 / 0/30 |
+
+These numbers validate the harness, **not model quality**: fake agents produce identical
+content for A, B and C by construction. **Live-model results: PENDING (needs owner):** a
+written budget (≤ USD 10, [ADR 0005](docs/decisions/0005-spending-ceiling.md)), then the dev
+and held-out runs and two blind human scorers. The tooling is built and tested.
+
+## Tech stack
+
+Python 3.14 · FastAPI · LangGraph · SQLAlchemy + Alembic · PostgreSQL 17 · React 19 +
+TypeScript + Vite · TanStack Query · Playwright + axe-core · Docker · Render · GitHub Actions.
+
+## Quick start (local, fake agents, no keys)
+
+```powershell
+Copy-Item .env.example .env                                   # set POSTGRES_PASSWORD (git-ignored)
+docker compose up --build -d                                  # Postgres, API, worker, dev sign-in, web
+docker compose exec api python -m app.cli seed-demo --sample-run   # demo users and one sample run
+```
+
+Open http://localhost:8080 and sign in as **Alice Analyst** (the bundled dev identity
+provider; local only). No Docker? The native setup (Windows PowerShell) is in sections 1–3
+below.
+
+## Documentation map
+
+| For | Read |
+| --- | --- |
+| Users | [User guide](docs/user-guide.md) · [Troubleshooting](docs/troubleshooting.md) |
+| The viva | [5-minute demo script](docs/demo/demo-script.md) · [Final report](docs/report/final-report.md) |
+| Operators | [Deploy to Render](docs/operations/deploy-render.md) · [Runbook](docs/operations/runbook.md) · [P0 checklist](docs/operations/p0-checklist.md) |
+| Design | [Docs index and all ADRs](docs/README.md) · [Threat model](docs/security/threat-model.md) |
+
+> **Status (v1.0 release candidate):** the repository side is complete and tested (backend,
+> frontend, end-to-end and accessibility tests; CI builds the production image and smoke-tests
+> every Render topology). **Not yet:** the Render deployment, the rollback rehearsals, the
+> live-model evaluation and the user research, which need the owner's accounts, budget and
+> participants; each has a written procedure. See [docs/handoff.md](docs/handoff.md).
 
 **What a visitor gets:** "Continue with Google" sign-in; invitations by workspace admins;
-a request-access form reviewed by platform admins; a welcome page for people without a
-workspace; role-based workspaces (analyst, reviewer, admin); notifications for every action;
-friendly messages for every sign-in and permission problem; dark mode; layouts down to 360 px;
-and every page checked with axe-core for WCAG 2.2 A/AA on each test run.
+a request-access form reviewed by platform admins; role-based workspaces (analyst, reviewer,
+admin); notifications for every action; friendly messages for every sign-in and permission
+problem; dark mode; layouts down to 360 px; and every page checked with axe-core for WCAG
+2.2 A/AA on each test run.
 
 ## Repository layout
 

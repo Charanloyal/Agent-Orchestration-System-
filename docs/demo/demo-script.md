@@ -1,10 +1,59 @@
-# Demonstration script (about 10 minutes)
+# Demonstration script
 
-A complete, reproducible walkthrough of the workflow with the **deterministic fake agents**.
-No model provider or money is needed. Every step names the automated test that proves the
-same behaviour, so the demo is not the only evidence.
+Two paths, both with the **deterministic fake agents** (no model, no cost):
 
-## Before the audience arrives
+- **The 5-minute viva path** on the hosted app (below), for the examiners.
+- **The full 10-minute local walkthrough** (further down), when a laptop demo is needed or
+  the hosted app is unavailable.
+
+Every step names the automated test that proves the same behaviour, so the demo is not the
+only evidence.
+
+## 5-minute viva path (hosted app)
+
+**Hosted URL:** PENDING (recorded in [rehearsals.md](../operations/rehearsals.md) after the
+Render deployment). Accounts: the platform admin (owner) plus one reviewer account invited
+beforehand; never use examiners' personal accounts without asking.
+
+### Pre-viva checklist (hybrid topology: the free web service sleeps after 15 idle minutes)
+
+| When | Check |
+| --- | --- |
+| A week before | Render dashboard: the Postgres plan is **basic-256mb** (paid; does not expire) and billing is active through the viva (VIVA_DATE 2027-04-30). The web service is on the `main` commit you intend to show. |
+| A week before | `python backend/scripts/smoke_prod.py https://<url> --expect-signup-mode request` passes. |
+| 10 minutes before | Open `https://<url>/healthz` to **wake the service** (the first request after a sleep takes up to a minute). Refresh until it answers instantly. |
+| 10 minutes before | Sign in as owner and as the reviewer in two browser profiles; open one finished run (for the export) and the [evaluation slide](#evaluation-slide). |
+| 5 minutes before | Note the footer: `v1.0.0 · <commit>`. That is the build being shown. |
+
+### The five minutes
+
+| Min | Say | Do | Evidence |
+| --- | --- | --- | --- |
+| 0:00 | "A person signs in with Google; access is by invitation or reviewed request." | Show the sign-in page, sign in, point at the **Demo agents** badge and the footer commit. | `test_access.py`; E2E `access.spec.ts` |
+| 0:30 | "An analyst writes a brief; the planner turns it into a typed plan." | **New brief** → paste the topic from [`demo_brief.json`](../../backend/app/demo_brief.json) (contains `(demo: unsupported claim)`) → submit → **Plan** tab. | `test_contract_plan.py` |
+| 1:15 | "Nothing runs until a person approves this exact plan version." | Point at the digest; **Approve plan**. | `test_stale_and_wrong_kind_decisions_rejected` |
+| 1:45 | "Researchers work in parallel within the budget; every claim is cited." | Timeline (two tasks at a time), **Evidence** tab, **Cost** card. | `test_fan_out_is_parallel_but_bounded…` |
+| 2:30 | "The reviewer caught an invented figure; the writer revised it." | **Review** panel: round-1 blocker → click it → v1 claim highlighted → v2 has no such claim. | `test_planted_unsupported_claim_is_caught_revised_and_persisted` |
+| 3:15 | **Recovery moment:** "Workers can crash; nothing is lost or repeated." | In the Render dashboard, **Restart service** while a second brief is researching; after it wakes, the run continues and the timeline shows no duplicate tasks. | `test_worker_recovery.py` (10 crash points) |
+| 4:00 | "A reviewer approves the exact final version; only then is the export 'approved'." | Reviewer profile → **Approve report v2** → **Download approved report** (approver, time, digest in the file). | `test_export_is_draft_until_approved…` |
+| 4:30 | "How do we know it helps? The evaluation." | Show the [evaluation slide](#evaluation-slide). | `test_evaluation.py` |
+
+If the hosted app does not wake in time, switch to the local walkthrough below; say so.
+
+### Evaluation slide
+
+- Three systems on the same briefs: **A** multi-agent + reviewer, **B** single agent,
+  **C** multi-agent with a pass-through reviewer; dev split (20) and a held-out split used once.
+- **Measured so far (fake agents, harness validation, 30 runs per system):** outcome matches
+  28/30 for each system (93%; 95% CI 79–98%); citation validity 100%; human gate never
+  bypassed; injected URLs never fetched. Identical by construction: fake agents write the same
+  content for A, B and C.
+- **Live-model comparison: PENDING (needs owner budget)**, with the reason stated plainly. The
+  harness, blind-scoring kit and kappa computation are built and tested.
+
+## Full local walkthrough (about 10 minutes)
+
+### Before the audience arrives
 
 PowerShell, from the repository root; PostgreSQL running as in the [README](../../README.md#1-database).
 
@@ -31,7 +80,7 @@ The example brief is [`backend/app/demo_brief.json`](../../backend/app/demo_brie
 topic contains `(demo: unsupported claim)`, which makes the fake writer plant one
 fabricated figure in report v1, so the reviewer has something real to catch.
 
-## The walkthrough
+### The walkthrough
 
 | # | Say | Do | Evidence (automated) |
 | --- | --- | --- | --- |
@@ -46,7 +95,7 @@ fabricated figure in report v1, so the reviewer has something real to catch.
 | 9 | "A reviewer approves the exact final version." | Sign out, sign in as **Bob Reviewer**, open the run, **Approve report v2**. Mention that an approval of v1, or a stale digest, is refused. | `test_stale_and_wrong_kind_decisions_rejected`; E2E planted-claim test |
 | 10 | "Only then is it exportable as approved." | **Download approved report (v2)**: the Markdown names the approver, time and digest. A draft export is watermarked. | `test_export_is_draft_until_approved…`; `test_rejected_report_exports_only_as_draft` |
 
-## Optional extras
+### Optional extras
 
 | Show | How | Evidence |
 | --- | --- | --- |

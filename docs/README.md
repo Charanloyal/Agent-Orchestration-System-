@@ -30,6 +30,7 @@
 | v1.0 phase 7: hardening | **Done** for storage (ADR 0022), threat model (T18-T22) and operations runbook; live model mode on Render not requested | [threat-model.md](security/threat-model.md), [runbook.md](operations/runbook.md) |
 | v1.0 phase 8: user research | **Prepared; blocked by owner** (participants) | [interview guide](product/interview-guide.md), [usability study](product/usability-study.md), [accessibility checklist](product/accessibility-checklist.md) |
 | v1.0 phase 9: close-out | **Done** except the tag, which waits for approval | [CHANGELOG.md](../CHANGELOG.md), [handoff.md](handoff.md) |
+| Review fixes G1-G10, F4-F13 (2026-11-10) | **Done on branch `release/deploy-ready`** except G1 (push, PR, CI, merge) and G10 (GitHub settings) | ADRs 0024-0026; [release notes draft](release-notes-v1.0.0.md); [GitHub settings](github-settings.md) |
 
 ### Implemented behavior (verified by tests)
 
@@ -150,7 +151,8 @@ All four agents are LLM-backed when `AOS_AGENT_MODE=llm`; fakes are the default.
 ## Using the system
 
 - [User guide](user-guide.md) (illustrated) · [Troubleshooting](troubleshooting.md) ·
-  [Demonstration script](demo/demo-script.md)
+  [Demonstration script](demo/demo-script.md) (5-minute viva path and full walkthrough)
+- [Release notes v1.0.0 (draft)](release-notes-v1.0.0.md) · [GitHub repository settings](github-settings.md)
 
 ## Final report
 

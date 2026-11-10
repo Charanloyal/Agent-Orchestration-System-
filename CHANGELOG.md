@@ -3,7 +3,7 @@
 All notable changes to this project. Dates are UTC. Versions follow
 [Semantic Versioning](https://semver.org/).
 
-## [1.0.0-pilot] - unreleased (tag after the owner's approval)
+## [1.0.0] - unreleased (tag `v1.0.0` after the owner's approval)
 
 The first release meant to be used by people other than its author: anyone can be invited
 or ask for access, and the deployment can be verified and rolled back safely. Nothing has
@@ -52,16 +52,34 @@ been deployed yet; the hosted steps are prepared and listed under *Not done*.
 
 ### Changed
 
+- Render blueprints: retention off (runs and uploads kept until deleted, for the viva); no file
+  copies on Render's ephemeral disks (`AOS_STORE_FILES=false`, [ADR 0026](docs/decisions/0026-no-file-copies-on-render.md));
+  database pool sizes are settings (`AOS_DB_POOL_SIZE`, `AOS_DB_MAX_OVERFLOW`), budgeted against
+  Render's 100 connections; the public URL defaults to Render's `RENDER_EXTERNAL_URL`.
+- One Docker health check fits each role (`python -m app.healthcheck`: web, worker, or both).
+- `/healthz` and the page footer show the version and the deployed commit.
+- Corpus search refuses to start without corpus documents instead of finding nothing.
+- ADR 0004 (local demo only) is superseded by ADR 0018 and 0023 (Render).
 - Production no longer requires an email allowlist. It requires at least one platform admin;
   the allowlist remains an optional "always allowed" list.
 - OIDC callback errors redirect to `/signin?error=...` instead of returning JSON.
 - `/readyz` and worker start-up accept a newer schema that declares the build compatible,
   and say clearly when a schema is behind or no longer compatible.
-- Re-uploading a file whose stored original was lost (ephemeral disk) restores it.
+- Re-uploading a file whose stored original was lost restores it (where copies are kept;
+  the Render blueprints keep none, ADR 0026).
 - Data tables hide secondary columns on narrow screens.
 - Frontend dev dependency `undici` updated to 8.12.4 (security advisories in 8.0.0-8.12.1).
 
 ### Security
+
+- Rate-limit keys use the client address appended by the trusted proxy, counted from the
+  right of `X-Forwarded-For` (`AOS_TRUSTED_PROXY_HOPS`; [ADR 0025](docs/decisions/0025-client-address-behind-proxy.md));
+  a forged header no longer resets the sign-in or access-request limits.
+- Only an explicit `email_verified: true` (Entra: `xms_edov`) counts as a verified email
+  ([ADR 0024](docs/decisions/0024-verified-email-only.md)).
+- Production adds HSTS, `Cross-Origin-Opener-Policy` and `Permissions-Policy`; cookies are
+  `__Host-aos_session` and `__Secure-aos_login` (people signed in before signs in once more).
+- ID tokens must carry exactly the issuer named by discovery (fixes Auth0 issuers ending in `/`).
 
 - Threat model revised: T18 (enumeration and spam through access requests), T19 (login
   CSRF), T20 (privilege escalation through invitations), T21 (rollback to an incompatible
