@@ -135,13 +135,16 @@ class OidcClient:
         if alg not in ALLOWED_ID_TOKEN_ALGS:
             raise OidcError("id_token uses a disallowed algorithm")
         key = self._signing_key(header.get("kid"))
+        # The `iss` claim must equal the issuer the discovery document names, exactly (F5): the
+        # configured value has lost any trailing slash, and Auth0's issuer ends in one.
+        issuer = str(self.metadata()["issuer"])
         try:
             claims: dict[str, Any] = jwt.decode(
                 id_token,
                 key=key,
                 algorithms=[alg],
                 audience=self.settings.oidc_client_id,
-                issuer=[self.settings.oidc_issuer, *_ISSUER_ALIASES.get(self.settings.oidc_issuer, ())],
+                issuer=[issuer, *_ISSUER_ALIASES.get(self.settings.oidc_issuer, ())],
                 leeway=60,
                 options={"require": ["exp", "iat", "iss", "aud", "sub"]},
             )

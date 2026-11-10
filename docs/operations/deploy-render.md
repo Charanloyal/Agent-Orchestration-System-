@@ -66,7 +66,9 @@ Google returns `email_verified`; only `true` is trusted, and a token without it 
 unverified ([ADR 0024](../decisions/0024-verified-email-only.md)). Google documents two forms of
 the issuer claim, and both are accepted. With Microsoft Entra ID instead, add the optional ID
 token claim `xms_edov` in the app registration and prefer a single-tenant issuer; without it,
-Entra accounts end on "did not confirm an email address".
+Entra accounts end on "did not confirm an email address". Auth0 issuers end in a slash
+(`https://<tenant>.auth0.com/`); enter it with or without the slash, because ID tokens are
+checked against the exact issuer the provider's discovery document names.
 
 ## 2. Create the Blueprint
 

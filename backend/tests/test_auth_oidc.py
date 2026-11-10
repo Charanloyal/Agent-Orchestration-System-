@@ -372,6 +372,49 @@ def test_google_issuer_is_accepted_in_both_documented_forms(
             google.verify_id_token(token(signing_key, iss=iss), nonce="n1")
 
 
+AUTH0 = "https://tenant.eu.auth0.com/"
+
+
+@pytest.mark.parametrize(
+    ("configured", "iss", "accepted"),
+    [
+        (AUTH0, AUTH0, True),  # Auth0's issuer ends in a slash, in discovery and in tokens
+        ("https://tenant.eu.auth0.com", AUTH0, True),  # configured without the slash
+        (AUTH0, "https://tenant.eu.auth0.com", False),  # not the issuer discovery names
+    ],
+)
+def test_tokens_are_checked_against_the_exact_issuer_from_discovery(
+    signing_key: rsa.RSAPrivateKey, configured: str, iss: str, accepted: bool
+) -> None:
+    """F5: the configured issuer loses its trailing slash, but an ID token's `iss` must equal
+    the issuer the provider's discovery document names, character for character."""
+    jwk: dict[str, Any] = RSAAlgorithm.to_jwk(signing_key.public_key(), as_dict=True)  # type: ignore[assignment]
+    jwk.update({"kid": "k1", "alg": "RS256"})
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("openid-configuration"):
+            assert str(request.url) == f"{AUTH0}.well-known/openid-configuration"
+            return httpx.Response(
+                200,
+                json={
+                    "issuer": AUTH0,
+                    "authorization_endpoint": f"{AUTH0}authorize",
+                    "token_endpoint": f"{AUTH0}oauth/token",
+                    "jwks_uri": f"{AUTH0}.well-known/jwks.json",
+                },
+            )
+        return httpx.Response(200, json={"keys": [jwk]})
+
+    settings = Settings(oidc_issuer=configured, oidc_client_id=CLIENT_ID, env="test")
+    auth0 = OidcClient(settings, httpx.Client(transport=httpx.MockTransport(handler)))
+    if accepted:
+        claims = auth0.verify_id_token(token(signing_key, iss=iss), nonce="n1")
+        assert claims.issuer == "https://tenant.eu.auth0.com", "users stay keyed by the configured issuer"
+    else:
+        with pytest.raises(OidcError):
+            auth0.verify_id_token(token(signing_key, iss=iss), nonce="n1")
+
+
 def test_backchannel_rewrites_server_calls_but_keeps_public_issuer(signing_key: rsa.RSAPrivateKey) -> None:
     jwk: dict[str, Any] = RSAAlgorithm.to_jwk(signing_key.public_key(), as_dict=True)  # type: ignore[assignment]
     jwk.update({"kid": "k1", "alg": "RS256"})
