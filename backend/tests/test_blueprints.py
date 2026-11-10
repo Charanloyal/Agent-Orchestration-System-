@@ -28,6 +28,26 @@ def test_every_blueprint_matches_a_topology_ci_starts() -> None:
         "render.free.yaml": "single",
     }
     assert {r.region for r in results.values()} == {"singapore"}, "owner's decision; fixed at creation"
+    # Worst case during a deploy (old and new instances overlap), against Render's 100 (G6).
+    assert {name: r.connections for name, r in results.items()} == {
+        "render.yaml": 83,
+        "render.hybrid.yaml": 43,
+        "render.free.yaml": 43,
+    }
+
+
+def test_a_blueprint_that_could_exhaust_the_database_is_reported(tmp_path: Path) -> None:
+    script = load_script()
+    greedy = tmp_path / "render.yaml"
+    greedy.write_text(
+        (script.ROOT / "render.hybrid.yaml")
+        .read_text(encoding="utf-8")
+        .replace('key: AOS_DB_POOL_SIZE\n        value: "5"', 'key: AOS_DB_POOL_SIZE\n        value: "30"'),
+        encoding="utf-8",
+    )
+    result = script.check(greedy)
+    assert result.connections == 2 * ((30 + 5) + (30 + 5 + 1)) + 1, "web + worker child, twice, + migration"
+    assert any("connections" in p for p in result.problems)
 
 
 def test_drift_from_what_ci_runs_is_reported(tmp_path: Path) -> None:

@@ -52,11 +52,34 @@ def env_values(service: dict[str, Any]) -> dict[str, str]:
     return {v["key"]: str(v["value"]) for v in service.get("envVars", []) if "key" in v and "value" in v}
 
 
+# Render Postgres: 100 connections below 8 GB RAM (render.com/docs/postgresql-creating-connecting,
+# "Connection limits"). Keep headroom for psql, backups and Render's own connections.
+CONNECTION_LIMIT = 100
+CONNECTION_BUDGET = 90
+
+
+def effective_env(service: dict[str, Any], groups: dict[str, dict[str, str]]) -> dict[str, str]:
+    """A service's literal values, including those it takes from env var groups."""
+    merged: dict[str, str] = {}
+    for entry in service.get("envVars", []):
+        if "fromGroup" in entry:
+            merged.update(groups.get(entry["fromGroup"], {}))
+    return merged | env_values(service)
+
+
+def process_connections(env: dict[str, str], *, worker: bool) -> int:
+    """Most connections one process can open: its SQLAlchemy pool (AOS_DB_POOL_SIZE +
+    AOS_DB_MAX_OVERFLOW, defaults 10 + 10) and, in a worker, the checkpointer's connection."""
+    pool = int(env.get("AOS_DB_POOL_SIZE", "10")) + int(env.get("AOS_DB_MAX_OVERFLOW", "10"))
+    return pool + (1 if worker else 0)
+
+
 @dataclass
 class Blueprint:
     path: Path
     topology: str = "?"
     region: str = "?"
+    connections: int = 0
     problems: list[str] = field(default_factory=list)
 
 
@@ -106,6 +129,22 @@ def check(path: Path) -> Blueprint:
         found = {values[key] for values in stated if key in values}
         if found != {expected}:
             result.problems.append(f"the blueprint must set {key}={expected}, found {sorted(found)}")
+    # Worst case: during a deploy the old and new instances overlap, so every process counts
+    # twice; the migration adds one connection. In the single topology the worker is a child
+    # of the web process and inherits its settings.
+    groups = {g.get("name", ""): env_values(g) for g in doc.get("envVarGroups", [])}
+    web_env = effective_env(web, groups)
+    per_deploy = process_connections(web_env, worker=False) + (
+        sum(process_connections(effective_env(w, groups), worker=True) for w in workers)
+        if workers
+        else process_connections(web_env, worker=True)
+    )
+    result.connections = 2 * per_deploy + 1
+    if result.connections > CONNECTION_BUDGET:
+        result.problems.append(
+            f"up to {result.connections} database connections during a deploy; keep it at most "
+            f"{CONNECTION_BUDGET} of the plan's {CONNECTION_LIMIT} (AOS_DB_POOL_SIZE, AOS_DB_MAX_OVERFLOW)"
+        )
     return result
 
 
@@ -135,7 +174,10 @@ def main(argv: list[str] | None = None) -> int:
         result = check(path)
         if schema is not None:
             result.problems.extend(schema_problems(path, schema))
-        print(f"{path.name}: {result.topology} in {result.region}" + (" (schema checked)" if schema else ""))
+        print(
+            f"{path.name}: {result.topology} in {result.region}, at most {result.connections} database "
+            f"connections" + (" (schema checked)" if schema else "")
+        )
         for problem in result.problems:
             print(f"  FAIL {problem}")
         failed = failed or bool(result.problems)

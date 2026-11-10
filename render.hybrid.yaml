@@ -54,6 +54,12 @@ services:
       # Render's proxy appends the client address to X-Forwarded-For (ADR 0025).
       - key: AOS_TRUSTED_PROXY_HOPS
         value: "1"
+      # API and worker share this instance and its database pools (G6): at most 43 connections
+      # during a deploy against the plan's 100 (scripts/check_blueprints.py).
+      - key: AOS_DB_POOL_SIZE
+        value: "5"
+      - key: AOS_DB_MAX_OVERFLOW
+        value: "5"
       - key: AOS_DATABASE_URL
         fromDatabase:
           name: aos-db

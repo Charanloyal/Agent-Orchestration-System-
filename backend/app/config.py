@@ -24,6 +24,9 @@ class Settings(BaseSettings):
 
     env: Literal["dev", "test", "prod"] = "dev"
     database_url: SecretStr | None = None
+    # SQLAlchemy pool per process (API, worker); the worker's checkpointer adds one connection.
+    db_pool_size: int = Field(default=10, ge=1, le=50)
+    db_max_overflow: int = Field(default=10, ge=0, le=50)
     log_level: str = "INFO"
     log_json: bool = True
 

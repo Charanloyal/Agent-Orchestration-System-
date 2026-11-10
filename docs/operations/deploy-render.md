@@ -25,11 +25,21 @@ each result in [rehearsals.md](rehearsals.md); do not assume.
 | Plans | Web `free`, Postgres `basic-256mb` (paid) | Web `starter`, worker `starter`, Postgres `basic-256mb` (paid) | Web `free`, Postgres `free` |
 | Limits | Sleeps after 15 idle minutes (slow first request; queued runs wait until it wakes); the database does not expire | None beyond the plans | As hybrid, and Render deletes free databases after 30 days (check Render's current terms) |
 | Rollback rehearsals | Supported (redeploy an earlier commit) | Supported | Supported |
+| Database connections, worst case | 43 (pools 5 + 5) | 83 (pools 10 + 10) | 43 (pools 5 + 5) |
 
 All three run the deterministic demo agents (`AOS_AGENT_MODE=fake`) and are labelled as such
 in the UI. All use the access model in [ADR 0021](../decisions/0021-access-model.md) with
 `AOS_SIGNUP_MODE=request`, and all are in the `singapore` region. Render cannot move a
 service or database to another region after creation.
+
+**Database connections.** Render Postgres plans below 8 GB of RAM (including `basic-256mb`
+and `free`) accept at most **100** connections. Each process has one SQLAlchemy pool of
+`AOS_DB_POOL_SIZE + AOS_DB_MAX_OVERFLOW` connections (defaults 10 + 10); a worker adds one for
+the workflow checkpointer, and the migration uses one. During a deploy the old and new
+instances run side by side, so the worst case is
+`2 × (web pool + worker pool + 1) + 1`. `scripts/check_blueprints.py` computes it for each
+blueprint and fails CI above 90, keeping room for `psql` and Render's own connections. A
+second worker, or larger pools, must fit in that budget.
 
 ## 1. Register the app with Google (OpenID Connect)
 
@@ -95,6 +105,7 @@ If a Blueprint was created from an earlier version of this repository:
 | Now optional | `AOS_ALLOWED_EMAILS`, `AOS_ALLOWED_EMAIL_DOMAINS` | Keep or delete; people on them can always sign in. Keep `AOS_ALLOWED_EMAILS` set until rehearsal 2 is done: the 0009 build still requires an allowlist |
 | Optional | `AOS_OIDC_PROVIDER_LABEL`, `AOS_WORKSPACE_CREATION`, `AOS_INVITATION_TTL_DAYS`, `AOS_RATE_ACCESS_REQUEST_PER_IP_HOUR`, `AOS_RETENTION_ACCESS_REQUEST_DAYS` | Defaults: derived label, `platform_admins`, 14, 5, 90 |
 | **New (blueprint group)** | `AOS_TRUSTED_PROXY_HOPS=1` on the web service | Synced from the blueprint ([ADR 0025](../decisions/0025-client-address-behind-proxy.md)); check 12 confirms the value |
+| New (hybrid and free blueprints) | `AOS_DB_POOL_SIZE=5`, `AOS_DB_MAX_OVERFLOW=5` | Synced from the blueprint; smaller pools for one shared instance (defaults 10 + 10 elsewhere) |
 
 Migration 0010 copies every current workspace member onto the access list, so nobody who
 already uses the deployment is locked out by the switch.
