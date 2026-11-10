@@ -206,6 +206,7 @@ All four agents are LLM-backed when `AOS_AGENT_MODE=llm`; fakes are the default.
 | [0023](decisions/0023-deploy-topologies-and-ci-proof.md) | Deployment topologies (hybrid chosen), role-specific settings, deploy proof in CI | Accepted |
 | [0024](decisions/0024-verified-email-only.md) | Trust only provider-verified email addresses (Entra via `xms_edov`) | Accepted |
 | [0025](decisions/0025-client-address-behind-proxy.md) | Client address for rate limits: trusted proxy hops from the right of `X-Forwarded-For` | Accepted |
+| [0026](decisions/0026-no-file-copies-on-render.md) | Keep no file copies on Render (`AOS_STORE_FILES=false`); amends 0022 | Accepted |
 
 ## Session handoff
 

@@ -32,7 +32,9 @@ ephemeral: it is wiped on every deploy and restart. We had to answer what is act
 2. **Migrate-on-start is safe** because migrations are additive and the previous build stays
    compatible (ADR 0020). A failed migration stops the new instance from starting, and the
    old one keeps serving.
-3. **The ephemeral disk is documented, not hidden.** The user guide, the data-retention page
+3. **The ephemeral disk is documented, not hidden.** *Amended by
+   [ADR 0026](0026-no-file-copies-on-render.md): the Render blueprints now keep no file copies
+   at all (`AOS_STORE_FILES=false`), since nothing reads them back.* The user guide, the data-retention page
    and the deploy guide say what survives a redeploy. Uploading the same file again restores
    a missing original, with a log line. A persistent disk or an S3-compatible store is the
    documented upgrade (the `ObjectStore` protocol now includes `exists`).

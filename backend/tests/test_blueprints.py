@@ -76,6 +76,7 @@ services:
         "region",
         "AOS_TRUSTED_PROXY_HOPS=1",
         "AOS_RETENTION_RUN_DAYS=0",
+        "AOS_STORE_FILES=false",
     ):
         assert expected in problems
     assert script.main([]) == 0, "the repository's own blueprints pass"

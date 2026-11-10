@@ -61,8 +61,9 @@ every push; "manual" items must be redone for each environment.
 - [x] Retention and deletion policy published ([data-retention.md](data-retention.md)); the
       public-demo data policy is shown to pilot users.
 - [x] Fake-agent mode is labelled in the UI, the docs and the evaluation results.
-- [x] The ephemeral object store on Render is documented for users and operators, and a
-      re-upload restores a lost original (ADR 0022; `test_uploads.py`).
+- [x] Render keeps no file copies on its ephemeral disks (`AOS_STORE_FILES=false`, ADR 0026);
+      uploads and exports work from Postgres alone (`test_uploads.py`, `test_review_export.py`,
+      CI `deploy-image`).
 - [ ] **Open (blocked by owner):** live-model evaluation and blind human scoring (needs an
       API key, a budget approval within USD 10 and two scorers).
 

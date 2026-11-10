@@ -170,6 +170,7 @@ jobs:
         -e AOS_COOKIE_SECURE=true -e AOS_PUBLIC_URL=https://aos.example.org
         -e AOS_OIDC_ISSUER=https://login.example.org -e AOS_OIDC_CLIENT_ID=ci-client
         -e AOS_PLATFORM_ADMIN_EMAILS=ops@example.org -e AOS_SIGNUP_MODE=request
+        -e AOS_STORE_FILES=false -e AOS_TRUSTED_PROXY_HOPS=1
     steps:
       - uses: actions/checkout@v7
         with:
@@ -212,7 +213,9 @@ jobs:
           python backend/scripts/smoke_prod.py http://127.0.0.1:10000 --allow-http --idp-unreachable \
             --expect-commit "$GITHUB_SHA" --expect-signup-mode request
           if docker exec web test -e /srv/backend/devtools; then echo "dev issuer shipped"; exit 1; fi
-          docker exec web python -c "from app.storage import get_object_store as s; s().put('ci/probe.txt', b'ok'); assert s().get('ci/probe.txt') == b'ok' and s().exists('ci/probe.txt')"
+          # The image's object store directory is writable, and with Render's AOS_STORE_FILES=false
+          # the app keeps no copies there (ADR 0026).
+          docker exec web python -c "from app.config import get_settings as g; from app.storage import LocalObjectStore as L, get_object_store as s; d = L(g().object_store_dir); d.put('ci/probe.txt', b'ok'); assert d.get('ci/probe.txt') == b'ok' and not s().keeps_files"
           sleep 5
           docker logs worker 2>&1 | grep -q '"worker started"'
           sh "$RUNNER_TEMP/healthy.sh" web "web ok"

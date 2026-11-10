@@ -344,6 +344,31 @@ def test_export_is_draft_until_approved_then_records_approval_and_digest(
     assert export(client, analyst, run_id, 99).status_code == 404
 
 
+def test_exports_need_no_stored_copy(
+    client: TestClient,
+    db: Session,
+    team: dict[str, Any],
+    login: Callable[[User], LoggedIn],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """AOS_STORE_FILES=false (ADR 0026): every download is rendered from Postgres, and the
+    record still carries the digest of what was sent."""
+    from app.api import runs as runs_api
+    from app.config import get_settings
+    from app.storage import DiscardingObjectStore, LocalObjectStore
+
+    monkeypatch.setattr(runs_api, "get_object_store", DiscardingObjectStore)
+    analyst = login(team["analyst"])
+    run_id = start(client, analyst, team["workspace"])
+    assert to_report(client, analyst, run_id) == "waiting_report"
+    version = client.get(f"/api/v1/runs/{run_id}").json()["report"]["version"]
+    sent = export(client, analyst, run_id, version)
+    assert sent.status_code == 200 and "## Sources" in sent.text
+    row = db.scalars(select(ReportExport).where(ReportExport.run_id == uuid.UUID(run_id))).one()
+    assert row.content_sha256 == hashlib.sha256(sent.content).hexdigest()
+    assert not LocalObjectStore(get_settings().object_store_dir).exists(row.object_key)
+
+
 def test_rejected_report_exports_only_as_draft(
     client: TestClient, team: dict[str, Any], login: Callable[[User], LoggedIn]
 ) -> None:

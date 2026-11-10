@@ -80,12 +80,11 @@ A hosted pilot on Render needs three things:
 
 ## Consequences
 
-- **Ephemeral filesystem.** Render's filesystem is ephemeral. Uploaded *originals* and export
-  *copies* in the object store are lost on redeploy. Everything the workflow needs
-  (extracted upload chunks, evidence, reports, findings, approvals) is in Postgres, so runs
-  and reports survive. Exports are regenerated on demand. For durable originals, attach a
-  persistent disk at `AOS_OBJECT_STORE_DIR` (which disables zero-downtime deploys) or add an
-  S3-compatible store; neither is needed for the pilot.
+- **Ephemeral filesystem.** Render's filesystem is ephemeral and per service. Since
+  [ADR 0026](0026-no-file-copies-on-render.md) the blueprints keep no file copies at all
+  (`AOS_STORE_FILES=false`): everything the workflow reads (extracted upload chunks, evidence,
+  reports, findings, approvals) is in Postgres, and exports are rendered on every download.
+  Serving originals back would need an S3-compatible store.
 - **Fake agents by default.** The hosted demo runs the deterministic fake agents
   (`AOS_AGENT_MODE=fake`) and is labelled as such. It demonstrates the workflow, not
   real-model quality.

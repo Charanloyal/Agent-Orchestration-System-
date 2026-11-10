@@ -45,6 +45,8 @@ BLUEPRINT_VALUES = {
     # Owner's RUN_RETENTION_DAYS=0: demo runs and uploads must survive until the viva.
     "AOS_RETENTION_RUN_DAYS": "0",
     "AOS_RETENTION_UPLOAD_DAYS": "0",
+    # ADR 0026: no file copies on Render's ephemeral, per-service disks.
+    "AOS_STORE_FILES": "false",
 }
 
 

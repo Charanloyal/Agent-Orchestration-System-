@@ -106,6 +106,7 @@ If a Blueprint was created from an earlier version of this repository:
 | Optional | `AOS_OIDC_PROVIDER_LABEL`, `AOS_WORKSPACE_CREATION`, `AOS_INVITATION_TTL_DAYS`, `AOS_RATE_ACCESS_REQUEST_PER_IP_HOUR`, `AOS_RETENTION_ACCESS_REQUEST_DAYS` | Defaults: derived label, `platform_admins`, 14, 5, 90 |
 | **New (blueprint group)** | `AOS_TRUSTED_PROXY_HOPS=1` on the web service | Synced from the blueprint ([ADR 0025](../decisions/0025-client-address-behind-proxy.md)); check 12 confirms the value |
 | New (hybrid and free blueprints) | `AOS_DB_POOL_SIZE=5`, `AOS_DB_MAX_OVERFLOW=5` | Synced from the blueprint; smaller pools for one shared instance (defaults 10 + 10 elsewhere) |
+| New (all blueprints) | `AOS_STORE_FILES=false` | Synced from the blueprint; no file copies on Render's ephemeral disks ([ADR 0026](../decisions/0026-no-file-copies-on-render.md)) |
 
 Migration 0010 copies every current workspace member onto the access list, so nobody who
 already uses the deployment is locked out by the switch.
@@ -149,7 +150,7 @@ refused. It is read-only.
 | 7 | Workflow | Submit a brief with `(demo: unsupported claim)` in the topic → approve the plan → report v2 after a review round → the reviewer approves → the export downloads as *approved* | |
 | 8 | Worker logs | Logs show `"worker started"`; no connection strings or secrets | |
 | 9 | Restart safety | Restart the worker (or the single service) during research; the run resumes and the timeline shows no duplicate tasks | |
-| 10 | Persistence | Redeploy; earlier runs and reports are still there (Postgres). Exports regenerate on demand. Re-uploading a document restores its original if the disk was wiped | |
+| 10 | Persistence | Redeploy; earlier runs, reports, documents and their search results are still there (Postgres). Exports download as before | |
 | 11 | Access removal | Remove the analyst from the access list; their open session ends at the next request | |
 | 12 | Client address ([ADR 0025](../decisions/0025-client-address-behind-proxy.md)) | (a) From your laptop, run the loop below: the 31st sign-in attempt within 5 minutes lands on `/signin?error=rate_limited` although every attempt forges a different `X-Forwarded-For`. (b) While the laptop is limited, a phone on mobile data can still open **Continue with Google**. If (a) fails, raise `AOS_TRUSTED_PROXY_HOPS`; if (b) fails, lower it | |
 
@@ -214,11 +215,11 @@ Merge the release with a merge commit (not a squash), so the 0009 commit exists 
 - `render.yaml` needs paid instance types for the worker and the pre-deploy command;
   `render.hybrid.yaml` trades that for a web service that sleeps when idle, and
   `render.free.yaml` adds a database that Render deletes after its free period.
-- The object store is the container's ephemeral disk ([ADR 0022](../decisions/0022-deployment-variants-ephemeral-storage.md)):
-  uploaded originals and export copies are lost on redeploy or restart. Extracted text,
-  evidence, reports and approvals are in Postgres, so nothing a report depends on is lost;
-  re-uploading a file restores its original. Attach a persistent disk or an S3-compatible
-  store before a pilot that needs the originals.
+- The blueprints keep no file copies (`AOS_STORE_FILES=false`,
+  [ADR 0026](../decisions/0026-no-file-copies-on-render.md)): Render's disks are ephemeral and
+  per service, and nothing reads a copy back. Uploads live on as extracted text in Postgres,
+  and exports are rendered from Postgres on every download, so a redeploy loses nothing.
+  Serving original files back would need an S3-compatible store first.
 - `AOS_AGENT_MODE=fake`: deterministic demo agents, not a real model. To use a model, set
   `AOS_AGENT_MODE=llm` and the `AOS_LLM_*` variables on **both** services, within an approved
   budget (ADR 0005). Production refuses `AOS_SIGNUP_MODE=open` with model agents.

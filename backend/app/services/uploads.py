@@ -83,9 +83,9 @@ def ingest_upload(
 
     existing = db.scalar(select(Upload).where(Upload.workspace_id == workspace_id, Upload.sha256 == digest))
     if existing is not None:
-        if not store.exists(existing.object_key):
-            # The stored original was lost (Render's local disk is ephemeral; ADR 0022) while the
-            # extracted text in Postgres is intact. Uploading the same file again restores it.
+        if store.keeps_files and not store.exists(existing.object_key):
+            # The stored original was lost (an ephemeral disk) while the extracted text in
+            # Postgres is intact. Uploading the same file again restores it.
             store.put(existing.object_key, data)
             log.warning("restored a missing stored original", extra={"upload_id": str(existing.id)})
         return IngestResult(existing, created=False)

@@ -42,6 +42,10 @@ services:
         value: fake
       - key: AOS_SEARCH_PROVIDER
         value: fake
+      # Render's disks are ephemeral and per service, and nothing reads a stored copy back:
+      # uploads live on as extracted text, exports are rendered on download (ADR 0026).
+      - key: AOS_STORE_FILES
+        value: "false"
       # 0 keeps finished runs and uploads until someone deletes them (the demo must last until
       # the viva; docs/operations/data-retention.md). Set days here to turn the sweep on.
       - key: AOS_RETENTION_RUN_DAYS

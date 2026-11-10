@@ -71,6 +71,9 @@ class Settings(BaseSettings):
     tavily_api_key: SecretStr | None = None
     corpus_dir: Path = BACKEND_DIR.parent / "eval" / "corpus" / "v1"
     object_store_dir: Path = BACKEND_DIR / ".data" / "objects"
+    # Keep copies of uploaded originals and exported reports in the object store. Nothing reads
+    # them back, so hosts with ephemeral per-service disks (Render) set false (ADR 0026).
+    store_files: bool = True
     upload_max_bytes: int = 10_000_000
     fetch_max_bytes: int = 2_000_000
     fetch_timeout_seconds: float = 10.0

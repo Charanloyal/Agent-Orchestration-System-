@@ -10,8 +10,8 @@ for access data and storage.
 | --- | --- | --- |
 | Briefs, plans, reports, review findings | Postgres | Text you and the agents wrote |
 | Evidence passages and sources | Postgres | Excerpts of fetched pages or uploaded documents, with URLs and dates |
-| Uploads | Postgres (extracted text) + object store (original file) | Your documents |
-| Exports | Object store (Markdown copy) + Postgres (record and digest) | The report as exported |
+| Uploads | Postgres (extracted text) + object store (original file; not kept on Render, ADR 0026) | Your documents |
+| Exports | Postgres (record and digest) + object store (Markdown copy; not kept on Render) | The report as exported |
 | Workflow checkpoints | Postgres schema `lg` | Workflow state per run |
 | Timeline events, cost ledger | Postgres | Structured summaries; no prompts or source text |
 | Audit events | Postgres | Who did what, when, to which id; no content and no requester emails |
@@ -35,7 +35,7 @@ finished runs are then aged by their last update and uploads by creation time.
 | Decided access requests | 90 days after the decision | 90 days | Worker retention sweep (`AOS_RETENTION_ACCESS_REQUEST_DAYS`); pending requests are kept until decided |
 | Access list entries | Until a platform admin removes them | Same | Removal also revokes the person's sessions |
 | Invitations | Kept as a record (accepted, revoked or expired) | Same | Removed with their workspace |
-| Stored originals and export copies on Render | Until the next restart or deploy | Same | Ephemeral disk; re-uploading restores an original |
+| Stored originals and export copies | Kept with their upload or run | Not stored (`AOS_STORE_FILES=false`) | Render's disks are ephemeral and per service, and nothing reads copies back ([ADR 0026](../decisions/0026-no-file-copies-on-render.md)) |
 | Audit events | Kept | Kept | Append-only; removal only by a database owner |
 | Database backups | Operator's choice | Render plan's backup window | Deleted data persists in backups until they expire |
 

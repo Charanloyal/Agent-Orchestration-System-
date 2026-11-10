@@ -188,10 +188,9 @@ uploader or an admin can delete an upload. Deletion removes the stored file and 
 searchable text. Passages already used as evidence in a run stay with that run as part of its
 immutable record, until the run itself is deleted.
 
-> **Hosted demo storage.** On the Render deployment the original files live on a disk that is
-> wiped when the service restarts or redeploys. The extracted text, search, evidence and
-> reports are in the database and are not affected. Uploading the same file again restores
-> the original. Do not treat the demo as an archive for your files.
+> **Hosted demo storage.** The hosted demo keeps the text extracted from your document, not
+> the file itself: search, evidence and reports use the text, and nothing offers the original
+> back for download. Keep your own copy of anything you upload.
 
 ## 9. Workspace settings (admins)
 

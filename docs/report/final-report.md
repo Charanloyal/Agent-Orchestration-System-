@@ -850,9 +850,9 @@ piece of future work (Section 16).
    `render.free.yaml`) and the production image are verified in CI, including a read-only
    production smoke test, but no hosted deployment exists and neither rollback rehearsal has
    been performed there. Both need the owner's Render and Google Cloud accounts. Render's
-   filesystem is ephemeral: nothing a report depends on is lost (every read path uses
-   Postgres, and re-uploading restores an original), but a longer pilot with documents needs
-   persistent storage.
+   filesystem is ephemeral, so the blueprints keep no file copies (ADR 0026): every read path
+   uses Postgres and nothing is lost on redeploy, but original files cannot be downloaded
+   again without an S3-compatible store.
 7. **Single-machine measurements.** Load and recovery figures come from one laptop with fake
    providers.
 8. **Deterministic support checks are a proxy.** Lexical and numeric matching can miss

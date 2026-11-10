@@ -72,4 +72,4 @@ an `X-Request-ID` header. Search the JSON logs for that ID to find the server-si
 | Render health check fails | `/readyz` must return 200 within 5 s. Usually the pre-deploy migration failed: read the deploy log. |
 | A container shows **unhealthy** in Docker | Run `docker exec <container> python -m app.healthcheck`: it names the role that failed. A worker is unhealthy when its loop has not turned for two minutes: a stuck pass, or still waiting at start-up for the database or its migration; read its log. |
 | Render worker restarts in a loop | It should wait, not crash. Check `AOS_DATABASE_URL` in the shared env group and the log lines above. |
-| Uploaded files disappear after a Render redeploy | Render's filesystem is ephemeral. This is a documented pilot limitation; see [deploy-render.md](operations/deploy-render.md). |
+| Uploaded files cannot be downloaded again on Render | By design: the hosted deployment keeps the extracted text, not the file (`AOS_STORE_FILES=false`, [ADR 0026](decisions/0026-no-file-copies-on-render.md)). Search, evidence and reports are unaffected. |
