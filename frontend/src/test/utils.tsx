@@ -7,7 +7,7 @@ import { vi } from "vitest";
 import { createQueryClient } from "../api/queryClient";
 import { Toaster } from "../components/toast";
 
-export type MockRoute = { method?: string; path: string | RegExp; status?: number; body: unknown };
+export type MockRoute = { method?: string; path: string | RegExp; status?: number; body: unknown; delayMs?: number };
 
 /** Replace fetch with a table of canned JSON responses and record every request. */
 export function mockFetch(routes: MockRoute[]) {
@@ -25,6 +25,7 @@ export function mockFetch(routes: MockRoute[]) {
       (r) => (r.method ?? "GET") === method && (typeof r.path === "string" ? url === r.path : r.path.test(url)),
     );
     if (!route) return new Response(JSON.stringify({ error: { code: "not_found", message: "no mock" } }), { status: 404 });
+    if (route.delayMs) await new Promise((resolve) => setTimeout(resolve, route.delayMs));
     if (route.status === 204) return new Response(null, { status: 204 });
     return new Response(JSON.stringify(route.body), {
       status: route.status ?? 200,

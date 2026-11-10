@@ -76,6 +76,34 @@ describe("AdminAccessPage", () => {
     ]);
   });
 
+  // As on the server, a decided request leaves the pending list, so its row unmounts while the
+  // admin lists reload. The notice must still appear.
+  it.each([
+    ["approve", "Approve", null, "Approved erin@example.test; they can sign in now."],
+    ["deny", "Deny erin@example.test", "Yes, deny", "Denied erin@example.test."],
+  ])("confirms a %s after the request leaves the pending list", async (action, button, confirm, notice) => {
+    const user = userEvent.setup();
+    let calls: { method: string }[] = [];
+    const pending: MockRoute = {
+      path: "/api/v1/admin/access-requests?status=pending",
+      get body() {
+        return calls.some((c) => c.method === "POST") ? [] : [REQUEST];
+      },
+    };
+    calls = render(true, [
+      action === "approve"
+        ? { method: "POST", path: "/api/v1/admin/access-requests/r1/approve", body: { status: "approved", workspace: null } }
+        : { method: "POST", path: "/api/v1/admin/access-requests/r1/deny", status: 204, body: null },
+      pending,
+      // Over a network the lists arrive one by one: pending first, the access list later.
+      { path: "/api/v1/admin/access-list", body: [ENTRY], delayMs: 100 },
+    ]);
+    await user.click(await screen.findByRole("button", { name: button }));
+    if (confirm) await user.click(screen.getByRole("button", { name: confirm }));
+    expect(await screen.findByText("No pending requests")).toBeInTheDocument();
+    expect(await screen.findByText(notice)).toBeInTheDocument();
+  });
+
   it("says when nobody is waiting", async () => {
     render(true, [], []);
     expect(await screen.findByText("No pending requests")).toBeInTheDocument();

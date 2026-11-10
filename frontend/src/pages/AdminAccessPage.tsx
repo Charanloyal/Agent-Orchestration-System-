@@ -110,19 +110,22 @@ function RequestItem({ request, workspaces }: { request: AccessRequest; workspac
   const ids = useId();
   const workspaceName = workspaces.find((w) => w.id === workspaceId)?.name;
 
+  // mutateAsync, not per-call callbacks: a decided request leaves the pending list while the lists
+  // reload, which unmounts this row, and React Query skips callbacks of an unmounted observer.
+  // Errors are already reported by the global mutation cache (meta.error).
+  const decideThen = (input: Parameters<typeof decide.mutateAsync>[0], message: string) =>
+    decide.mutateAsync(input).then(
+      () => notify("success", message),
+      () => {},
+    );
+
   const approve = (event: FormEvent) => {
     event.preventDefault();
-    decide.mutate(
+    void decideThen(
       { id: request.id, decision: "approve", workspaceId: workspaceId || null, role },
-      {
-        onSuccess: () =>
-          notify(
-            "success",
-            workspaceName
-              ? `Approved ${request.email}; they join ${workspaceName} as ${ROLE_LABELS[role].toLowerCase()} when they sign in.`
-              : `Approved ${request.email}; they can sign in now.`,
-          ),
-      },
+      workspaceName
+        ? `Approved ${request.email}; they join ${workspaceName} as ${ROLE_LABELS[role].toLowerCase()} when they sign in.`
+        : `Approved ${request.email}; they can sign in now.`,
     );
   };
 
@@ -172,12 +175,7 @@ function RequestItem({ request, workspaces }: { request: AccessRequest; workspac
             prompt={`Deny ${request.email}?`}
             confirmLabel="Yes, deny"
             pending={decide.isPending}
-            onConfirm={() =>
-              decide.mutate(
-                { id: request.id, decision: "deny" },
-                { onSuccess: () => notify("success", `Denied ${request.email}.`) },
-              )
-            }
+            onConfirm={() => void decideThen({ id: request.id, decision: "deny" }, `Denied ${request.email}.`)}
           />
         </span>
       </form>
