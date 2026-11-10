@@ -22,6 +22,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     AOS_STATIC_DIR=/srv/web \
     AOS_OBJECT_STORE_DIR=/srv/data/objects \
+    AOS_WORKER_ALIVE_FILE=/tmp/aos-worker-alive \
     PORT=10000
 
 WORKDIR /srv/backend
@@ -39,8 +40,10 @@ COPY --from=web /src/dist /srv/web
 
 USER aos
 EXPOSE 10000
-HEALTHCHECK --interval=30s --timeout=3s --retries=3 \
-    CMD python -c "import os,urllib.request,sys; sys.exit(0 if urllib.request.urlopen(f'http://127.0.0.1:{os.environ.get(\"PORT\",\"10000\")}/healthz').status == 200 else 1)"
+# One check for every role (app/healthcheck.py): the web server must answer /healthz, a worker
+# must have marked itself alive within two minutes; the single-process command needs both.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 \
+    CMD ["python", "-m", "app.healthcheck"]
 # Binds 0.0.0.0:$PORT (Render's default is 10000). Uvicorn handles SIGTERM gracefully. It does
 # not trust forwarded headers; the app reads them only as AOS_TRUSTED_PROXY_HOPS allows (ADR 0025).
 CMD ["sh", "-c", "exec uvicorn app.main:app --host 0.0.0.0 --port \"${PORT}\" --no-proxy-headers --timeout-graceful-shutdown 25"]

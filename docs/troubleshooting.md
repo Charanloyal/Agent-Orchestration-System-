@@ -70,5 +70,6 @@ an `X-Request-ID` header. Search the JSON logs for that ID to find the server-si
 | --- | --- |
 | Uploads fail in the container with a permission error | Use the root `Dockerfile` image, where `/srv/data/objects` is owned by the non-root `aos` user (uid 10001). Mount any volume with the same ownership. |
 | Render health check fails | `/readyz` must return 200 within 5 s. Usually the pre-deploy migration failed: read the deploy log. |
+| A container shows **unhealthy** in Docker | Run `docker exec <container> python -m app.healthcheck`: it names the role that failed. A worker is unhealthy when its loop has not turned for two minutes: a stuck pass, or still waiting at start-up for the database or its migration; read its log. |
 | Render worker restarts in a loop | It should wait, not crash. Check `AOS_DATABASE_URL` in the shared env group and the log lines above. |
 | Uploaded files disappear after a Render redeploy | Render's filesystem is ephemeral. This is a documented pilot limitation; see [deploy-render.md](operations/deploy-render.md). |

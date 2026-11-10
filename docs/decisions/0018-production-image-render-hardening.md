@@ -46,6 +46,11 @@ A hosted pilot on Render needs three things:
 3. **Readiness means "schema at head".** `/readyz` compares `alembic_version` with the code's
    head revision, so a deploy whose migration did not run never receives traffic. Liveness
    (`/healthz`) does not touch the database.
+   - The image's Docker `HEALTHCHECK` (`python -m app.healthcheck`, finding G4) fits each role:
+     a web server must answer `/healthz`; a worker, which serves no HTTP, must have touched
+     `AOS_WORKER_ALIVE_FILE` within two minutes (every loop turn and every lease extension);
+     the single-process command must pass both. Render itself uses `/readyz` for web services;
+     the Docker check serves other runtimes and CI, which asserts each role is healthy.
    - The worker waits, with capped backoff, until the schema is at head before polling. Web
      and worker deploy independently, and the migration runs only in the web service's
      pre-deploy step.

@@ -77,6 +77,8 @@ class Settings(BaseSettings):
     worker_lease_seconds: float = 30.0
     worker_heartbeat_seconds: float = 10.0
     worker_poll_seconds: float = 1.0
+    # Touched by the worker loop and its lease heartbeat; read by `python -m app.healthcheck`.
+    worker_alive_file: Path | None = None
     job_max_attempts: int = 5
     retry_backoff_base_seconds: float = 2.0
     retry_backoff_max_seconds: float = 60.0

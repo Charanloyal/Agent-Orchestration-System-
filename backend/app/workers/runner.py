@@ -48,6 +48,7 @@ from app.services.events import append_event, set_run_state
 from app.services.ratelimit import purge_old_windows
 from app.tools.fetcher import Fetcher, FetchPolicy, SafeFetcher
 from app.workers import jobs
+from app.workers.alive import mark_alive
 from app.workers.checkpointer import FencedPostgresSaver, checkpoint_connection, setup_checkpointer
 from app.workers.jobs import Lease, StaleOwner
 from app.workers.maintenance import expire_overdue_waits, reap_exhausted_jobs, run_retention
@@ -116,6 +117,7 @@ class Heartbeat(threading.Thread):
         while not self.stop.wait(interval):
             try:
                 jobs.heartbeat(self.ctx.sm, self.ctx.lease, self.ctx.settings.worker_lease_seconds)
+                mark_alive(self.ctx.settings)
             except StaleOwner:
                 log.warning("lease lost", extra={"run_id": str(self.ctx.run_id)})
                 self.ctx.alive.clear()
@@ -409,6 +411,7 @@ def run_loop(
     run_pass = pass_fn or process_one
     delay = settings.worker_poll_seconds
     while not stopping.is_set():
+        mark_alive(settings)
         try:
             _maintenance(settings, sm)
             outcome = run_pass(settings, worker_id=worker_id, run_id=run_id)

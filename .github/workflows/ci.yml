@@ -163,6 +163,8 @@ jobs:
           --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 3s --health-retries 20
     env:
       DB_ROOT: postgresql://postgres:ci-only-ephemeral@127.0.0.1:5432
+      # The image's own HEALTHCHECK command, run often so CI need not wait 30 s (G4).
+      HC: --health-interval=3s --health-start-period=0s --health-retries=3
       # Settings only the web service needs. The worker and the migration get database settings only.
       WEB_ENVS: >-
         -e AOS_COOKIE_SECURE=true -e AOS_PUBLIC_URL=https://aos.example.org
@@ -182,13 +184,30 @@ jobs:
           python backend/scripts/check_blueprints.py --schema "$RUNNER_TEMP/render.schema.json"
       - name: Build the production image
         run: docker build -t aos:ci .
+      - name: Health-check helper
+        run: |
+          cat > "$RUNNER_TEMP/healthy.sh" <<'EOF'
+          # $1 container, $2 the roles its HEALTHCHECK must find ("web ok", "worker ok", both).
+          for i in $(seq 1 20); do
+            s=$(docker inspect -f '{{.State.Health.Status}}' "$1")
+            if [ "$s" = healthy ]; then
+              found=$(docker exec "$1" python -m app.healthcheck)
+              if [ "$found" = "$2" ]; then echo "$1 healthy: $found"; exit 0; fi
+              echo "$1 healthy but found '$found', expected '$2'"; exit 1
+            fi
+            sleep 2
+          done
+          echo "$1 is $s"; docker inspect -f '{{json .State.Health.Log}}' "$1"; exit 1
+          EOF
       - name: "Web + worker (render.yaml): pre-deploy migration, web, worker without web settings"
         run: |
           set -eu
           DB="-e AOS_ENV=prod -e AOS_DATABASE_URL=$DB_ROOT/aos"
           docker run --rm --network host $DB aos:ci alembic upgrade head
-          docker run -d --name web --network host $DB $WEB_ENVS -e AOS_BUILD_COMMIT="$GITHUB_SHA" -e PORT=10000 aos:ci
-          docker run -d --name worker --network host $DB aos:ci python -m app.workers.runner
+          docker run -d --name web --network host $DB $WEB_ENVS $HC -e AOS_BUILD_COMMIT="$GITHUB_SHA" -e PORT=10000 aos:ci
+          # Host networking shares ports: the worker's health check gets a port nothing listens on,
+          # so it can only pass on the worker's own signal, as on Render.
+          docker run -d --name worker --network host $DB $HC -e PORT=10099 aos:ci python -m app.workers.runner
           for i in $(seq 1 30); do curl -fsS http://127.0.0.1:10000/readyz && break; sleep 2; done
           python backend/scripts/smoke_prod.py http://127.0.0.1:10000 --allow-http --idp-unreachable \
             --expect-commit "$GITHUB_SHA" --expect-signup-mode request
@@ -196,6 +215,8 @@ jobs:
           docker exec web python -c "from app.storage import get_object_store as s; s().put('ci/probe.txt', b'ok'); assert s().get('ci/probe.txt') == b'ok' and s().exists('ci/probe.txt')"
           sleep 5
           docker logs worker 2>&1 | grep -q '"worker started"'
+          sh "$RUNNER_TEMP/healthy.sh" web "web ok"
+          sh "$RUNNER_TEMP/healthy.sh" worker "worker ok"
           for c in web worker; do
             if docker logs "$c" 2>&1 | grep -q 'ci-only-ephemeral'; then echo "secret in $c logs"; exit 1; fi
           done
@@ -208,12 +229,13 @@ jobs:
           docker run --rm --network host aos:ci python -c \
             "import psycopg; psycopg.connect('$DB_ROOT/postgres', autocommit=True).execute('CREATE DATABASE aos_single')"
           docker run -d --name single --network host -e AOS_ENV=prod -e AOS_DATABASE_URL="$DB_ROOT/aos_single" \
-            $WEB_ENVS -e AOS_BUILD_COMMIT="$GITHUB_SHA" -e PORT=10001 aos:ci python -m app.serve --migrate --with-worker
+            $WEB_ENVS $HC -e AOS_BUILD_COMMIT="$GITHUB_SHA" -e PORT=10001 aos:ci python -m app.serve --migrate --with-worker
           for i in $(seq 1 45); do curl -fsS http://127.0.0.1:10001/readyz && break; sleep 2; done
           python backend/scripts/smoke_prod.py http://127.0.0.1:10001 --allow-http --idp-unreachable \
             --expect-commit "$GITHUB_SHA" --expect-signup-mode request
           sleep 5
           docker logs single 2>&1 | grep -q '"worker started"'
+          sh "$RUNNER_TEMP/healthy.sh" single "web ok, worker ok"
           docker stop -t 30 single
           docker logs single 2>&1 | grep -q '"worker stopped"'
       - name: Older build stays ready on the new schema (ADR 0020)
