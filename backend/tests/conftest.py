@@ -13,6 +13,7 @@ import uuid
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -47,7 +48,7 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.auth.sessions import create_session
-from app.config import get_settings
+from app.config import Settings, get_settings
 from app.db.base import Base
 from app.db.models import Membership, Role, User, Workspace
 
@@ -94,6 +95,19 @@ def client() -> Iterator[TestClient]:
 
     with TestClient(app) as test_client:
         yield test_client
+
+
+@pytest.fixture
+def settings_override(client: TestClient) -> Iterator[Callable[..., Settings]]:
+    """Run the app with changed settings for one test."""
+
+    def apply(**changes: Any) -> Settings:
+        settings = get_settings().model_copy(update=changes)
+        client.app.dependency_overrides[get_settings] = lambda: settings  # type: ignore[attr-defined]
+        return settings
+
+    yield apply
+    client.app.dependency_overrides.clear()  # type: ignore[attr-defined]
 
 
 @dataclass

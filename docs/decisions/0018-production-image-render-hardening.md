@@ -87,6 +87,6 @@ A hosted pilot on Render needs three things:
 - **No public authenticated deployment yet.** A real identity provider registration (client
   id, secret, redirect URI) is a manual step; see
   [deploy-render.md](../operations/deploy-render.md).
-- **Proxy headers.** `--forwarded-allow-ips '*'` trusts proxy headers. This is acceptable only
-  because the platform load balancer is the sole route to the container; do not reuse the
-  image behind an untrusted proxy without changing it.
+- **Proxy headers.** Superseded by [ADR 0025](0025-client-address-behind-proxy.md): uvicorn no
+  longer trusts forwarded headers; the app reads `X-Forwarded-For` only as far as
+  `AOS_TRUSTED_PROXY_HOPS` allows.

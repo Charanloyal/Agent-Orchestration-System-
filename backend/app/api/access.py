@@ -50,7 +50,9 @@ def request_access(
         raise Forbidden("Cross-origin request rejected")
     if settings.effective_signup_mode != "request":
         raise Forbidden("This deployment does not take access requests; ask an administrator to invite you")
-    enforce(f"access_request:ip:{client_key(request)}", settings.rate_access_request_per_ip_hour, 3600)
+    enforce(
+        f"access_request:ip:{client_key(request, settings)}", settings.rate_access_request_per_ip_hour, 3600
+    )
     access.submit_access_request(
         db, settings, email=body.email, name=body.name, message=(body.message or "").strip() or None
     )

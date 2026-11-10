@@ -48,6 +48,9 @@ services:
         value: "30"
       - key: AOS_SIGNUP_MODE
         value: request
+      # Render's proxy appends the client address to X-Forwarded-For (ADR 0025).
+      - key: AOS_TRUSTED_PROXY_HOPS
+        value: "1"
       - key: AOS_DATABASE_URL
         fromDatabase:
           name: aos-db

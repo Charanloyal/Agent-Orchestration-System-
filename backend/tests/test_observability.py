@@ -1,7 +1,7 @@
 """M10: tracing with redaction, metrics, rate limits, circuit breaker, workspace usage."""
 
 import uuid
-from collections.abc import Callable, Iterator
+from collections.abc import Callable
 from typing import Any
 
 import pytest
@@ -41,17 +41,6 @@ def team(
     analyst, reviewer = make_user("Ana"), make_user("Rev")
     workspace = make_workspace("Team", {analyst: Role.ANALYST, reviewer: Role.REVIEWER})
     return {"analyst": analyst, "reviewer": reviewer, "workspace": workspace}
-
-
-@pytest.fixture
-def settings_override(client: TestClient) -> Iterator[Callable[..., Settings]]:
-    def apply(**changes: Any) -> Settings:
-        settings = get_settings().model_copy(update=changes)
-        client.app.dependency_overrides[get_settings] = lambda: settings  # type: ignore[attr-defined]
-        return settings
-
-    yield apply
-    client.app.dependency_overrides.clear()  # type: ignore[attr-defined]
 
 
 SECRET_TOPIC = "Vendor sk-live-ABCDEFGHIJKLMNOPQRSTUVWX comparison"

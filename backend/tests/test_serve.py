@@ -56,12 +56,16 @@ def test_supervisor_restarts_a_crashed_worker_and_stops_it_gracefully(
     assert not supervisor.thread.is_alive()
 
 
-def test_serve_migrates_then_runs_uvicorn_with_proxy_headers(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_serve_migrates_then_runs_uvicorn_without_trusting_proxy_headers(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     calls: dict[str, Any] = {}
     monkeypatch.setattr(serve, "migrate", lambda: calls.setdefault("migrated", True))
     monkeypatch.setattr(serve.uvicorn, "run", lambda app, **kw: calls.update(app=app, **kw))
     monkeypatch.setenv("PORT", "10123")
     assert serve.main(["--migrate"]) == 0
     assert calls["migrated"] and calls["app"] == "app.main:app"
-    assert calls["port"] == 10123 and calls["proxy_headers"] is True
+    # The app reads X-Forwarded-For itself, by trusted hop count (ADR 0025).
+    assert calls["port"] == 10123 and calls["proxy_headers"] is False
+    assert "forwarded_allow_ips" not in calls
     assert calls["host"] == "0.0.0.0"  # noqa: S104 - behind the platform load balancer

@@ -88,8 +88,8 @@ def main(argv: list[str] | None = None) -> int:
             "app.main:app",
             host="0.0.0.0",  # noqa: S104 - the platform's load balancer is the only route in
             port=int(os.environ.get("PORT", "10000")),
-            proxy_headers=True,
-            forwarded_allow_ips="*",
+            # Forwarded headers are read by the app only, as AOS_TRUSTED_PROXY_HOPS allows (ADR 0025).
+            proxy_headers=False,
             timeout_graceful_shutdown=20,
             log_config=None,
         )

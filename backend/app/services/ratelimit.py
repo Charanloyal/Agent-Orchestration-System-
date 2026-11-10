@@ -14,6 +14,7 @@ from fastapi import Request
 from sqlalchemy import text
 
 from app.auth.deps import AppSettings, CurrentPrincipal
+from app.config import Settings
 from app.db.session import get_sessionmaker
 from app.errors import TooManyRequests
 
@@ -42,9 +43,24 @@ def enforce(key: str, limit: int, window_seconds: int) -> None:
         )
 
 
-def client_key(request: Request) -> str:
+def client_address(request: Request, trusted_hops: int) -> str:
+    """The client's address as seen by the outermost trusted proxy (ADR 0025). Entries are
+    counted from the right, so a client-written X-Forwarded-For entry is never used."""
+    peer = request.client.host if request.client else "unknown"
+    if trusted_hops <= 0:
+        return peer
+    entries = [
+        entry.strip()
+        for value in request.headers.getlist("x-forwarded-for")
+        for entry in value.split(",")
+        if entry.strip()
+    ]
+    return entries[-trusted_hops] if len(entries) >= trusted_hops else peer
+
+
+def client_key(request: Request, settings: Settings) -> str:
     """Hashed client address: rate-limit keys never hold a raw IP."""
-    host = request.client.host if request.client else "unknown"
+    host = client_address(request, settings.trusted_proxy_hops)
     return hashlib.sha256(host.encode()).hexdigest()[:32]
 
 
@@ -68,7 +84,7 @@ def workspace_run_limit(workspace_id: uuid.UUID, settings: AppSettings) -> None:
 
 
 def login_limit(request: Request, settings: AppSettings) -> None:
-    enforce(f"login:ip:{client_key(request)}", settings.rate_login_per_ip_5min, 300)
+    enforce(f"login:ip:{client_key(request, settings)}", settings.rate_login_per_ip_5min, 300)
 
 
 def purge_old_windows(days: int = 1) -> int:

@@ -92,6 +92,7 @@ If a Blueprint was created from an earlier version of this repository:
 | New (blueprint group) | `AOS_SIGNUP_MODE=request` | Synced from the blueprint; set `invite` to accept invited people only |
 | Now optional | `AOS_ALLOWED_EMAILS`, `AOS_ALLOWED_EMAIL_DOMAINS` | Keep or delete; people on them can always sign in. Keep `AOS_ALLOWED_EMAILS` set until rehearsal 2 is done: the 0009 build still requires an allowlist |
 | Optional | `AOS_OIDC_PROVIDER_LABEL`, `AOS_WORKSPACE_CREATION`, `AOS_INVITATION_TTL_DAYS`, `AOS_RATE_ACCESS_REQUEST_PER_IP_HOUR`, `AOS_RETENTION_ACCESS_REQUEST_DAYS` | Defaults: derived label, `platform_admins`, 14, 5, 90 |
+| **New (blueprint group)** | `AOS_TRUSTED_PROXY_HOPS=1` on the web service | Synced from the blueprint ([ADR 0025](../decisions/0025-client-address-behind-proxy.md)); check 12 confirms the value |
 
 Migration 0010 copies every current workspace member onto the access list, so nobody who
 already uses the deployment is locked out by the switch.
@@ -136,6 +137,15 @@ cross-origin write is refused. It is read-only.
 | 9 | Restart safety | Restart the worker (or the single service) during research; the run resumes and the timeline shows no duplicate tasks | |
 | 10 | Persistence | Redeploy; earlier runs and reports are still there (Postgres). Exports regenerate on demand. Re-uploading a document restores its original if the disk was wiped | |
 | 11 | Access removal | Remove the analyst from the access list; their open session ends at the next request | |
+| 12 | Client address ([ADR 0025](../decisions/0025-client-address-behind-proxy.md)) | (a) From your laptop, run the loop below: the 31st sign-in attempt within 5 minutes lands on `/signin?error=rate_limited` although every attempt forges a different `X-Forwarded-For`. (b) While the laptop is limited, a phone on mobile data can still open **Continue with Google**. If (a) fails, raise `AOS_TRUSTED_PROXY_HOPS`; if (b) fails, lower it | |
+
+Check 12 (a), in PowerShell (`curl.exe` ships with Windows):
+
+```powershell
+1..31 | ForEach-Object { curl.exe -s -o NUL -w "%{redirect_url}`n" -H "X-Forwarded-For: 198.51.100.$_" https://<url>/api/v1/auth/login } | Select-Object -Last 1
+```
+
+The last line must end with `/signin?error=rate_limited`.
 
 ## 5. Rollback
 

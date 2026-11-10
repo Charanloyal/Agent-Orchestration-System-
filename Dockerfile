@@ -41,6 +41,6 @@ USER aos
 EXPOSE 10000
 HEALTHCHECK --interval=30s --timeout=3s --retries=3 \
     CMD python -c "import os,urllib.request,sys; sys.exit(0 if urllib.request.urlopen(f'http://127.0.0.1:{os.environ.get(\"PORT\",\"10000\")}/healthz').status == 200 else 1)"
-# Binds 0.0.0.0:$PORT (Render's default is 10000). Uvicorn handles SIGTERM gracefully; the
-# proxy headers come from the platform load balancer, the only route to this container.
-CMD ["sh", "-c", "exec uvicorn app.main:app --host 0.0.0.0 --port \"${PORT}\" --proxy-headers --forwarded-allow-ips '*' --timeout-graceful-shutdown 25"]
+# Binds 0.0.0.0:$PORT (Render's default is 10000). Uvicorn handles SIGTERM gracefully. It does
+# not trust forwarded headers; the app reads them only as AOS_TRUSTED_PROXY_HOPS allows (ADR 0025).
+CMD ["sh", "-c", "exec uvicorn app.main:app --host 0.0.0.0 --port \"${PORT}\" --no-proxy-headers --timeout-graceful-shutdown 25"]

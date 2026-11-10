@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Literal
 from urllib.parse import urlsplit
 
-from pydantic import SecretStr, field_validator, model_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
@@ -92,6 +92,10 @@ class Settings(BaseSettings):
     rate_export_per_user_hour: int = 60
     rate_login_per_ip_5min: int = 30
     rate_access_request_per_ip_hour: int = 5
+    # Proxies in front of the app that append to X-Forwarded-For (ADR 0025). 0: use the socket
+    # peer and ignore the header. N: the Nth entry from the right is the client, because only
+    # the right-hand entries are written by trusted proxies; the client controls the rest.
+    trusted_proxy_hops: int = Field(default=0, ge=0, le=5)
     # Provider circuit breaker: consecutive transient failures before opening, and cooldown.
     breaker_failure_threshold: int = 5
     breaker_cooldown_seconds: float = 60.0
