@@ -26,7 +26,7 @@
 | **v1.0 phase 3: access model** | **Done** | ADR 0021; migration 0010; `test_access.py`, `test_authz.py` |
 | **v1.0 phase 4: UI** | **Done** | Onboarding, workspace settings, access administration, notifications, 401/403 handling, dark mode, 360 px; Vitest 79 tests; E2E `access.spec.ts`, `a11y.spec.ts` (axe) |
 | v1.0 phase 5: redeploy and rehearsals | **Blocked by owner** (Render and Google accounts) | Procedure: [deploy-render.md](operations/deploy-render.md); records: [rehearsals.md](operations/rehearsals.md) |
-| v1.0 phase 6: live evaluation | **Not started**: `LIVE_EVAL` not approved | ADR 0005; [evaluation plan](evaluation/evaluation-plan.md) |
+| v1.0 phase 6: live evaluation | **Prepared, not run**: budget USD 0 (2026-11-10); harness, guards and blind kit dry-run with fake agents | ADR 0005; [evaluation plan](evaluation/evaluation-plan.md) (exact commands); [scorer brief](evaluation/scorer-brief.md) |
 | v1.0 phase 7: hardening | **Done** for storage (ADR 0022), threat model (T18-T22) and operations runbook; live model mode on Render not requested | [threat-model.md](security/threat-model.md), [runbook.md](operations/runbook.md) |
 | v1.0 phase 8: user research | **Prepared; blocked by owner** (participants) | [interview guide](product/interview-guide.md), [usability study](product/usability-study.md), [accessibility checklist](product/accessibility-checklist.md) |
 | v1.0 phase 9: close-out | **Done** except the tag, which waits for approval | [CHANGELOG.md](../CHANGELOG.md), [handoff.md](handoff.md) |
@@ -165,7 +165,7 @@ All four agents are LLM-backed when `AOS_AGENT_MODE=llm`; fakes are the default.
 
 - [Project brief](product/project-brief.md) · [Interview guide](product/interview-guide.md) (**interviews not yet run**)
 - [Usability study](product/usability-study.md) · [Accessibility checklist](product/accessibility-checklist.md)
-- [Acceptance criteria matrix](product/acceptance-criteria.md) · [Evaluation plan](evaluation/evaluation-plan.md)
+- [Acceptance criteria matrix](product/acceptance-criteria.md) · [Evaluation plan](evaluation/evaluation-plan.md) · [Blind scorer brief](evaluation/scorer-brief.md)
 - [Threat model](security/threat-model.md) · [Risk register](risk-register.md)
 
 ## Operations

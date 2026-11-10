@@ -66,6 +66,30 @@ python -m evaluation.score <folder>/scoring <scorerA> <scorerB> # merge two scor
 5. Compare the provider's billing console with `live_spend_usd_estimated`.
 6. Only then, and once, run `--split heldout --confirm-heldout`.
 
+### Exact commands (prepared 2026-11-10; LIVE_BUDGET_USD = 0, so none has run)
+
+Dry run of the same commands with fake agents (no spend) passed on 2026-11-10: harness,
+blind kit, and the guards (`--live` refuses without `--budget`, and without a key).
+
+```powershell
+# backend/.env (git-ignored) — values typed by the owner, never committed:
+#   AOS_LLM_API_KEY=<OpenAI key>   AOS_LLM_MODEL=gpt-4o-mini
+#   AOS_PRICE_LLM_INPUT_PER_MILLION / AOS_PRICE_LLM_OUTPUT_PER_MILLION = today's values from
+#   https://openai.com/api/pricing, and AOS_PRICE_SCHEDULE_ID=openai-gpt-4o-mini-<date checked>
+#   AOS_EVAL_DATABASE_URL=<an empty, dedicated database>
+cd backend
+.\.venv\Scripts\python.exe -m evaluation.run --live --budget 0.50 --cases dev-01 --systems A --repeats 1 --label live-smoke
+# STOP: read live_spend_usd_estimated in config.json; full cost ≈ that × (cases × systems)
+# + repeats. Ask the owner to approve that amount (≤ the remaining ADR 0005 budget).
+.\.venv\Scripts\python.exe -m evaluation.run --live --budget <approved> --label live-dev
+# Tune on dev only; log each change; freeze and record the commit. Then, once:
+.\.venv\Scripts\python.exe -m evaluation.run --live --budget <approved> --split heldout --confirm-heldout --label live-heldout
+.\.venv\Scripts\python.exe -m evaluation.blind ..\eval\results\<live-heldout folder>
+```
+
+If the provider rejects JSON mode, set `AOS_LLM_RESPONSE_FORMAT=none`. Blind scoring follows
+the [scorer brief](scorer-brief.md).
+
 ## Systems compared
 
 | System | Description | Must match |
