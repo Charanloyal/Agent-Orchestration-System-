@@ -76,12 +76,14 @@ Entra accounts end on "did not confirm an email address".
 
 | Variable | Value | Services |
 | --- | --- | --- |
-| `AOS_PUBLIC_URL` | `https://<your-service>.onrender.com` (no trailing slash) | web |
 | `AOS_OIDC_ISSUER` | `https://accounts.google.com` | web |
 | `AOS_OIDC_CLIENT_ID` | From step 1 | web |
 | `AOS_OIDC_CLIENT_SECRET` | From step 1 | web |
 | `AOS_PLATFORM_ADMIN_EMAILS` | Your own Google address (comma-separate several) | web |
 
+   The public URL is taken from Render's `RENDER_EXTERNAL_URL`, so there is nothing to type
+   for it. Set `AOS_PUBLIC_URL` (no trailing slash) on the web service only for a custom
+   domain, and register that domain's callback URI at Google too.
    The separate worker of `render.yaml` serves no HTTP and needs none of these (ADR 0023).
 3. Apply. With `render.yaml`, Render builds the image, runs `alembic upgrade head` as the web
    pre-deploy step, then starts both services; the worker waits until the schema is
@@ -107,13 +109,14 @@ If a Blueprint was created from an earlier version of this repository:
 | **New (blueprint group)** | `AOS_TRUSTED_PROXY_HOPS=1` on the web service | Synced from the blueprint ([ADR 0025](../decisions/0025-client-address-behind-proxy.md)); check 12 confirms the value |
 | New (hybrid and free blueprints) | `AOS_DB_POOL_SIZE=5`, `AOS_DB_MAX_OVERFLOW=5` | Synced from the blueprint; smaller pools for one shared instance (defaults 10 + 10 elsewhere) |
 | New (all blueprints) | `AOS_STORE_FILES=false` | Synced from the blueprint; no file copies on Render's ephemeral disks ([ADR 0026](../decisions/0026-no-file-copies-on-render.md)) |
+| Now optional | `AOS_PUBLIC_URL` | Defaults to Render's `RENDER_EXTERNAL_URL`; keep it only for a custom domain |
 
 Migration 0010 copies every current workspace member onto the access list, so nobody who
 already uses the deployment is locked out by the switch.
 
 ## 3. First sign-in and the first workspace
 
-1. Open `AOS_PUBLIC_URL`, choose **Continue with Google**, and sign in with the platform admin
+1. Open the service URL (`AOS_PUBLIC_URL`, or Render's `RENDER_EXTERNAL_URL` when unset), choose **Continue with Google**, and sign in with the platform admin
    address.
 2. The welcome page offers **Create workspace** (only platform admins may, by default). You
    become its admin.
@@ -192,7 +195,9 @@ This proves the compatibility window. It needs the deployment to have run a buil
 migration **0009** first. That is the first commit of this release, "Sign-in hardening,
 schema compatibility window and deploy tooling" (`git log --oneline`). The 0009 build predates
 the access model: it requires `AOS_ALLOWED_EMAILS` (set it to your own address) and ignores
-`AOS_PLATFORM_ADMIN_EMAILS`. Keep both set for the whole rehearsal. With `render.yaml` only,
+`AOS_PLATFORM_ADMIN_EMAILS`. It also predates the `RENDER_EXTERNAL_URL` fallback, so set
+`AOS_PUBLIC_URL` to the service URL on the web service. Keep all three set for the whole
+rehearsal. With `render.yaml` only,
 the 0009 build's worker also checks the web settings: copy `AOS_PUBLIC_URL`,
 `AOS_OIDC_ISSUER`, `AOS_OIDC_CLIENT_ID` and `AOS_ALLOWED_EMAILS` onto `aos-worker` first.
 Merge the release with a merge commit (not a squash), so the 0009 commit exists on `main`.

@@ -167,7 +167,7 @@ jobs:
       HC: --health-interval=3s --health-start-period=0s --health-retries=3
       # Settings only the web service needs. The worker and the migration get database settings only.
       WEB_ENVS: >-
-        -e AOS_COOKIE_SECURE=true -e AOS_PUBLIC_URL=https://aos.example.org
+        -e AOS_COOKIE_SECURE=true
         -e AOS_OIDC_ISSUER=https://login.example.org -e AOS_OIDC_CLIENT_ID=ci-client
         -e AOS_PLATFORM_ADMIN_EMAILS=ops@example.org -e AOS_SIGNUP_MODE=request
         -e AOS_STORE_FILES=false -e AOS_TRUSTED_PROXY_HOPS=1
@@ -205,7 +205,8 @@ jobs:
           set -eu
           DB="-e AOS_ENV=prod -e AOS_DATABASE_URL=$DB_ROOT/aos"
           docker run --rm --network host $DB aos:ci alembic upgrade head
-          docker run -d --name web --network host $DB $WEB_ENVS $HC -e AOS_BUILD_COMMIT="$GITHUB_SHA" -e PORT=10000 aos:ci
+          docker run -d --name web --network host $DB $WEB_ENVS $HC -e AOS_PUBLIC_URL=https://aos.example.org \
+            -e AOS_BUILD_COMMIT="$GITHUB_SHA" -e PORT=10000 aos:ci
           # Host networking shares ports: the worker's health check gets a port nothing listens on,
           # so it can only pass on the worker's own signal, as on Render.
           docker run -d --name worker --network host $DB $HC -e PORT=10099 aos:ci python -m app.workers.runner
@@ -231,8 +232,10 @@ jobs:
           set -eu
           docker run --rm --network host aos:ci python -c \
             "import psycopg; psycopg.connect('$DB_ROOT/postgres', autocommit=True).execute('CREATE DATABASE aos_single')"
+          # As on Render: no AOS_PUBLIC_URL, the platform's RENDER_EXTERNAL_URL is used (F4).
           docker run -d --name single --network host -e AOS_ENV=prod -e AOS_DATABASE_URL="$DB_ROOT/aos_single" \
-            $WEB_ENVS $HC -e AOS_BUILD_COMMIT="$GITHUB_SHA" -e PORT=10001 aos:ci python -m app.serve --migrate --with-worker
+            $WEB_ENVS $HC -e RENDER_EXTERNAL_URL=https://aos-web.example.org \
+            -e AOS_BUILD_COMMIT="$GITHUB_SHA" -e PORT=10001 aos:ci python -m app.serve --migrate --with-worker
           for i in $(seq 1 45); do curl -fsS http://127.0.0.1:10001/readyz && break; sleep 2; done
           python backend/scripts/smoke_prod.py http://127.0.0.1:10001 --allow-http --idp-unreachable \
             --expect-commit "$GITHUB_SHA" --expect-signup-mode request
@@ -252,7 +255,7 @@ jobs:
           docker build -t aos:prev "$RUNNER_TEMP/prev"
           # The older build may need its own settings (the 0009 build requires an allowlist and
           # validates web settings in its worker); newer builds ignore unknown variables.
-          OLD="-e AOS_ENV=prod -e AOS_DATABASE_URL=$DB_ROOT/aos $WEB_ENVS -e AOS_ALLOWED_EMAIL_DOMAINS=example.org"
+          OLD="-e AOS_ENV=prod -e AOS_DATABASE_URL=$DB_ROOT/aos $WEB_ENVS -e AOS_PUBLIC_URL=https://aos.example.org -e AOS_ALLOWED_EMAIL_DOMAINS=example.org"
           docker run -d --name prev-web --network host $OLD -e AOS_BUILD_COMMIT="$prev" -e PORT=10002 aos:prev
           docker run -d --name prev-worker --network host $OLD aos:prev python -m app.workers.runner
           for i in $(seq 1 30); do curl -fsS http://127.0.0.1:10002/readyz && break; sleep 2; done

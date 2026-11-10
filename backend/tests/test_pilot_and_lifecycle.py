@@ -83,6 +83,20 @@ def test_worker_and_migrations_need_only_the_database_in_production() -> None:
         Settings(env="prod", database_url=None)
 
 
+def test_render_external_url_is_the_public_url_unless_one_is_set(monkeypatch: pytest.MonkeyPatch) -> None:
+    """F4: Render gives every web service RENDER_EXTERNAL_URL, so the blueprint needs no
+    AOS_PUBLIC_URL prompt. An explicit AOS_PUBLIC_URL (a custom domain) still wins."""
+    monkeypatch.delenv("AOS_PUBLIC_URL", raising=False)
+    monkeypatch.setenv("RENDER_EXTERNAL_URL", "https://aos-web-x1y2.onrender.com/")
+    settings = Settings(**{k: v for k, v in SAFE_PROD.items() if k != "public_url"})
+    assert settings.public_url == "https://aos-web-x1y2.onrender.com"
+    assert settings.oidc_redirect_uri == "https://aos-web-x1y2.onrender.com/api/v1/auth/callback"
+    assert settings.web_problems() == []
+    monkeypatch.setenv("AOS_PUBLIC_URL", "https://research.example.org")
+    assert Settings().public_url == "https://research.example.org"
+    assert Settings(public_url="https://given.example.org").public_url == "https://given.example.org"
+
+
 def test_unreachable_identity_provider_sends_people_back_with_a_clear_reason(
     client: TestClient, db: Session, caplog: pytest.LogCaptureFixture
 ) -> None:

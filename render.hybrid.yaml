@@ -68,10 +68,9 @@ services:
         fromDatabase:
           name: aos-db
           property: connectionString
-      # The service's own https URL, e.g. https://aos-web-xxxx.onrender.com (registered at the
-      # identity provider as <url>/api/v1/auth/callback).
-      - key: AOS_PUBLIC_URL
-        sync: false
+      # The public URL is Render's RENDER_EXTERNAL_URL (https://aos-web-xxxx.onrender.com),
+      # registered at the identity provider as <url>/api/v1/auth/callback. Set AOS_PUBLIC_URL
+      # in the Dashboard only for a custom domain.
       - key: AOS_OIDC_ISSUER
         sync: false
       - key: AOS_OIDC_CLIENT_ID

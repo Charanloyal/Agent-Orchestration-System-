@@ -1,9 +1,10 @@
 """Application settings. Values come from environment variables prefixed with AOS_ or from
 backend/.env (git-ignored). Secrets are SecretStr so they never appear in logs or reprs."""
 
+import os
 from functools import lru_cache
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 from urllib.parse import urlsplit
 
 from pydantic import Field, SecretStr, field_validator, model_validator
@@ -190,6 +191,16 @@ class Settings(BaseSettings):
 
     def is_platform_admin(self, email: str | None) -> bool:
         return email is not None and email.lower() in self.platform_admin_set
+
+    @model_validator(mode="before")
+    @classmethod
+    def _render_public_url(cls, data: Any) -> Any:
+        """F4: on Render, the service's own URL (RENDER_EXTERNAL_URL) is the public URL unless
+        AOS_PUBLIC_URL is set (a custom domain)."""
+        external = os.environ.get("RENDER_EXTERNAL_URL")
+        if external and isinstance(data, dict) and "public_url" not in data:
+            return {**data, "public_url": external}
+        return data
 
     @field_validator("public_url", "oidc_issuer")
     @classmethod
