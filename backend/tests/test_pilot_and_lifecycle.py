@@ -67,7 +67,20 @@ def test_safe_production_settings_are_accepted() -> None:
 )
 def test_unsafe_production_settings_refuse_to_start(override: dict[str, Any], message: str) -> None:
     with pytest.raises(ValueError, match=message):
-        Settings(**{**SAFE_PROD, **override})
+        create_app(Settings(**{**SAFE_PROD, **override}))
+
+
+def test_worker_and_migrations_need_only_the_database_in_production() -> None:
+    """The worker and the pre-deploy migration serve no HTTP: no sign-in, cookie or public URL
+    settings. The web app still refuses to start without them."""
+    worker = Settings(env="prod", database_url="postgresql://u:p@db.internal:5432/aos")
+    assert worker.sqlalchemy_url().startswith("postgresql+psycopg://")
+    with pytest.raises(ValueError, match="AOS_OIDC_ISSUER") as refused:
+        create_app(worker)
+    for variable in ("AOS_COOKIE_SECURE", "AOS_PUBLIC_URL", "AOS_PLATFORM_ADMIN_EMAILS"):
+        assert variable in str(refused.value)
+    with pytest.raises(ValueError, match="AOS_DATABASE_URL"):
+        Settings(env="prod", database_url=None)
 
 
 def test_unreachable_identity_provider_sends_people_back_with_a_clear_reason(

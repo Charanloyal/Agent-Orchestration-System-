@@ -187,25 +187,12 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def _production_safety(self) -> Settings:
         """Refuse to start in prod with any development default that would be unsafe there.
-        Each message names the variable to fix."""
+        Each message names the variable to fix. Settings only the web service uses are checked
+        when the web app is created (`web_problems`), so the worker needs none of them."""
         if self.env == "prod":
             problems = []
             if self.database_url is None:
                 problems.append("AOS_DATABASE_URL is required")
-            if not self.cookie_secure:
-                problems.append("AOS_COOKIE_SECURE must be true")
-            if not self.oidc_issuer.startswith("https://"):
-                problems.append("AOS_OIDC_ISSUER must be an https URL of a real identity provider")
-            if _is_local_url(self.oidc_issuer) or self.oidc_client_id == "aos-local":
-                problems.append("the bundled dev OIDC issuer/client must never be used in prod")
-            if self.oidc_backchannel_url and _is_local_url(self.oidc_backchannel_url):
-                problems.append("AOS_OIDC_BACKCHANNEL_URL must not point at a local dev issuer in prod")
-            if not self.public_url.startswith("https://"):
-                problems.append("AOS_PUBLIC_URL must use https")
-            if not self.platform_admin_set:
-                problems.append(
-                    "set AOS_PLATFORM_ADMIN_EMAILS (at least one person must be able to manage access)"
-                )
             if self.effective_signup_mode == "open" and self.agent_mode == "llm":
                 problems.append(
                     "AOS_SIGNUP_MODE=open lets any verified account spend model budget; use invite or "
@@ -216,6 +203,28 @@ class Settings(BaseSettings):
             if problems:
                 raise ValueError("unsafe production configuration: " + "; ".join(problems))
         return self
+
+    def web_problems(self) -> list[str]:
+        """Production checks for the settings only the web service uses: sign-in, cookies and
+        its public URL. Empty outside prod."""
+        if self.env != "prod":
+            return []
+        problems = []
+        if not self.cookie_secure:
+            problems.append("AOS_COOKIE_SECURE must be true")
+        if not self.oidc_issuer.startswith("https://"):
+            problems.append("AOS_OIDC_ISSUER must be an https URL of a real identity provider")
+        if _is_local_url(self.oidc_issuer) or self.oidc_client_id == "aos-local":
+            problems.append("the bundled dev OIDC issuer/client must never be used in prod")
+        if self.oidc_backchannel_url and _is_local_url(self.oidc_backchannel_url):
+            problems.append("AOS_OIDC_BACKCHANNEL_URL must not point at a local dev issuer in prod")
+        if not self.public_url.startswith("https://"):
+            problems.append("AOS_PUBLIC_URL must use https")
+        if not self.platform_admin_set:
+            problems.append(
+                "set AOS_PLATFORM_ADMIN_EMAILS (at least one person must be able to manage access)"
+            )
+        return problems
 
     @property
     def oidc_redirect_uri(self) -> str:

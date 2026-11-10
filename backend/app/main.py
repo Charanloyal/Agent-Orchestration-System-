@@ -12,6 +12,8 @@ from app.web import BodySizeLimitMiddleware, mount_spa
 
 def create_app(settings: Settings | None = None) -> FastAPI:
     settings = settings or get_settings()
+    if problems := settings.web_problems():
+        raise ValueError("unsafe production configuration: " + "; ".join(problems))
     configure_logging(settings.log_level, settings.log_json)
     configure_tracing(settings, "aos-api")
     prod = settings.env == "prod"
