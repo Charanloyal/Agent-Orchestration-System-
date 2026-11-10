@@ -204,6 +204,7 @@ All four agents are LLM-backed when `AOS_AGENT_MODE=llm`; fakes are the default.
 | [0021](decisions/0021-access-model.md) | Access model: invitations, access requests, platform admins, sign-in hardening | Accepted |
 | [0022](decisions/0022-deployment-variants-ephemeral-storage.md) | Deployment variants (free single service) and the ephemeral object store | Accepted |
 | [0023](decisions/0023-deploy-topologies-and-ci-proof.md) | Deployment topologies (hybrid chosen), role-specific settings, deploy proof in CI | Accepted |
+| [0024](decisions/0024-verified-email-only.md) | Trust only provider-verified email addresses (Entra via `xms_edov`) | Accepted |
 
 ## Session handoff
 

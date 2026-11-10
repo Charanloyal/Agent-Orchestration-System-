@@ -12,7 +12,7 @@ import threading
 import time
 from dataclasses import dataclass
 from typing import Any
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlsplit
 
 import httpx
 import jwt
@@ -24,6 +24,9 @@ ALLOWED_ID_TOKEN_ALGS = ["RS256", "PS256", "ES256"]
 _METADATA_TTL_SECONDS = 3600
 # Google documents that its ID tokens carry either form of the issuer.
 _ISSUER_ALIASES = {"https://accounts.google.com": ("accounts.google.com",)}
+# Microsoft Entra ID sends no email_verified; its optional claim xms_edov is true when the
+# tenant has verified the domain of the email address (ADR 0024).
+_ENTRA_HOST = "login.microsoftonline.com"
 
 
 class OidcError(AppError):
@@ -50,6 +53,19 @@ def new_pkce_pair() -> tuple[str, str]:
     verifier = secrets.token_urlsafe(64)
     challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).rstrip(b"=")
     return verifier, challenge.decode()
+
+
+def verified_email(claims: dict[str, Any], issuer: str) -> str | None:
+    """The email the provider vouches for, or None. Only the boolean true counts: a missing,
+    false or string-valued `email_verified` means unverified (ADR 0024)."""
+    email = claims.get("email")
+    if not isinstance(email, str) or "@" not in email:
+        return None
+    if claims.get("email_verified") is True:
+        return email
+    if urlsplit(issuer).hostname == _ENTRA_HOST and claims.get("xms_edov") is True:
+        return email
+    return None
 
 
 class OidcClient:
@@ -133,7 +149,7 @@ class OidcClient:
             raise OidcError("id_token verification failed") from exc
         if not secrets.compare_digest(str(claims.get("nonce", "")), nonce):
             raise OidcError("id_token nonce mismatch")
-        email = claims.get("email") if claims.get("email_verified", True) else None
+        email = verified_email(claims, self.settings.oidc_issuer)
         name = str(claims.get("name") or email or claims["sub"])[:200]
         return IdentityClaims(self.settings.oidc_issuer, str(claims["sub"]), email, name)
 

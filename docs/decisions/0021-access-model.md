@@ -17,7 +17,8 @@ raw JSON error pages, and the callback accepted a valid `state` from any browser
 
 ## Decision
 
-1. **Who may sign in.** A *verified* email (the provider's `email_verified`) may sign in when
+1. **Who may sign in.** A *verified* email (the provider's `email_verified` is `true`; a
+   missing claim counts as unverified, ADR 0024) may sign in when
    any of these holds, in this order:
    1. it is a **platform admin** (`AOS_PLATFORM_ADMIN_EMAILS`, required in production);
    2. it is on the **environment allowlist** (`AOS_ALLOWED_EMAILS`, `AOS_ALLOWED_EMAIL_DOMAINS`);

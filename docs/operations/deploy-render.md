@@ -52,8 +52,11 @@ ID, Auth0, Okta, Keycloak). These steps are for Google, which most pilot users a
    The sign-in button then reads **"Continue with Google"** automatically (override it with
    `AOS_OIDC_PROVIDER_LABEL`).
 
-Google returns `email_verified`; unverified addresses are never trusted. Google documents two
-forms of the issuer claim, and both are accepted.
+Google returns `email_verified`; only `true` is trusted, and a token without it counts as
+unverified ([ADR 0024](../decisions/0024-verified-email-only.md)). Google documents two forms of
+the issuer claim, and both are accepted. With Microsoft Entra ID instead, add the optional ID
+token claim `xms_edov` in the app registration and prefer a single-tenant issuer; without it,
+Entra accounts end on "did not confirm an email address".
 
 ## 2. Create the Blueprint
 

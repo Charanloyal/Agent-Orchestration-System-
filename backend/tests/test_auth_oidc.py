@@ -13,7 +13,7 @@ from fastapi.testclient import TestClient
 from jwt.algorithms import RSAAlgorithm
 
 from app.api.auth import safe_next_path
-from app.auth.oidc import OidcClient, OidcError
+from app.auth.oidc import OidcClient, OidcError, verified_email
 from app.config import Settings
 
 
@@ -270,6 +270,47 @@ def test_unsigned_and_hmac_tokens_rejected(verifier: OidcClient) -> None:
 def test_unverified_email_is_not_trusted(verifier: OidcClient, signing_key: rsa.RSAPrivateKey) -> None:
     claims = verifier.verify_id_token(token(signing_key, email_verified=False), nonce="n1")
     assert claims.email is None
+
+
+@pytest.mark.parametrize(
+    ("email_verified", "trusted"),
+    [(True, True), (False, False), (None, False), ("true", False), (1, False)],
+    ids=["true", "false", "missing", "string", "number"],
+)
+def test_only_an_explicitly_verified_email_is_trusted(
+    verifier: OidcClient, signing_key: rsa.RSAPrivateKey, email_verified: object, trusted: bool
+) -> None:
+    claims = verifier.verify_id_token(token(signing_key, email_verified=email_verified), nonce="n1")
+    assert claims.email == ("u@example.test" if trusted else None)
+    assert claims.name == "U", "the display name never falls back to an unverified email"
+
+
+ENTRA = "https://login.microsoftonline.com/11111111-2222-3333-4444-555555555555/v2.0"
+
+
+@pytest.mark.parametrize(
+    ("issuer", "claims", "trusted"),
+    [
+        (ENTRA, {"email": "a@contoso.example", "xms_edov": True}, True),
+        (ENTRA, {"email": "a@contoso.example", "xms_edov": False}, False),
+        (ENTRA, {"email": "a@contoso.example"}, False),
+        (ISSUER, {"email": "a@contoso.example", "xms_edov": True}, False),
+        ("https://accounts.google.com", {"email": "a@gmail.example"}, False),
+        (ENTRA, {"email": "not-an-address", "email_verified": True}, False),
+    ],
+    ids=[
+        "entra-domain-verified",
+        "entra-edov-false",
+        "entra-missing",
+        "xms-edov-elsewhere",
+        "google-missing",
+        "no-at",
+    ],
+)
+def test_microsoft_entra_vouches_with_xms_edov_only(
+    issuer: str, claims: dict[str, object], trusted: bool
+) -> None:
+    assert verified_email(claims, issuer) == (claims["email"] if trusted else None)
 
 
 GOOGLE = "https://accounts.google.com"
