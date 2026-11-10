@@ -88,3 +88,15 @@ def test_smoke_checks_report_a_wrong_build_and_an_identity_provider_outage(smoke
 def test_unreachable_url_fails_cleanly(capsys: pytest.CaptureFixture[str]) -> None:
     assert load_script().main(["http://127.0.0.1:9", "--allow-http"]) == 1
     assert "FAIL  reachable" in capsys.readouterr().out
+
+
+def test_older_builds_are_not_held_to_hardening_they_predate(smoke: ModuleType, oidc_against: Any) -> None:
+    """CI's older-build check and rollback rehearsal 2 run this script against the 0009 build,
+    which predates the v1.0 headers (G5). --older-build skips exactly those checks."""
+    results = smoke.run(
+        "http://testserver", allow_http=True, expect_commit=None, expect_mode=None, older_build=True
+    )
+    names = {r.name for r in results}
+    assert not names & smoke.V1_HARDENING, "skipped, not reported as passed"
+    assert {r.name for r in results if not r.ok} == {"no API docs in prod", "metrics not public"}
+    assert "header x-frame-options" in names, "checks every build has still run"

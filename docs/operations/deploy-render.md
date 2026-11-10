@@ -204,12 +204,13 @@ the 0009 build's worker also checks the web settings: copy `AOS_PUBLIC_URL`,
 `AOS_OIDC_ISSUER`, `AOS_OIDC_CLIENT_ID` and `AOS_ALLOWED_EMAILS` onto `aos-worker` first.
 Merge the release with a merge commit (not a squash), so the 0009 commit exists on `main`.
 
-1. Deploy the 0009 build. `GET /version` shows `migration_head: "0009"`; `smoke_prod.py`
+1. Deploy the 0009 build. `GET /version` shows `migration_head: "0009"`; `smoke_prod.py --older-build`
    passes; sign in and create a run.
 2. Deploy the current build (0010). Migration 0010 runs; `/version` shows `"0010"`; record
    the smoke result, then submit and approve a plan.
 3. **Roll back** to the 0009 deploy. Expected: the deploy goes live (readiness passes on the
-   0010 schema); `smoke_prod.py --expect-commit <0009 sha>` passes; existing runs open; the
+   0010 schema); `smoke_prod.py --expect-commit <0009 sha> --older-build` passes (the 0009
+   build predates the v1.0 security headers, which `--older-build` skips); existing runs open; the
    worker logs `"worker started"`, not "schema not compatible". The access-model pages are
    absent in this build, but sign-in works for allowlisted people.
 4. Roll forward to the current build. Expected: no migration runs (already at 0010); the data

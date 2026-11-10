@@ -260,7 +260,7 @@ jobs:
           docker run -d --name prev-worker --network host $OLD aos:prev python -m app.workers.runner
           for i in $(seq 1 30); do curl -fsS http://127.0.0.1:10002/readyz && break; sleep 2; done
           python backend/scripts/smoke_prod.py http://127.0.0.1:10002 --allow-http --idp-unreachable \
-            --expect-commit "$prev"
+            --expect-commit "$prev" --older-build
           sleep 5
           docker logs prev-worker 2>&1 | grep -q '"worker started"'
           docker stop -t 30 prev-worker prev-web

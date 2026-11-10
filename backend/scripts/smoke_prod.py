@@ -22,6 +22,14 @@ from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
 TIMEOUT = 20
+# Checks for hardening added in v1.0 (G5). Builds before it, such as the 0009 build used by
+# CI's older-build check and rollback rehearsal 2, skip them with --older-build.
+V1_HARDENING = {
+    "header strict-transport-security",
+    "header cross-origin-opener-policy",
+    "header permissions-policy",
+    "login cookie prefix",
+}
 
 
 @dataclass
@@ -74,10 +82,13 @@ def run(
     expect_commit: str | None,
     expect_mode: str | None,
     idp_unreachable: bool = False,
+    older_build: bool = False,
 ) -> list[Result]:
     results: list[Result] = []
 
     def check(name: str, condition: bool, detail: str) -> None:
+        if older_build and name in V1_HARDENING:
+            return
         results.append(Result(name, bool(condition), detail))
 
     secure = base.startswith("https://")
@@ -227,6 +238,11 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="the identity provider is deliberately unreachable (CI): expect the friendly outage redirect",
     )
+    parser.add_argument(
+        "--older-build",
+        action="store_true",
+        help="the build predates the v1.0 hardening (CI's older-build check, rollback rehearsal 2)",
+    )
     parser.add_argument("--json", dest="json_path", help="also write the results to this file")
     args = parser.parse_args(argv)
     base = args.url.rstrip("/")
@@ -239,6 +255,7 @@ def main(argv: list[str] | None = None) -> int:
             expect_commit=args.expect_commit,
             expect_mode=args.expect_signup_mode,
             idp_unreachable=args.idp_unreachable,
+            older_build=args.older_build,
         )
     except (urllib.error.URLError, TimeoutError, ValueError) as exc:
         results = [Result("reachable", False, f"{type(exc).__name__}: {exc}")]
