@@ -4,60 +4,52 @@ Uses the template from the context prompt (§4). Contains no secrets or private 
 
 ```text
 Project: Agent Orchestration System
-Current state: v1.0 release candidate, committed locally on main and NOT pushed. Phases 1-4
-  and the repository side of 5, 7, 8 and 9 are done. The tag v1.0.0-pilot waits for the
-  owner's approval. Nothing is in progress.
+Current state (2026-11-10): Phase A (read-only audit) done; Phase B in progress. Branch
+  release/deploy-ready holds all work since M16. GitHub has it up to 3aff454, whose CI was red
+  only in e2e (fixed by 754c7af). The newer commits below are committed locally and wait for the
+  owner's push (an agent shell cannot authenticate to GitHub on this machine). No pull request
+  yet; nothing is deployed.
 
-Commits (local, in order; see `git log --oneline`):
-  1. Sign-in hardening, schema compatibility window and deploy tooling (phases 1-2):
-     migration 0009 (schema compatibility window), /version, scripts/smoke_prod.py,
-     render.free.yaml + app/serve.py, login-binding cookie, named sign-in errors,
-     /auth/config, Google issuer forms, favicon, storage restore on re-upload. This is the
-     "0009 build" for rollback rehearsal 2; on its own it passes ruff, mypy and pytest
-     (420 passed).
-  2. Access model (phase 3): migration 0010, platform admins, signup modes, access list,
-     access requests, invitations, admin routes, production rules (pytest 463 passed).
-  3. UI (phase 4): onboarding, workspace settings, access administration, request-access
-     form, notifications, 401/403 handling, dark mode, 360 px, axe/keyboard E2E.
-  4. Documentation and close-out (phases 5-9): ADRs 0020-0022, deploy guide with Google
-     OAuth and two rehearsals, records page, threat model T18-T22, runbook, retention,
-     user guide with 17 re-captured screenshots, research prep, CHANGELOG, this handoff.
+Commits after M16 (d8de167), in order:
+  45782cd sign-in hardening, schema compatibility window (migration 0009), deploy tooling
+  02074c7 access model (migration 0010): platform admins, signup modes, invitations, requests
+  336701f UI: onboarding, workspace settings, access administration, accessibility
+  8bd59ea docs and close-out (ADRs 0020-0022, deploy guide, threat model, research prep)
+  b73469f config: the worker and migrations start without web-only settings
+  3aff454 deploy: hybrid blueprint in Singapore; CI proves every topology and the older build
+  ---- on GitHub up to here ----
+  55d2d6e auth: trust only provider-verified email addresses (G2, ADR 0024)
+  754c7af web: keep access-decision notices after the request row closes (the CI e2e failure)
+  18babd1 e2e: no retries for stateful access journeys; keep worker output
+  (this handoff)
 
-Architecture decisions accepted:
-  0001-0019 as before; 0020 schema compatibility window; 0021 access model; 0022 deployment
-  variants and the ephemeral object store.
+Architecture decisions: 0001-0024 (0023 deploy topologies and CI proof; 0024 verified email only).
+Database migrations: 0001 ... 0010 (0009 stays compatible with 0010; ADR 0020).
 
-Database migrations:
-  0001 ... 0010. 0009 adds schema_compatibility ('0009'); 0010 adds access_list_entries,
-  access_requests, workspace_invitations, copies current members onto the access list, and
-  adds '0010' (0009 stays compatible).
+Tests actually run (2026-11-10, Windows 11, Python 3.14.7, PostgreSQL 17.11, Node 24.21):
+  backend: ruff + format clean, mypy clean (101 files), pytest 477 passed / 1 live deselected;
+  frontend: typecheck clean, Vitest 14 files / 81 tests, production build OK;
+  Playwright with CI=1 (Edge channel; the bundled Chromium download is blocked by the local
+  proxy): 12 passed, no retries.
+  M16 baseline for comparison: pytest 398, Vitest 35, Playwright 6.
 
-Tests actually run (2026-11-09, Windows 11, Python 3.14.7, PostgreSQL 17.11, Node 24.21):
-  backend: ruff + format clean, mypy --strict clean (101 files), pytest 463 passed /
-  1 live test deselected (204 s, database tests ran);
-  frontend: typecheck clean, vitest 14 files / 79 tests passed, production build OK;
-  Playwright (Edge, real API + worker + dev IdP + Postgres): 13 passed, including axe-core
-  WCAG 2.2 A/AA on every page in light and dark mode, 360 px layouts, keyboard, the
-  invitation, access-request and session-expiry journeys, and the screenshot capture.
+Checks not run locally: Docker image builds, Render schema validation and the per-topology
+  smoke tests (CI deploy-image job only; green on 3aff454).
 
-Checks not run locally:
-  Docker image builds and the deploy-image smoke test (no Docker here; CI runs both, now
-  including smoke_prod.py and the single-service variant). Render schema validation (CI).
-  Everything that needs the owner (below).
+Open findings (Phase C): G3 forwarded-for trust, G4 role health checks, G5 security headers and
+  __Host- cookie, G6 pool sizes, G7 retention for the viva (owner: RUN_RETENTION_DAYS=0),
+  G8 commit in /healthz and the UI footer, G9 storage and retention across disks; plus F4
+  RENDER_EXTERNAL_URL fallback, F5 exact discovery issuer, F9 corpus fail-fast, F13 supersede
+  ADR 0004 and the brief's UNDECIDED rows. G10 is Phase F.
 
 Blocked by owner (each has a written procedure):
-  1. Render deployment with Google sign-in: docs/operations/deploy-render.md. Deploy the
-     "0009 build" (commit 1) first, then main, so rehearsal 2 is possible.
-  2. Rollback rehearsals 1 and 2, recorded in docs/operations/rehearsals.md.
-  3. Live evaluation (LIVE_EVAL not approved): key in backend/.env, written budget approval
-     of at most USD 10, then docs/evaluation/evaluation-plan.md "Live run checklist".
-  4. Blind human scoring with two scorers.
-  5. Interviews, usability study, NVDA session: docs/product/interview-guide.md,
-     usability-study.md, accessibility-checklist.md.
-  After 3-4, update report sections 13.5, 14 and 17 with measured results only.
+  1. Push release/deploy-ready, open the PR to main, merge once CI is green.
+  2. Render deployment with Google sign-in: docs/operations/deploy-render.md (Phase D).
+  3. Rollback rehearsals 1 and 2: docs/operations/rehearsals.md.
+  4. Live evaluation: budget approval (LIVE_BUDGET_USD is 0), then the evaluation plan.
+  5. Blind scoring by two scorers; interviews, usability study, NVDA session.
 
-Before pushing:
-  Pushing main triggers CI and, once a Render Blueprint with autoDeployTrigger: checksPass
-  exists, a deploy. Never push refs/agents/* (they contain a corporate email). Tag
-  v1.0.0-pilot only after approval.
+Before pushing: push only refs/heads/release/deploy-ready, never refs/agents/*. Merging to main
+  deploys once a Render Blueprint with autoDeployTrigger: checksPass exists. The release tag is
+  v1.0.0, created only after the owner approves (Phase F).
 ```
