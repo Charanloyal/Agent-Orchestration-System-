@@ -49,31 +49,39 @@ def test_settings_bound_the_hop_count() -> None:
         Settings(trusted_proxy_hops=6)
 
 
-def test_rotating_a_client_supplied_forwarded_for_does_not_reset_the_login_limit(
+def login_keys(db: Session) -> set[str]:
+    # Distinct keys, not counts: fixed 5-minute windows make a count straddle a boundary.
+    return set(db.scalars(select(RateLimitCounter.key).where(RateLimitCounter.key.like("login:%"))).all())
+
+
+def attempt(client: TestClient, forwarded: str) -> None:
+    client.get("/api/v1/auth/login", headers={"X-Forwarded-For": forwarded}, follow_redirects=False)
+
+
+def test_rotating_a_client_supplied_forwarded_for_does_not_change_the_login_key(
     client: TestClient, settings_override: Callable[..., Settings], db: Session
 ) -> None:
-    settings_override(rate_login_per_ip_5min=2, trusted_proxy_hops=1)
-    places = [
-        client.get(
-            "/api/v1/auth/login",
-            headers={"X-Forwarded-For": f"6.6.6.{n}, 203.0.113.7"},
-            follow_redirects=False,
-        ).headers["location"]
-        for n in range(3)
-    ]
-    assert places[2] == "/signin?error=rate_limited", "a forged left-hand entry must not change the key"
-    keys = db.scalars(select(RateLimitCounter.key).where(RateLimitCounter.key.like("login:%"))).all()
-    assert len(keys) == 1 and "203.0.113.7" not in keys[0], "one hashed key; never a raw address"
+    settings_override(trusted_proxy_hops=1)
+    for n in range(3):
+        attempt(client, f"6.6.6.{n}, 203.0.113.7")
+    keys = login_keys(db)
+    assert len(keys) == 1, "a forged left-hand entry must not change the key"
+    assert "203.0.113.7" not in next(iter(keys)), "keys are hashed; never a raw address"
+
+
+def test_the_key_follows_the_address_the_trusted_proxy_appended(
+    client: TestClient, settings_override: Callable[..., Settings], db: Session
+) -> None:
+    settings_override(trusted_proxy_hops=1)
+    attempt(client, "203.0.113.7")
+    attempt(client, "198.51.100.9")
+    assert len(login_keys(db)) == 2, "different clients are limited separately"
 
 
 def test_without_trusted_proxies_the_header_is_ignored(
-    client: TestClient, settings_override: Callable[..., Settings]
+    client: TestClient, settings_override: Callable[..., Settings], db: Session
 ) -> None:
-    settings_override(rate_login_per_ip_5min=2, trusted_proxy_hops=0)
-    places = [
-        client.get(
-            "/api/v1/auth/login", headers={"X-Forwarded-For": f"203.0.113.{n}"}, follow_redirects=False
-        ).headers["location"]
-        for n in range(3)
-    ]
-    assert places[2] == "/signin?error=rate_limited"
+    settings_override(trusted_proxy_hops=0)
+    for n in range(3):
+        attempt(client, f"203.0.113.{n}")
+    assert len(login_keys(db)) == 1

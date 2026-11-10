@@ -45,8 +45,9 @@ everything on the left may be forged.
 ## Consequences
 
 - Forging the left part of `X-Forwarded-For` no longer changes the key
-  (`test_rotating_a_client_supplied_forwarded_for_does_not_reset_the_login_limit`), and with
-  hops 0 the header is ignored (`test_without_trusted_proxies_the_header_is_ignored`).
+  (`test_rotating_a_client_supplied_forwarded_for_does_not_change_the_login_key`), different
+  clients keep separate keys (`test_the_key_follows_the_address_the_trusted_proxy_appended`),
+  and with hops 0 the header is ignored (`test_without_trusted_proxies_the_header_is_ignored`).
 - If Render had *more* appending proxies than configured, the key would be a proxy address:
   limits would be shared by many visitors (too strict), never bypassable. If it had *fewer*,
   the key would be client-written again. The deployment check
