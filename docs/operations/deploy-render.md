@@ -1,29 +1,35 @@
 # Deploying to Render
 
-Repository-side configuration is complete and checked in CI:
+Repository-side configuration is checked in CI on every pull request (job `deploy-image`,
+[ADR 0023](../decisions/0023-deploy-topologies-and-ci-proof.md)):
 
-- the `deploy-image` job builds the root `Dockerfile`, migrates a real Postgres, starts web and
-  worker with production settings, and runs [`scripts/smoke_prod.py`](../../backend/scripts/smoke_prod.py)
-  against the container. It then does the same for the single-service variant;
-- `render.yaml` and `render.free.yaml` are validated against Render's published Blueprint
-  schema.
+- every `render*.yaml` is validated against Render's published Blueprint schema, and
+  [`scripts/check_blueprints.py`](../../backend/scripts/check_blueprints.py) checks that each
+  one starts the image the way the job does;
+- the job builds the root `Dockerfile` and starts each topology with production settings
+  against a real Postgres, then runs [`scripts/smoke_prod.py`](../../backend/scripts/smoke_prod.py):
+  web plus a separate worker (started without any sign-in settings), and the single process
+  of the hybrid and free blueprints, which migrates a fresh database on start;
+- the build just before the newest migration is started on the new schema and must be ready,
+  pass the smoke test and start its worker ([ADR 0020](../decisions/0020-schema-compatibility-window.md)).
 
 Everything below needs the owner's accounts (Render, Google Cloud) and is **manual**. Record
 each result in [rehearsals.md](rehearsals.md); do not assume.
 
 ## Choose a blueprint
 
-| | `render.yaml` (recommended) | `render.free.yaml` |
-| --- | --- | --- |
-| Services | Web (API + SPA) and a separate background worker | One web service running API and worker (`python -m app.serve --migrate --with-worker`) |
-| Migrations | Pre-deploy command `alembic upgrade head` | Run at start-up, before serving |
-| Plans | Web `starter`, worker `starter`, Postgres `basic-256mb` (paid) | Web `free`, Postgres `free` |
-| Limits | None beyond the plan | Sleeps when idle (slow first request; queued runs wait); the free database is time-limited by Render. Check Render's current free-tier terms |
-| Rollback rehearsals | Supported | Supported (redeploy an earlier commit) |
+| | `render.hybrid.yaml` (chosen) | `render.yaml` | `render.free.yaml` |
+| --- | --- | --- | --- |
+| Services | One web service running API and worker (`python -m app.serve --migrate --with-worker`) | Web (API + SPA) and a separate background worker | As hybrid |
+| Migrations | Run at start-up, before serving | Pre-deploy command `alembic upgrade head` | As hybrid |
+| Plans | Web `free`, Postgres `basic-256mb` (paid) | Web `starter`, worker `starter`, Postgres `basic-256mb` (paid) | Web `free`, Postgres `free` |
+| Limits | Sleeps after 15 idle minutes (slow first request; queued runs wait until it wakes); the database does not expire | None beyond the plans | As hybrid, and Render deletes free databases after 30 days (check Render's current terms) |
+| Rollback rehearsals | Supported (redeploy an earlier commit) | Supported | Supported |
 
-Both run the deterministic demo agents (`AOS_AGENT_MODE=fake`) and are labelled as such in the
-UI. Both use the access model in [ADR 0021](../decisions/0021-access-model.md) with
-`AOS_SIGNUP_MODE=request`.
+All three run the deterministic demo agents (`AOS_AGENT_MODE=fake`) and are labelled as such
+in the UI. All use the access model in [ADR 0021](../decisions/0021-access-model.md) with
+`AOS_SIGNUP_MODE=request`, and all are in the `singapore` region. Render cannot move a
+service or database to another region after creation.
 
 ## 1. Register the app with Google (OpenID Connect)
 
@@ -52,22 +58,22 @@ forms of the issuer claim, and both are accepted.
 ## 2. Create the Blueprint
 
 1. In the Render Dashboard choose **New > Blueprint**, select this repository, branch `main`,
-   and the blueprint file (`render.yaml` or `render.free.yaml`).
+   and the blueprint file (`render.hybrid.yaml`, `render.yaml` or `render.free.yaml`).
 2. Render prompts for each `sync: false` variable:
 
 | Variable | Value | Services |
 | --- | --- | --- |
-| `AOS_PUBLIC_URL` | `https://<your-service>.onrender.com` (no trailing slash) | web, worker |
-| `AOS_OIDC_ISSUER` | `https://accounts.google.com` | web, worker |
-| `AOS_OIDC_CLIENT_ID` | From step 1 | web, worker |
-| `AOS_OIDC_CLIENT_SECRET` | From step 1 | web only |
-| `AOS_PLATFORM_ADMIN_EMAILS` | Your own Google address, e.g. `you@gmail.com` (comma-separate several) | web, worker |
+| `AOS_PUBLIC_URL` | `https://<your-service>.onrender.com` (no trailing slash) | web |
+| `AOS_OIDC_ISSUER` | `https://accounts.google.com` | web |
+| `AOS_OIDC_CLIENT_ID` | From step 1 | web |
+| `AOS_OIDC_CLIENT_SECRET` | From step 1 | web |
+| `AOS_PLATFORM_ADMIN_EMAILS` | Your own Google address (comma-separate several) | web |
 
-   The worker validates the same production settings as the web service: enter identical
-   values where prompted.
+   The separate worker of `render.yaml` serves no HTTP and needs none of these (ADR 0023).
 3. Apply. With `render.yaml`, Render builds the image, runs `alembic upgrade head` as the web
    pre-deploy step, then starts both services; the worker waits until the schema is
-   compatible. With `render.free.yaml`, the single service migrates on start.
+   compatible. With `render.hybrid.yaml` or `render.free.yaml`, the single service migrates
+   on start.
 
 `AOS_METRICS_TOKEN` is generated automatically; scrape `/metrics` with
 `Authorization: Bearer <token>`.
@@ -78,7 +84,8 @@ If a Blueprint was created from an earlier version of this repository:
 
 | Change | Variable | Action |
 | --- | --- | --- |
-| **New, required** | `AOS_PLATFORM_ADMIN_EMAILS` | Add on web *and* worker before deploying; production refuses to start without it |
+| **New, required** | `AOS_PLATFORM_ADMIN_EMAILS` | Add on the web service before deploying; production refuses to start without it |
+| No longer needed on the worker | `AOS_PUBLIC_URL`, `AOS_OIDC_ISSUER`, `AOS_OIDC_CLIENT_ID`, `AOS_PLATFORM_ADMIN_EMAILS` | May be deleted from `aos-worker`; it ignores them |
 | New (blueprint group) | `AOS_SIGNUP_MODE=request` | Synced from the blueprint; set `invite` to accept invited people only |
 | Now optional | `AOS_ALLOWED_EMAILS`, `AOS_ALLOWED_EMAIL_DOMAINS` | Keep or delete; people on them can always sign in. Keep `AOS_ALLOWED_EMAILS` set until rehearsal 2 is done: the 0009 build still requires an allowlist |
 | Optional | `AOS_OIDC_PROVIDER_LABEL`, `AOS_WORKSPACE_CREATION`, `AOS_INVITATION_TTL_DAYS`, `AOS_RATE_ACCESS_REQUEST_PER_IP_HOUR`, `AOS_RETENTION_ACCESS_REQUEST_DAYS` | Defaults: derived label, `platform_admins`, 14, 5, 90 |
@@ -141,8 +148,8 @@ runtime. Schema downgrades are a last resort: see [migrations.md](migrations.md)
 first, rehearse on a copy).
 
 A failing pre-deploy migration fails the deploy, and the previous version keeps serving.
-With `render.free.yaml`, a failing start-up migration keeps the new instance from becoming
-healthy, and Render keeps the old one.
+With the single-service blueprints, a failing start-up migration keeps the new instance from
+becoming healthy, and Render keeps the old one.
 
 ### Rehearsal 1: code-only rollback
 
@@ -156,8 +163,11 @@ healthy, and Render keeps the old one.
 This proves the compatibility window. It needs the deployment to have run a build at
 migration **0009** first. That is the first commit of this release, "Sign-in hardening,
 schema compatibility window and deploy tooling" (`git log --oneline`). The 0009 build predates
-the access model: it requires `AOS_ALLOWED_EMAILS` (set it to your own address on both
-services) and ignores `AOS_PLATFORM_ADMIN_EMAILS`. Keep both set for the whole rehearsal.
+the access model: it requires `AOS_ALLOWED_EMAILS` (set it to your own address) and ignores
+`AOS_PLATFORM_ADMIN_EMAILS`. Keep both set for the whole rehearsal. With `render.yaml` only,
+the 0009 build's worker also checks the web settings: copy `AOS_PUBLIC_URL`,
+`AOS_OIDC_ISSUER`, `AOS_OIDC_CLIENT_ID` and `AOS_ALLOWED_EMAILS` onto `aos-worker` first.
+Merge the release with a merge commit (not a squash), so the 0009 commit exists on `main`.
 
 1. Deploy the 0009 build. `GET /version` shows `migration_head: "0009"`; `smoke_prod.py`
    passes; sign in and create a run.
@@ -175,7 +185,8 @@ services) and ignores `AOS_PLATFORM_ADMIN_EMAILS`. Keep both set for the whole r
 ## Known limitations of this deployment
 
 - `render.yaml` needs paid instance types for the worker and the pre-deploy command;
-  `render.free.yaml` trades that for sleeping and a time-limited database.
+  `render.hybrid.yaml` trades that for a web service that sleeps when idle, and
+  `render.free.yaml` adds a database that Render deletes after its free period.
 - The object store is the container's ephemeral disk ([ADR 0022](../decisions/0022-deployment-variants-ephemeral-storage.md)):
   uploaded originals and export copies are lost on redeploy or restart. Extracted text,
   evidence, reports and approvals are in Postgres, so nothing a report depends on is lost;

@@ -13,7 +13,7 @@ the owner's Render and Google Cloud accounts (and payment details for `render.ya
 | Field | Value |
 | --- | --- |
 | Date, time (UTC) | |
-| Blueprint | `render.yaml` / `render.free.yaml` |
+| Blueprint | `render.hybrid.yaml` / `render.yaml` / `render.free.yaml` |
 | Service URL | |
 | Commit (`GET /version`) | |
 | Migration head (`GET /version`) | |

@@ -35,15 +35,17 @@ cd backend
 ```
 
 On Render, `alembic upgrade head` is the web service's pre-deploy command (`render.yaml`) or
-runs at start-up (`render.free.yaml`). If it fails, the deploy fails and the previous version
-keeps serving.
+runs at start-up (`render.hybrid.yaml`, `render.free.yaml`). If it fails, the deploy fails and
+the previous version keeps serving.
 
 ## Roll back
 
 Prefer rolling back **code** (redeploy the previous build). Within the compatibility window
-the previous build is ready on the newer schema, so no schema change is needed; rehearsal 2
+the previous build is ready on the newer schema, so no schema change is needed; CI checks
+this on every pull request by starting the build before the newest migration on the new
+schema (ADR 0023), and rehearsal 2
 in [deploy-render.md](deploy-render.md#rehearsal-2-rollback-across-the-access-model-migration-0010)
-exercises this. If a schema downgrade is really needed:
+exercises it on Render. If a schema downgrade is really needed:
 
 1. Take a backup (below) and stop the worker.
 2. Rehearse on a copy: restore the backup into a scratch database, then run

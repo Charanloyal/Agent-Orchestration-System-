@@ -43,7 +43,8 @@ backend/evaluation/       Evaluation harness: systems A/B/C, metrics, blind scor
 spikes/week2_persistence/ Archived Week-2 spike (evidence for ADR 0007/0008)
 docker-compose.yml        Local production-like stack (Postgres, API, dev IdP, web)
 Dockerfile, render.yaml   Single-origin production image and Render Blueprint (web + worker + Postgres)
-render.free.yaml          Free-plan variant: one service runs API and worker (ADR 0022)
+render.hybrid.yaml        Chosen variant: one free service runs API and worker, paid Postgres (ADR 0023)
+render.free.yaml          Free-plan variant: as hybrid, with a free Postgres (ADR 0022)
 .github/workflows/ci.yml  Lint, type-check, tests on Postgres, frontend build, image builds
 ```
 
@@ -205,8 +206,9 @@ To sign in on this single origin, start both the API and the dev issuer with
 - **Demo:** `python -m app.cli seed-demo --sample-run`, then follow the 10-step
   [demonstration script](docs/demo/demo-script.md). The [user guide](docs/user-guide.md)
   explains each screen.
-- **Render:** [`render.yaml`](render.yaml) (web + worker + managed Postgres, paid) or
-  [`render.free.yaml`](render.free.yaml) (one free service), with Google sign-in, step by step
+- **Render:** [`render.hybrid.yaml`](render.hybrid.yaml) (one free service, paid Postgres;
+  the chosen topology), [`render.yaml`](render.yaml) (web + worker + Postgres, paid) or
+  [`render.free.yaml`](render.free.yaml) (all free), with Google sign-in, step by step
   in [deploy-render.md](docs/operations/deploy-render.md). After every deploy run
   `python backend/scripts/smoke_prod.py https://<your-url>`.
 - **Operations:** [P0 checklist](docs/operations/p0-checklist.md) ·

@@ -17,7 +17,7 @@ databases:
     user: aos
     plan: free
     postgresMajorVersion: "17"
-    region: frankfurt
+    region: singapore
     ipAllowList: []   # no public access; the service connects over Render's private network
 
 services:
@@ -25,7 +25,7 @@ services:
     name: aos-web
     runtime: docker
     plan: free
-    region: frankfurt
+    region: singapore
     dockerfilePath: ./Dockerfile
     dockerContext: .
     dockerCommand: python -m app.serve --migrate --with-worker

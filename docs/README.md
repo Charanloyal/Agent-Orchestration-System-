@@ -22,7 +22,7 @@
 | **M15: UX, accessibility, user documentation** | **Done** | `RunPage.test.tsx`, `ActivityPage.test.tsx`, `e2e/workflow.spec.ts`; [user guide](user-guide.md) with screenshots from `e2e/screenshots.spec.ts`; [troubleshooting](troubleshooting.md) |
 | M16: final report | **Done** (report written from measured results; the live and held-out evaluation are **blocked**: no API key, budget approval or human scorers) | [report/final-report.md](report/final-report.md), [appendices](report/appendices.md) |
 | **v1.0 phase 1: sign-in** | **Done** | ADR 0021 §8; `test_auth_oidc.py` (login binding, friendly errors, Google issuer forms, `/auth/config`) |
-| **v1.0 phase 2: deployment** | **Done** (repository side) | ADR 0020, 0022; `test_migrations.py`, `test_smoke_prod.py`, `test_serve.py`; `render.free.yaml`; CI `deploy-image` |
+| **v1.0 phase 2: deployment** | **Done** (repository side) | ADR 0020, 0022, 0023; `test_migrations.py`, `test_smoke_prod.py`, `test_serve.py`, `test_blueprints.py`; `render.hybrid.yaml`, `render.free.yaml`; CI `deploy-image` |
 | **v1.0 phase 3: access model** | **Done** | ADR 0021; migration 0010; `test_access.py`, `test_authz.py` |
 | **v1.0 phase 4: UI** | **Done** | Onboarding, workspace settings, access administration, notifications, 401/403 handling, dark mode, 360 px; Vitest 79 tests; E2E `access.spec.ts`, `a11y.spec.ts` (axe) |
 | v1.0 phase 5: redeploy and rehearsals | **Blocked by owner** (Render and Google accounts) | Procedure: [deploy-render.md](operations/deploy-render.md); records: [rehearsals.md](operations/rehearsals.md) |
@@ -78,8 +78,9 @@
   - Production refuses unsafe settings; platform admins required; request-size limits.
   - Readiness accepts the code's head or a newer schema that declares the code compatible
     (ADR 0020), so rollbacks across additive migrations work; `/version` names the build.
-  - `scripts/smoke_prod.py` checks a deployment from outside; `render.free.yaml` runs API and
-    worker in one free service (ADR 0022).
+  - `scripts/smoke_prod.py` checks a deployment from outside; `render.hybrid.yaml` and
+    `render.free.yaml` run API and worker in one free service (ADR 0022, 0023); CI starts
+    every topology and the build before the newest migration.
   - Admin run deletion including checkpoints and export files; retention sweep;
     append-only audit log with an admin audit view.
   - Seeded demo with a sample run; demo script; P0 checklist; migration and rollback
@@ -202,6 +203,7 @@ All four agents are LLM-backed when `AOS_AGENT_MODE=llm`; fakes are the default.
 | [0020](decisions/0020-schema-compatibility-window.md) | Schema compatibility window for rollbacks across migrations | Accepted |
 | [0021](decisions/0021-access-model.md) | Access model: invitations, access requests, platform admins, sign-in hardening | Accepted |
 | [0022](decisions/0022-deployment-variants-ephemeral-storage.md) | Deployment variants (free single service) and the ephemeral object store | Accepted |
+| [0023](decisions/0023-deploy-topologies-and-ci-proof.md) | Deployment topologies (hybrid chosen), role-specific settings, deploy proof in CI | Accepted |
 
 ## Session handoff
 
