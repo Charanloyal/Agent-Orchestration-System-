@@ -208,6 +208,17 @@ class Settings(BaseSettings):
         return value.rstrip("/")
 
     @model_validator(mode="after")
+    def _corpus_present(self) -> Settings:
+        """F9: the production image does not include eval/, so corpus search there would find
+        nothing at all. Refuse to start rather than produce evidence-free reports."""
+        if self.search_provider == "corpus" and not any(self.corpus_dir.glob("*.json")):
+            raise ValueError(
+                f"AOS_SEARCH_PROVIDER=corpus needs corpus documents in AOS_CORPUS_DIR ({self.corpus_dir}); "
+                "the production image does not include eval/"
+            )
+        return self
+
+    @model_validator(mode="after")
     def _production_safety(self) -> Settings:
         """Refuse to start in prod with any development default that would be unsafe there.
         Each message names the variable to fix. Settings only the web service uses are checked
