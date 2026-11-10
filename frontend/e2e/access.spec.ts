@@ -5,6 +5,9 @@ import { expectNoA11yViolations, shot, signIn, signOut, startSignIn } from "./he
 // The access model end to end (ADR 0021), against the real dev identity provider. The E2E
 // stack runs with AOS_SIGNUP_MODE=request and Carol as the platform admin
 // (playwright.config.ts). Dana and Erin exist at the identity provider but are not seeded.
+// Each journey changes the shared database (an invitation used, a request decided), so a retry
+// would start from the wrong state and hide the first failure: these journeys never retry.
+test.describe.configure({ retries: 0 });
 
 test("an admin invites a newcomer, who joins with the invited role on first sign-in", async ({ page }) => {
   await signIn(page, "Carol Admin");
