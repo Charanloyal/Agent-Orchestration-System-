@@ -4,61 +4,66 @@ Uses the template from the context prompt (§4). Contains no secrets or private 
 
 ```text
 Project: Agent Orchestration System
-Current milestone: M3–M16 DONE on the repository side. M16 (final report) is written
-  from measured results only: docs/report/final-report.md and appendices.md. Nothing is
-  in progress. Remaining work needs the project lead (see Known gaps).
+Current state (2026-11-10): Phases A, B and C done locally. Branch release/deploy-ready holds
+  all work since M16. GitHub has it only up to 3aff454 (CI red there in e2e, fixed below).
+  The 16 newer commits wait for the owner's push: an agent shell on this machine cannot
+  authenticate to GitHub. No pull request yet; nothing is deployed.
 
-Last completed slice (M16):
-  Final report with 19 sections; architecture, state, sequence and ER diagrams; 29
-  references, each checked against arXiv, Crossref or the publisher on 2026-11-04;
-  dataset hashes (dev e9b07361…, held-out 828c4882…, corpus manifest 967f7c06…,
-  unchanged since M11). The live and held-out evaluation is marked BLOCKED, at the project
-  lead's choice on 2026-11-04 (no API key, no budget approval, no human scorers). The
-  held-out set has still never been run.
+Commits after M16 (d8de167), in order:
+  45782cd sign-in hardening, schema compatibility window (migration 0009), deploy tooling
+  02074c7 access model (migration 0010): platform admins, signup modes, invitations, requests
+  336701f UI: onboarding, workspace settings, access administration, accessibility
+  8bd59ea docs and close-out (ADRs 0020-0022, deploy guide, threat model, research prep)
+  b73469f config: the worker and migrations start without web-only settings
+  3aff454 deploy: hybrid blueprint in Singapore; CI proves every topology and the older build
+  ---- on GitHub up to here ----
+  55d2d6e G2  auth: trust only provider-verified email addresses (ADR 0024)
+  754c7af     web: access-decision notices survive the request row closing (CI e2e failure)
+  18babd1     e2e: no retries for stateful access journeys; keep worker output
+  a7e6489     docs: phase B handoff
+  103f1a9 G3  rate-limit keys use the trusted proxy's client address (ADR 0025)
+  ab28673 G7  runs and uploads kept until deleted on Render (retention 0)
+  bcabd90 G5  production HSTS, COOP, Permissions-Policy; __Host-/__Secure- cookies
+  37d687c G8  /healthz and the page footer name the version and commit
+  0e1d534 G6  pool sizes are settings; connection budget 83 / 43 / 43 of Render's 100
+  99affb6 G4  one health check for web, worker and the single process (app.healthcheck)
+  5d117ff     client-address tests independent of rate-limit window timing
+  0f678b0 G9  keep no file copies on Render (AOS_STORE_FILES=false, ADR 0026)
+  a28d53f F4  RENDER_EXTERNAL_URL is the public URL unless AOS_PUBLIC_URL is set
+  7c8f9fd F5  ID tokens checked against the exact issuer from discovery (Auth0)
+  1552a84 F9  a missing corpus stops start-up instead of finding nothing
+  3d9ddba F13 ADR 0004 superseded; project brief and risk register current
+  (this handoff)
 
-Previous slice (M15):
-  Run page workflow stepper (responsive grid on phones), admin "Delete run" with
-  confirmation, admin Activity page over the append-only audit log, a "Demo agents" badge
-  driven by /api/v1/auth/me `deployment.agent_mode`, a skip link, per-page document titles and
-  a compact mobile top bar. docs/user-guide.md embeds 12 screenshots captured from the real
-  stack by frontend/e2e/screenshots.spec.ts (AOS_SCREENSHOTS=1); docs/troubleshooting.md
-  maps real error messages and log lines to fixes.
+Architecture decisions: 0001-0026 (0004 superseded by 0018/0023; 0022 amended by 0026).
+Database migrations: 0001 ... 0010 (0009 stays compatible with 0010; ADR 0020). Phase C added
+  none.
 
-Earlier slices (M12–M14):
-  The single-origin image (API serves the SPA; same image runs the worker; no dev issuer)
-  and render.yaml (web + worker + managed Postgres, schema-validated). Production refuses
-  unsafe settings and needs an allowlist. /readyz requires the migration head; the worker
-  waits for migrations and survives database outages. Admin run deletion and a retention
-  sweep; append-only audit. Load test, crash takeover and a backup/restore drill
-  (docs/operations/load-and-recovery.md).
+Tests actually run (2026-11-10, Windows 11, Python 3.14.7, PostgreSQL 17.11, Node 24.21):
+  backend: ruff + format clean, mypy clean (103 files), pytest 514 passed / 1 live deselected;
+  scripts/check_blueprints.py: all three blueprints pass;
+  frontend: typecheck clean, Vitest 14 files / 83 tests, production build OK;
+  Playwright with CI=1 (Edge channel; the bundled Chromium download is blocked by the local
+  proxy): 12 passed, no retries.
+  Baselines: M16 pytest 398 / Vitest 35 / Playwright 6; 9 Nov 463 / 79 / 13.
 
-Architecture decisions accepted:
-  0001–0017 as before; 0018 single-origin image, Render topology, production hardening;
-  0019 data lifecycle and append-only audit log.
+Checks not run locally (CI deploy-image job only, first run after the push): Docker image
+  build, Render schema validation, per-topology smoke tests, the new health-check assertions
+  (web, worker, single), RENDER_EXTERNAL_URL start-up, AOS_STORE_FILES probe.
 
-Database migrations:
-  0001 … 0008 (0008: audit_events append-only trigger). Dev DB `aos` at 0008.
+Findings: F1-F13 and G2-G9 closed on the branch (F3's e2e defect fixed). Open: G1 (push, PR,
+  green CI, merge: owner), G10 (Phase F), F14 (Phase E). Known flaky pattern, not changed:
+  test_observability's login rate-limit test counts within one 5-minute window.
 
-Tests actually run for M15 (Windows, Python 3.14.7, PostgreSQL 17.11, Node 24.21):
-  backend ruff + format + mypy clean, pytest 398 passed / 1 live test deselected; frontend
-  typecheck clean, vitest 35 passed, build OK, Playwright 6 passed (plus the opt-in
-  screenshot spec). M14 measurements: 20 readers p95 158 ms, 0 errors; 10 concurrent
-  workflows with 0 integrity or isolation violations; crash takeover 5.89 s with a 6 s
-  lease; graceful stop 0.6–0.7 s; restore drill PASS.
+Blocked by owner (each has a written procedure):
+  1. Push release/deploy-ready, open the PR to main, merge once CI is green (Phase B).
+  2. Render deployment with Google sign-in: docs/operations/deploy-render.md (Phase D),
+     including check 12 (trusted proxy hops) and the rollback rehearsals.
+  3. Live evaluation: budget approval (LIVE_BUDGET_USD is 0), then the evaluation plan.
+  4. Blind scoring by two scorers; interviews, usability study, NVDA session.
 
-Checks not run:
-  Docker builds (no Docker locally; CI `containers` and `deploy-image` jobs build and
-  smoke-test them). Render deployment (no account access; manual steps in
-  docs/operations/deploy-render.md). Live-model evaluation (needs a key and a budget).
-  Screen-reader testing with real assistive technology.
-
-Known gaps (need the project lead):
-  1. Live evaluation: put a key in backend/.env, approve a budget of at most USD 10 in
-     writing, then follow docs/evaluation/evaluation-plan.md "Live run checklist": smoke
-     run, dev split, then the held-out split once.
-  2. Blind human scoring with two scorers (python -m evaluation.blind / evaluation.score).
-  3. User interviews (docs/product/interview-guide.md).
-  4. Render deployment (docs/operations/deploy-render.md): account, payment, a real OIDC
-     provider, allowlist, first admin.
-  After 1–2, update report sections 13.5, 14 and 17 with the measured results only.
+Before pushing: push only refs/heads/release/deploy-ready, never refs/agents/*. Merging to main
+  deploys once a Render Blueprint with autoDeployTrigger: checksPass exists. Merge with a merge
+  commit (not squash) so rollback rehearsal 2 can deploy the 0009 build. The release tag is
+  v1.0.0, created only after the owner approves (Phase F).
 ```

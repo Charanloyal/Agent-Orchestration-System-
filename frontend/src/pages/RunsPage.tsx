@@ -34,30 +34,33 @@ export function RunsPage() {
           </EmptyState>
         )}
         {runs.data && runs.data.length > 0 && (
-          <table className="table">
-            <thead>
-              <tr>
-                <th scope="col">Topic</th>
-                <th scope="col">State</th>
-                <th scope="col">Created by</th>
-                <th scope="col">Created</th>
-              </tr>
-            </thead>
-            <tbody>
-              {runs.data.map((run) => (
-                <tr key={run.id}>
-                  <td>
-                    <Link to={`/runs/${run.id}`}>{run.topic}</Link>
-                  </td>
-                  <td>
-                    <StateBadge state={run.state} />
-                  </td>
-                  <td>{run.created_by}</td>
-                  <td className="nowrap">{formatDateTime(run.created_at)}</td>
+          <div className="table-wrap">
+            <table className="table">
+              <caption className="visually-hidden">Research runs</caption>
+              <thead>
+                <tr>
+                  <th scope="col">Topic</th>
+                  <th scope="col">State</th>
+                  <th scope="col" className="hide-narrow">Created by</th>
+                  <th scope="col" className="hide-narrow">Created</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {runs.data.map((run) => (
+                  <tr key={run.id}>
+                    <td>
+                      <Link to={`/runs/${run.id}`}>{run.topic}</Link>
+                    </td>
+                    <td>
+                      <StateBadge state={run.state} />
+                    </td>
+                    <td className="hide-narrow">{run.created_by}</td>
+                    <td className="nowrap hide-narrow">{formatDateTime(run.created_at)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
       </Card>
     </div>

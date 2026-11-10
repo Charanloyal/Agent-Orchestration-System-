@@ -1,12 +1,13 @@
 """Application settings. Values come from environment variables prefixed with AOS_ or from
 backend/.env (git-ignored). Secrets are SecretStr so they never appear in logs or reprs."""
 
+import os
 from functools import lru_cache
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 from urllib.parse import urlsplit
 
-from pydantic import SecretStr, field_validator, model_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 BACKEND_DIR = Path(__file__).resolve().parents[1]
@@ -24,6 +25,9 @@ class Settings(BaseSettings):
 
     env: Literal["dev", "test", "prod"] = "dev"
     database_url: SecretStr | None = None
+    # SQLAlchemy pool per process (API, worker); the worker's checkpointer adds one connection.
+    db_pool_size: int = Field(default=10, ge=1, le=50)
+    db_max_overflow: int = Field(default=10, ge=0, le=50)
     log_level: str = "INFO"
     log_json: bool = True
 
@@ -68,12 +72,17 @@ class Settings(BaseSettings):
     tavily_api_key: SecretStr | None = None
     corpus_dir: Path = BACKEND_DIR.parent / "eval" / "corpus" / "v1"
     object_store_dir: Path = BACKEND_DIR / ".data" / "objects"
+    # Keep copies of uploaded originals and exported reports in the object store. Nothing reads
+    # them back, so hosts with ephemeral per-service disks (Render) set false (ADR 0026).
+    store_files: bool = True
     upload_max_bytes: int = 10_000_000
     fetch_max_bytes: int = 2_000_000
     fetch_timeout_seconds: float = 10.0
     worker_lease_seconds: float = 30.0
     worker_heartbeat_seconds: float = 10.0
     worker_poll_seconds: float = 1.0
+    # Touched by the worker loop and its lease heartbeat; read by `python -m app.healthcheck`.
+    worker_alive_file: Path | None = None
     job_max_attempts: int = 5
     retry_backoff_base_seconds: float = 2.0
     retry_backoff_max_seconds: float = 60.0
@@ -91,13 +100,32 @@ class Settings(BaseSettings):
     rate_upload_per_user_hour: int = 30
     rate_export_per_user_hour: int = 60
     rate_login_per_ip_5min: int = 30
+    rate_access_request_per_ip_hour: int = 5
+    # Proxies in front of the app that append to X-Forwarded-For (ADR 0025). 0: use the socket
+    # peer and ignore the header. N: the Nth entry from the right is the client, because only
+    # the right-hand entries are written by trusted proxies; the client controls the rest.
+    trusted_proxy_hops: int = Field(default=0, ge=0, le=5)
     # Provider circuit breaker: consecutive transient failures before opening, and cooldown.
     breaker_failure_threshold: int = 5
     breaker_cooldown_seconds: float = 60.0
     # Sign-in allowlist (ADR 0018). Comma-separated; matched against the provider's *verified*
-    # email. Empty means "anyone the identity provider authenticates" and is refused in prod.
+    # email. These addresses and domains may always sign in, whatever the signup mode.
     allowed_emails: str = ""
     allowed_email_domains: str = ""
+    # Access model (ADR 0021). Who may sign in besides the allowlist and platform admins:
+    # - invite: people on the in-app access list or with a pending workspace invitation;
+    # - request: the same, plus a public "request access" form that platform admins review;
+    # - open: anyone with a verified email (refused in prod together with model agents).
+    # Unset: open in dev/test when no allowlist is configured, otherwise invite.
+    signup_mode: Literal["invite", "request", "open"] | None = None
+    # Comma-separated verified emails that manage access for the whole deployment. Required
+    # in prod, so someone can always approve requests and administer the access list.
+    platform_admin_emails: str = ""
+    # Who may create workspaces. Unset: everyone in dev/test, platform admins in prod.
+    workspace_creation: Literal["everyone", "platform_admins"] | None = None
+    invitation_ttl_days: int = 14
+    # Name shown on the sign-in button ("Continue with ..."). Unset: derived from the issuer.
+    oidc_provider_label: str | None = None
     # Single-origin deployment: when set, the API also serves the built SPA from this folder.
     static_dir: Path | None = None
     # Largest accepted request body for JSON endpoints; uploads get upload_max_bytes + 1 MB.
@@ -105,6 +133,8 @@ class Settings(BaseSettings):
     # Data retention (ADR 0018). 0 disables a sweep.
     retention_run_days: int = 0
     retention_upload_days: int = 0
+    # Decided (approved or denied) access requests are removed after this many days.
+    retention_access_request_days: int = 90
 
     @property
     def allowed_email_set(self) -> frozenset[str]:
@@ -116,13 +146,61 @@ class Settings(BaseSettings):
             d.strip().lower().lstrip("@") for d in self.allowed_email_domains.split(",") if d.strip()
         )
 
+    @property
+    def platform_admin_set(self) -> frozenset[str]:
+        return frozenset(e.strip().lower() for e in self.platform_admin_emails.split(",") if e.strip())
+
+    @property
+    def effective_signup_mode(self) -> Literal["invite", "request", "open"]:
+        if self.signup_mode is not None:
+            return self.signup_mode
+        if self.env != "prod" and not self.allowed_email_set and not self.allowed_domain_set:
+            return "open"
+        return "invite"
+
+    @property
+    def effective_workspace_creation(self) -> Literal["everyone", "platform_admins"]:
+        if self.workspace_creation is not None:
+            return self.workspace_creation
+        return "platform_admins" if self.env == "prod" else "everyone"
+
+    @property
+    def provider_label(self) -> str:
+        if self.oidc_provider_label:
+            return self.oidc_provider_label
+        host = (urlsplit(self.oidc_issuer).hostname or "").lower()
+        if host == "accounts.google.com":
+            return "Google"
+        if host == "login.microsoftonline.com":
+            return "Microsoft"
+        if _is_local_url(self.oidc_issuer):
+            return "dev sign-in"
+        return "your organization"
+
     def email_allowed(self, email: str | None) -> bool:
+        """Legacy allowlist check: with no allowlist configured, anyone passes."""
         if not self.allowed_email_set and not self.allowed_domain_set:
             return True
+        return self.email_on_allowlist(email)
+
+    def email_on_allowlist(self, email: str | None) -> bool:
         if not email:
             return False
         email = email.lower()
         return email in self.allowed_email_set or email.rsplit("@", 1)[-1] in self.allowed_domain_set
+
+    def is_platform_admin(self, email: str | None) -> bool:
+        return email is not None and email.lower() in self.platform_admin_set
+
+    @model_validator(mode="before")
+    @classmethod
+    def _render_public_url(cls, data: Any) -> Any:
+        """F4: on Render, the service's own URL (RENDER_EXTERNAL_URL) is the public URL unless
+        AOS_PUBLIC_URL is set (a custom domain)."""
+        external = os.environ.get("RENDER_EXTERNAL_URL")
+        if external and isinstance(data, dict) and "public_url" not in data:
+            return {**data, "public_url": external}
+        return data
 
     @field_validator("public_url", "oidc_issuer")
     @classmethod
@@ -130,34 +208,72 @@ class Settings(BaseSettings):
         return value.rstrip("/")
 
     @model_validator(mode="after")
+    def _corpus_present(self) -> Settings:
+        """F9: the production image does not include eval/, so corpus search there would find
+        nothing at all. Refuse to start rather than produce evidence-free reports."""
+        if self.search_provider == "corpus" and not any(self.corpus_dir.glob("*.json")):
+            raise ValueError(
+                f"AOS_SEARCH_PROVIDER=corpus needs corpus documents in AOS_CORPUS_DIR ({self.corpus_dir}); "
+                "the production image does not include eval/"
+            )
+        return self
+
+    @model_validator(mode="after")
     def _production_safety(self) -> Settings:
         """Refuse to start in prod with any development default that would be unsafe there.
-        Each message names the variable to fix."""
+        Each message names the variable to fix. Settings only the web service uses are checked
+        when the web app is created (`web_problems`), so the worker needs none of them."""
         if self.env == "prod":
             problems = []
             if self.database_url is None:
                 problems.append("AOS_DATABASE_URL is required")
-            if not self.cookie_secure:
-                problems.append("AOS_COOKIE_SECURE must be true")
-            if not self.oidc_issuer.startswith("https://"):
-                problems.append("AOS_OIDC_ISSUER must be an https URL of a real identity provider")
-            if _is_local_url(self.oidc_issuer) or self.oidc_client_id == "aos-local":
-                problems.append("the bundled dev OIDC issuer/client must never be used in prod")
-            if self.oidc_backchannel_url and _is_local_url(self.oidc_backchannel_url):
-                problems.append("AOS_OIDC_BACKCHANNEL_URL must not point at a local dev issuer in prod")
-            if not self.public_url.startswith("https://"):
-                problems.append("AOS_PUBLIC_URL must use https")
-            if not self.allowed_email_set and not self.allowed_domain_set:
-                problems.append("set AOS_ALLOWED_EMAILS and/or AOS_ALLOWED_EMAIL_DOMAINS (sign-in allowlist)")
+            if self.effective_signup_mode == "open" and self.agent_mode == "llm":
+                problems.append(
+                    "AOS_SIGNUP_MODE=open lets any verified account spend model budget; use invite or "
+                    "request with AOS_AGENT_MODE=llm"
+                )
             if self.crash_at:
                 problems.append("AOS_CRASH_AT is a test-only setting")
             if problems:
                 raise ValueError("unsafe production configuration: " + "; ".join(problems))
         return self
 
+    def web_problems(self) -> list[str]:
+        """Production checks for the settings only the web service uses: sign-in, cookies and
+        its public URL. Empty outside prod."""
+        if self.env != "prod":
+            return []
+        problems = []
+        if not self.cookie_secure:
+            problems.append("AOS_COOKIE_SECURE must be true")
+        if not self.oidc_issuer.startswith("https://"):
+            problems.append("AOS_OIDC_ISSUER must be an https URL of a real identity provider")
+        if _is_local_url(self.oidc_issuer) or self.oidc_client_id == "aos-local":
+            problems.append("the bundled dev OIDC issuer/client must never be used in prod")
+        if self.oidc_backchannel_url and _is_local_url(self.oidc_backchannel_url):
+            problems.append("AOS_OIDC_BACKCHANNEL_URL must not point at a local dev issuer in prod")
+        if not self.public_url.startswith("https://"):
+            problems.append("AOS_PUBLIC_URL must use https")
+        if not self.platform_admin_set:
+            problems.append(
+                "set AOS_PLATFORM_ADMIN_EMAILS (at least one person must be able to manage access)"
+            )
+        return problems
+
     @property
     def oidc_redirect_uri(self) -> str:
         return f"{self.public_url}/api/v1/auth/callback"
+
+    @property
+    def session_cookie(self) -> str:
+        """With Secure cookies (prod) the browser enforces `__Host-`: Secure, Path=/, no Domain,
+        so no other origin under the same site can set or shadow the session."""
+        return f"__Host-{self.session_cookie_name}" if self.cookie_secure else self.session_cookie_name
+
+    @property
+    def login_cookie(self) -> str:
+        """Scoped to the callback path, so `__Secure-` (which allows a path) rather than `__Host-`."""
+        return "__Secure-aos_login" if self.cookie_secure else "aos_login"
 
     def sqlalchemy_url(self) -> str:
         if self.database_url is None:

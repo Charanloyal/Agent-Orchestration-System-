@@ -15,6 +15,11 @@ from app.config import Settings
 from app.db.models import AuthSession
 
 _TOUCH_INTERVAL = timedelta(minutes=5)
+# Binds a sign-in attempt to the browser that started it (login CSRF protection): the
+# callback only accepts a `state` that matches this cookie (`Settings.login_cookie`). Scoped
+# to the callback path.
+LOGIN_COOKIE_PATH = "/api/v1/auth/callback"
+LOGIN_COOKIE_MAX_AGE = 600
 
 
 def sha256_hex(value: str) -> str:
@@ -59,7 +64,7 @@ def revoke_session(db: Session, session_id: uuid.UUID) -> None:
 
 def set_session_cookie(response: Response, raw_token: str, settings: Settings) -> None:
     response.set_cookie(
-        settings.session_cookie_name,
+        settings.session_cookie,
         raw_token,
         max_age=settings.session_ttl_minutes * 60,
         httponly=True,
@@ -71,8 +76,30 @@ def set_session_cookie(response: Response, raw_token: str, settings: Settings) -
 
 def clear_session_cookie(response: Response, settings: Settings) -> None:
     response.delete_cookie(
-        settings.session_cookie_name,
+        settings.session_cookie,
         path="/",
+        secure=settings.cookie_secure,
+        httponly=True,
+        samesite="lax",
+    )
+
+
+def set_login_cookie(response: Response, state: str, settings: Settings) -> None:
+    response.set_cookie(
+        settings.login_cookie,
+        state,
+        max_age=LOGIN_COOKIE_MAX_AGE,
+        httponly=True,
+        secure=settings.cookie_secure,
+        samesite="lax",
+        path=LOGIN_COOKIE_PATH,
+    )
+
+
+def clear_login_cookie(response: Response, settings: Settings) -> None:
+    response.delete_cookie(
+        settings.login_cookie,
+        path=LOGIN_COOKIE_PATH,
         secure=settings.cookie_secure,
         httponly=True,
         samesite="lax",

@@ -1,0 +1,82 @@
+# Free-plan Render Blueprint (ADR 0022, docs/operations/deploy-render.md): ONE web service that
+# migrates on start and runs the workflow worker as a supervised child process
+# (`python -m app.serve --migrate --with-worker`), plus a free Postgres.
+#
+# Trade-offs compared with render.yaml (the recommended, paid topology):
+# - free web services sleep when idle; the first request after a pause is slow, and queued
+#   runs continue only once the service is awake;
+# - Render's free Postgres is time-limited; check Render's current free-tier terms;
+# - API and worker share one small instance.
+#
+# Secrets are `sync: false`: Render prompts for them when the Blueprint is created. Nothing
+# secret is committed here. Demo agents only (AOS_AGENT_MODE=fake).
+
+databases:
+  - name: aos-db
+    databaseName: aos
+    user: aos
+    plan: free
+    postgresMajorVersion: "17"
+    region: singapore
+    ipAllowList: []   # no public access; the service connects over Render's private network
+
+services:
+  - type: web
+    name: aos-web
+    runtime: docker
+    plan: free
+    region: singapore
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    dockerCommand: python -m app.serve --migrate --with-worker
+    healthCheckPath: /readyz
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: AOS_ENV
+        value: prod
+      - key: AOS_LOG_JSON
+        value: "true"
+      - key: AOS_COOKIE_SECURE
+        value: "true"
+      - key: AOS_AGENT_MODE
+        value: fake
+      - key: AOS_SEARCH_PROVIDER
+        value: fake
+      # Render's disks are ephemeral and per service, and nothing reads a stored copy back:
+      # uploads live on as extracted text, exports are rendered on download (ADR 0026).
+      - key: AOS_STORE_FILES
+        value: "false"
+      # 0 keeps finished runs and uploads until someone deletes them (the demo must last until
+      # the viva; docs/operations/data-retention.md). Set days here to turn the sweep on.
+      - key: AOS_RETENTION_RUN_DAYS
+        value: "0"
+      - key: AOS_RETENTION_UPLOAD_DAYS
+        value: "0"
+      - key: AOS_SIGNUP_MODE
+        value: request
+      # Render's proxy appends the client address to X-Forwarded-For (ADR 0025).
+      - key: AOS_TRUSTED_PROXY_HOPS
+        value: "1"
+      # API and worker share this instance and its database pools (G6): at most 43 connections
+      # during a deploy against the plan's 100 (scripts/check_blueprints.py).
+      - key: AOS_DB_POOL_SIZE
+        value: "5"
+      - key: AOS_DB_MAX_OVERFLOW
+        value: "5"
+      - key: AOS_DATABASE_URL
+        fromDatabase:
+          name: aos-db
+          property: connectionString
+      # The public URL is Render's RENDER_EXTERNAL_URL (https://aos-web-xxxx.onrender.com),
+      # registered at the identity provider as <url>/api/v1/auth/callback. Set AOS_PUBLIC_URL
+      # in the Dashboard only for a custom domain.
+      - key: AOS_OIDC_ISSUER
+        sync: false
+      - key: AOS_OIDC_CLIENT_ID
+        sync: false
+      - key: AOS_OIDC_CLIENT_SECRET
+        sync: false
+      - key: AOS_PLATFORM_ADMIN_EMAILS
+        sync: false
+      - key: AOS_METRICS_TOKEN
+        generateValue: true

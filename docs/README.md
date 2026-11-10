@@ -21,13 +21,32 @@
 | **M14: reliability, load, recovery** | **Done** (local machine, fake providers) | [load-and-recovery.md](operations/load-and-recovery.md); `scripts/loadtest.py`, `scripts/backup_restore_drill.py` |
 | **M15: UX, accessibility, user documentation** | **Done** | `RunPage.test.tsx`, `ActivityPage.test.tsx`, `e2e/workflow.spec.ts`; [user guide](user-guide.md) with screenshots from `e2e/screenshots.spec.ts`; [troubleshooting](troubleshooting.md) |
 | M16: final report | **Done** (report written from measured results; the live and held-out evaluation are **blocked**: no API key, budget approval or human scorers) | [report/final-report.md](report/final-report.md), [appendices](report/appendices.md) |
+| **v1.0 phase 1: sign-in** | **Done** | ADR 0021 §8; `test_auth_oidc.py` (login binding, friendly errors, Google issuer forms, `/auth/config`) |
+| **v1.0 phase 2: deployment** | **Done** (repository side) | ADR 0020, 0022, 0023; `test_migrations.py`, `test_smoke_prod.py`, `test_serve.py`, `test_blueprints.py`; `render.hybrid.yaml`, `render.free.yaml`; CI `deploy-image` |
+| **v1.0 phase 3: access model** | **Done** | ADR 0021; migration 0010; `test_access.py`, `test_authz.py` |
+| **v1.0 phase 4: UI** | **Done** | Onboarding, workspace settings, access administration, notifications, 401/403 handling, dark mode, 360 px; Vitest 79 tests; E2E `access.spec.ts`, `a11y.spec.ts` (axe) |
+| v1.0 phase 5: redeploy and rehearsals | **Blocked by owner** (Render and Google accounts) | Procedure: [deploy-render.md](operations/deploy-render.md); records: [rehearsals.md](operations/rehearsals.md) |
+| v1.0 phase 6: live evaluation | **Not started**: `LIVE_EVAL` not approved | ADR 0005; [evaluation plan](evaluation/evaluation-plan.md) |
+| v1.0 phase 7: hardening | **Done** for storage (ADR 0022), threat model (T18-T22) and operations runbook; live model mode on Render not requested | [threat-model.md](security/threat-model.md), [runbook.md](operations/runbook.md) |
+| v1.0 phase 8: user research | **Prepared; blocked by owner** (participants) | [interview guide](product/interview-guide.md), [usability study](product/usability-study.md), [accessibility checklist](product/accessibility-checklist.md) |
+| v1.0 phase 9: close-out | **Done** except the tag, which waits for approval | [CHANGELOG.md](../CHANGELOG.md), [handoff.md](handoff.md) |
 
 ### Implemented behavior (verified by tests)
 
 - **Identity:**
-  - OIDC sign-in (authorization code + PKCE) against any compliant issuer.
+  - OIDC sign-in (authorization code + PKCE) against any compliant issuer, labelled
+    "Continue with Google/Microsoft/…"; Google's two issuer forms accepted.
+  - Each sign-in attempt bound to its browser by a short-lived cookie (login CSRF).
+  - Every sign-in failure ends on the sign-in page with a specific explanation.
   - A local dev issuer for demos and tests.
   - Server-side sessions; CSRF and Origin checks on every unsafe request.
+- **Access model (ADR 0021):**
+  - Platform admins (environment), allowlist, in-app access list, invitations, signup modes
+    `invite` / `request` / `open`.
+  - Public access requests that never reveal whether an email is known; rate-limited.
+  - Workspace invitations accepted at first sign-in; removing access signs a person out
+    everywhere.
+  - Admin routes answer 404 to everyone else.
 - **Tenancy:**
   - Workspaces, memberships and roles (analyst, reviewer, admin), with a single permission
     table.
@@ -56,9 +75,12 @@
 - **Pilot packaging and data lifecycle (M12–M13):**
   - Single-origin production image (API serves the SPA; same image runs the worker; no dev
     issuer) and a Render Blueprint validated against Render's schema.
-  - Production refuses unsafe settings; sign-in allowlist; request-size limits.
-  - Readiness requires the schema at migration head; the worker waits for migrations and
-    survives database outages.
+  - Production refuses unsafe settings; platform admins required; request-size limits.
+  - Readiness accepts the code's head or a newer schema that declares the code compatible
+    (ADR 0020), so rollbacks across additive migrations work; `/version` names the build.
+  - `scripts/smoke_prod.py` checks a deployment from outside; `render.hybrid.yaml` and
+    `render.free.yaml` run API and worker in one free service (ADR 0022, 0023); CI starts
+    every topology and the build before the newest migration.
   - Admin run deletion including checkpoints and export files; retention sweep;
     append-only audit log with an admin audit view.
   - Seeded demo with a sample run; demo script; P0 checklist; migration and rollback
@@ -95,25 +117,33 @@
 - **Planner (M6):** OpenAI-compatible adapter with classified errors; schema-validated output with one bounded repair; versioned prompts and per-artifact provenance; plan editing as new versions; approval-wait expiry.
 - **Evidence ingestion (M5):** Tavily, offline-corpus and fake search; SSRF-safe pinned fetcher; isolated text-PDF extraction; uploads with content sniffing; workspace-scoped full-text retrieval; failed sources shown as not read.
 - **Frontend:**
-  - Sign-in, workspace shell, runs list, brief form.
-  - Run page with a workflow progress stepper, live timeline, plan view, cited structured
-    report with evidence panel, and role-gated approvals.
+  - Sign-in with provider label, per-error explanations and a request-access form.
+  - Welcome page for people without a workspace (create one, or how to join).
+  - Workspace settings: rename, roles, removal with confirmation, invitations.
+  - Access administration for platform admins, with a pending-requests badge.
+  - Workspace shell, runs list, brief form; run page with a workflow progress stepper, live
+    timeline, plan view, cited structured report with evidence panel, and role-gated
+    approvals.
   - Admin run deletion with confirmation; admin activity (audit) page.
+  - Notifications for every action; an expired session returns to sign-in and back; 403s
+    explain what is not allowed.
   - A "Demo agents" badge whenever fake agents are configured.
-  - Accessibility: skip link, per-page titles, text-plus-colour status,
-    reduced-motion support; responsive down to phone width.
+  - Accessibility: axe-checked WCAG 2.2 A/AA in light and dark mode, skip link, per-page
+    titles, text-plus-colour status, reduced-motion support, keyboard confirmations,
+    layouts down to 360 px.
 - **Delivery:**
   - ruff and `mypy --strict`.
   - GitHub Actions: backend on Postgres, spike, frontend typecheck/test/build, Playwright
     E2E, container builds.
   - Dockerfiles and `docker-compose.yml` (API, worker, dev IdP, web, Postgres).
 
-### Not done (needs people, money or accounts)
+### Not done (needs people, money or accounts; blocked by owner)
 
 - Live (model-backed) evaluation of systems A/B/C, the held-out run, and blind human
   scoring: these need an API key, budget approval and two scorers.
-- User interviews (project lead).
-- The Render deployment itself: needs an account, payment and a real identity provider.
+- User interviews, the usability study and the screen-reader session (participants).
+- The Render deployment, its verification and both rollback rehearsals: need Render and
+  Google Cloud accounts (and payment for `render.yaml`).
 
 All four agents are LLM-backed when `AOS_AGENT_MODE=llm`; fakes are the default.
 
@@ -132,8 +162,15 @@ All four agents are LLM-backed when `AOS_AGENT_MODE=llm`; fakes are the default.
 ## Product and planning
 
 - [Project brief](product/project-brief.md) · [Interview guide](product/interview-guide.md) (**interviews not yet run**)
+- [Usability study](product/usability-study.md) · [Accessibility checklist](product/accessibility-checklist.md)
 - [Acceptance criteria matrix](product/acceptance-criteria.md) · [Evaluation plan](evaluation/evaluation-plan.md)
 - [Threat model](security/threat-model.md) · [Risk register](risk-register.md)
+
+## Operations
+
+- [Deploy to Render](operations/deploy-render.md) · [Deployment and rollback records](operations/rehearsals.md)
+- [Migrations and rollback](operations/migrations.md) · [Data retention](operations/data-retention.md)
+- [Runbook](operations/runbook.md) · [P0 checklist](operations/p0-checklist.md) · [Load and recovery](operations/load-and-recovery.md)
 
 ## Architecture
 
@@ -147,7 +184,7 @@ All four agents are LLM-backed when `AOS_AGENT_MODE=llm`; fakes are the default.
 | [0001](decisions/0001-local-health-check-scaffold.md) | Local health-check scaffold | Accepted |
 | [0002](decisions/0002-model-provider.md) | Model provider: OpenAI-compatible adapter | Accepted |
 | [0003](decisions/0003-search-provider.md) | Search provider: Tavily + offline corpus | Accepted |
-| [0004](decisions/0004-deployment-target.md) | Deployment target: local production-like | Accepted |
+| [0004](decisions/0004-deployment-target.md) | Deployment target: local production-like | Superseded by 0018 and 0023 (Render) |
 | [0005](decisions/0005-spending-ceiling.md) | Spending ceiling: USD 10 | Accepted |
 | [0006](decisions/0006-workflow-and-contracts.md) | Workflow state machine and contracts | Accepted |
 | [0007](decisions/0007-checkpoint-persistence-and-fencing.md) | Checkpoint persistence and fencing | Accepted |
@@ -163,6 +200,13 @@ All four agents are LLM-backed when `AOS_AGENT_MODE=llm`; fakes are the default.
 | [0017](decisions/0017-evaluation-harness.md) | Evaluation harness, systems A/B/C, offline corpus, blind scoring | Accepted |
 | [0018](decisions/0018-production-image-render-hardening.md) | Single-origin production image, Render topology, production hardening | Accepted |
 | [0019](decisions/0019-data-lifecycle-audit.md) | Data lifecycle: deletion, retention, append-only audit log | Accepted |
+| [0020](decisions/0020-schema-compatibility-window.md) | Schema compatibility window for rollbacks across migrations | Accepted |
+| [0021](decisions/0021-access-model.md) | Access model: invitations, access requests, platform admins, sign-in hardening | Accepted |
+| [0022](decisions/0022-deployment-variants-ephemeral-storage.md) | Deployment variants (free single service) and the ephemeral object store | Accepted |
+| [0023](decisions/0023-deploy-topologies-and-ci-proof.md) | Deployment topologies (hybrid chosen), role-specific settings, deploy proof in CI | Accepted |
+| [0024](decisions/0024-verified-email-only.md) | Trust only provider-verified email addresses (Entra via `xms_edov`) | Accepted |
+| [0025](decisions/0025-client-address-behind-proxy.md) | Client address for rate limits: trusted proxy hops from the right of `X-Forwarded-For` | Accepted |
+| [0026](decisions/0026-no-file-copies-on-render.md) | Keep no file copies on Render (`AOS_STORE_FILES=false`); amends 0022 | Accepted |
 
 ## Session handoff
 

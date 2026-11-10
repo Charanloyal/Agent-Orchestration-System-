@@ -1,7 +1,7 @@
 # Acceptance criteria matrix
 
 Maps each PRD functional requirement (§2.7) and proposed release gate (§2.8) to testable
-criteria and the evidence that verifies them. Updated at M12 (2026-11-03).
+criteria and the evidence that verifies them. Updated for v1.0 (2026-11-06).
 
 **Status key:**
 - **Verified**: automated tests in `backend/tests` or `frontend/e2e` pass in CI.
@@ -10,7 +10,7 @@ criteria and the evidence that verifies them. Updated at M12 (2026-11-03).
 
 | ID | Requirement | Testable criteria | Evidence | Status |
 | --- | --- | --- | --- | --- |
-| FR-01 | Access and isolation | Every run, event, source, checkpoint, report, approval and download authorized server-side by workspace; guessed IDs and cross-workspace search fail | `test_authz.py` (matrix generated from every route: 401 unauthenticated, 404 other workspace, CSRF/Origin on unsafe methods); `test_search_never_crosses_workspaces`; E2E cross-workspace 404 | Verified |
+| FR-01 | Access and isolation | Every run, event, source, checkpoint, report, approval and download authorized server-side by workspace; guessed IDs and cross-workspace search fail; only verified, admitted emails sign in; admin routes invisible to others | `test_authz.py` (matrix generated from every route: 401 unauthenticated, 404 other workspace, CSRF/Origin on unsafe methods); `test_search_never_crosses_workspaces`; `test_access.py` (signup modes, invitations, requests, access list, 404 admin routes); `test_auth_oidc.py` (login binding, friendly errors); E2E cross-workspace 404 and `access.spec.ts` | Verified |
 | FR-02 | Brief creation | Invalid limits rejected; same idempotency key and body → same run; same key, different body → 409 | `test_contract_models.py`; `test_idempotent_creation` | Verified |
 | FR-03 | Planning | Cycles, unknown references, unsupported tools and over-limit plans rejected; planner cannot widen the allowlist | `test_contract_plan.py`; `test_planner_cannot_expand_tool_allowlist` | Verified |
 | FR-04 | Human approvals | Decisions bind to version and digest; edits create a new version needing approval; permission checked at decision time; rejected plan → new version; rejected report not exportable as approved | `test_stale_and_wrong_kind_decisions_rejected`; `test_plan_rejection_creates_new_version`; `test_report_rejection_needs_attention`; `test_rejected_report_exports_only_as_draft`; `test_role_separation` | Verified |
@@ -34,5 +34,5 @@ criteria and the evidence that verifies them. Updated at M12 (2026-11-03).
 | Evidence support | ≥ 90% of sampled claims supported, with denominator and CI | Blind human sample (`evaluation.blind`) | **Open**: needs a live run and two human scorers |
 | Completion | ≥ 90% of answerable briefs produce a reviewable draft | Fake agents: 18/18 answerable dev runs per system (harness validation only) | **Open** for real models |
 | Control tests | 0 unauthorized tool calls or cross-workspace disclosures | Authz matrix; injected-URL fixtures (never fetched); SSRF suite | Verified (automated); no external penetration test |
-| Operability | Backup restore, rollback, readiness and provider-failure alerts tested | Readiness tests; restore drill PASS; provider-outage breaker test; alert rules; rollback documented, not rehearsed on Render | Partly (hosted rollback rehearsal open) |
-| Usability and accessibility | Main workflow usable by keyboard and at phone width; status never conveyed by colour alone; reduced motion respected | Playwright drives every journey by accessible role and name (6 tests); `AppShell.test.tsx` (skip link to a focusable main region, role-based navigation, demo-agent badge); stepper in `RunPage.test.tsx`; page titles; responsive layout in the [user-guide screenshots](../user-guide.md) | Partly: automated checks only; no screen-reader session or WCAG audit, and no usability study with real users |
+| Operability | Backup restore, rollback, readiness and provider-failure alerts tested | Readiness tests; restore drill PASS; provider-outage breaker test; alert rules; rollback across a migration proven in tests (`test_previous_build_stays_ready_on_a_newer_compatible_schema`, ADR 0020); production smoke checks automated (`smoke_prod.py`, run in CI against both deployment variants) | Partly: hosted deployment and both rollback rehearsals **blocked by owner** (Render and Google accounts) |
+| Usability and accessibility | Main workflow usable by keyboard and at phone width; status never conveyed by colour alone; reduced motion respected | axe-core WCAG 2.2 A/AA scan of every page in light and dark mode (`a11y.spec.ts`); every page fits 360 px without sideways scrolling; keyboard test (skip link, confirmations, Escape); Playwright drives every journey by accessible role and name; Vitest per page (78 tests); [accessibility checklist](accessibility-checklist.md) | Partly: automated checks pass; screen-reader (NVDA) session and the usability study are prepared but **blocked by owner** (participants) |

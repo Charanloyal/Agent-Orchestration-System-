@@ -71,13 +71,14 @@ export function ActivityPage() {
       )}
       {audit.data && audit.data.length > 0 && (
         <Card>
+          <div className="table-wrap">
           <table className="table">
             <caption className="visually-hidden">Workspace activity log</caption>
             <thead>
               <tr>
                 <th scope="col">When</th>
                 <th scope="col">What</th>
-                <th scope="col">Target</th>
+                <th scope="col" className="hide-narrow">Target</th>
               </tr>
             </thead>
             <tbody>
@@ -85,7 +86,7 @@ export function ActivityPage() {
                 <tr key={event.id}>
                   <td className="nowrap">{formatDateTime(event.created_at)}</td>
                   <td>{describe(event)}</td>
-                  <td className="small">
+                  <td className="small hide-narrow">
                     {event.target && /^(run|plan|report)\./.test(event.action) && !event.action.endsWith("delete") ? (
                       <Link to={`/runs/${event.target}`}>
                         <code>{event.target.slice(0, 8)}</code>
@@ -100,6 +101,7 @@ export function ActivityPage() {
               ))}
             </tbody>
           </table>
+          </div>
         </Card>
       )}
     </div>

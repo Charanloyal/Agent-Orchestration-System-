@@ -70,6 +70,8 @@ class CorpusSearch:
             CorpusDocument(**json.loads(path.read_text(encoding="utf-8")))
             for path in sorted(directory.glob("*.json"))
         ]
+        if not self.documents:
+            raise ValueError(f"no corpus documents in {directory}")
         self._k1, self._b = k1, b
         self._tf = [Counter(tokens(f"{d.title} {d.text}")) for d in self.documents]
         self._lengths = [sum(tf.values()) for tf in self._tf]

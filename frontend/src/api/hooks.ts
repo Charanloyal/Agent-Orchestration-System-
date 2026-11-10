@@ -2,17 +2,27 @@ import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { api, ApiError, download, saveBlob, setCsrfToken } from "./client";
+import { beginSignOut, signInPath } from "./session";
 import type {
+  AccessEntry,
+  AccessRequest,
+  AdminWorkspace,
   Artifact,
   AuditEvent,
+  AuthConfig,
+  Build,
   BriefInput,
   Decision,
   Evidence,
   ExportRecord,
+  Invitation,
+  InviteResult,
   Me,
+  Member,
   PlanBody,
   ReportBody,
   ReviewRound,
+  Role,
   RunDetail,
   RunEvent,
   RunSummary,
@@ -20,6 +30,7 @@ import type {
   Source,
   UploadInfo,
   UploadSearchHit,
+  WorkspaceInfo,
   WorkspaceUsage,
 } from "./types";
 import { TERMINAL_STATES } from "./types";
@@ -29,6 +40,8 @@ export const keys = {
   runs: (workspaceId: string) => ["runs", workspaceId] as const,
   run: (runId: string) => ["run", runId] as const,
   evidence: (runId: string) => ["evidence", runId] as const,
+  workspace: (workspaceId: string) => ["workspace", workspaceId] as const,
+  admin: ["admin"] as const,
 };
 
 export function useMe() {
@@ -52,15 +65,214 @@ export function useMe() {
   });
 }
 
+export function useBuild() {
+  return useQuery({
+    queryKey: ["build"],
+    queryFn: () => api<Build>("/healthz"),
+    staleTime: Infinity,
+    retry: false,
+  });
+}
+
 export function useSignOut() {
   const client = useQueryClient();
   return useMutation({
     mutationFn: () => api<void>("/api/v1/auth/logout", { method: "POST" }),
+    onMutate: () => beginSignOut(),
     onSettled: () => {
       setCsrfToken(null);
       client.clear();
-      window.location.assign("/signin");
+      window.location.assign(signInPath("signed_out"));
     },
+  });
+}
+
+/** Public: the sign-in button label and whether access requests are taken. */
+export function useAuthConfig() {
+  return useQuery({
+    queryKey: ["auth-config"],
+    queryFn: () => api<AuthConfig>("/api/v1/auth/config"),
+    staleTime: Infinity,
+    retry: 1,
+  });
+}
+
+export type AccessRequestInput = { email: string; name: string; message?: string };
+
+export function useRequestAccess() {
+  return useMutation({
+    mutationFn: (body: AccessRequestInput) =>
+      api<{ status: "received"; message: string }>("/api/v1/access-requests", { method: "POST", body }),
+  });
+}
+
+export function useCreateWorkspace() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (name: string) => api<WorkspaceInfo>("/api/v1/workspaces", { method: "POST", body: { name } }),
+    onSuccess: () => client.invalidateQueries({ queryKey: keys.me }),
+    meta: { success: "Workspace created" },
+  });
+}
+
+export function useWorkspace(workspaceId: string, enabled = true) {
+  return useQuery({
+    queryKey: keys.workspace(workspaceId),
+    queryFn: () => api<WorkspaceInfo>(`/api/v1/workspaces/${workspaceId}`),
+    enabled,
+  });
+}
+
+export function useRenameWorkspace(workspaceId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (name: string) =>
+      api<WorkspaceInfo>(`/api/v1/workspaces/${workspaceId}`, { method: "PATCH", body: { name } }),
+    onSuccess: (workspace) => {
+      client.setQueryData(keys.workspace(workspaceId), workspace);
+      void client.invalidateQueries({ queryKey: keys.me });
+    },
+    meta: { success: "Workspace renamed", error: "Could not rename the workspace" },
+  });
+}
+
+export function useMembers(workspaceId: string, enabled = true) {
+  return useQuery({
+    queryKey: [...keys.workspace(workspaceId), "members"],
+    queryFn: () => api<Member[]>(`/api/v1/workspaces/${workspaceId}/members`),
+    enabled,
+  });
+}
+
+export function useChangeRole(workspaceId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ userId, role }: { userId: string; role: Role }) =>
+      api<Member>(`/api/v1/workspaces/${workspaceId}/members/${userId}`, { method: "PATCH", body: { role } }),
+    onSettled: () => {
+      void client.invalidateQueries({ queryKey: keys.workspace(workspaceId) });
+      void client.invalidateQueries({ queryKey: keys.me });
+    },
+    meta: { success: "Role updated", error: "Could not change the role" },
+  });
+}
+
+export function useRemoveMember(workspaceId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (userId: string) =>
+      api<void>(`/api/v1/workspaces/${workspaceId}/members/${userId}`, { method: "DELETE" }),
+    onSettled: () => {
+      void client.invalidateQueries({ queryKey: keys.workspace(workspaceId) });
+      void client.invalidateQueries({ queryKey: keys.me });
+    },
+    meta: { success: "Member removed", error: "Could not remove the member" },
+  });
+}
+
+export function useInvitations(workspaceId: string, enabled = true) {
+  return useQuery({
+    queryKey: [...keys.workspace(workspaceId), "invitations"],
+    queryFn: () => api<Invitation[]>(`/api/v1/workspaces/${workspaceId}/invitations`),
+    enabled,
+  });
+}
+
+export function useInvite(workspaceId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { email: string; role: Role }) =>
+      api<InviteResult>(`/api/v1/workspaces/${workspaceId}/invitations`, { method: "POST", body }),
+    onSuccess: () => client.invalidateQueries({ queryKey: keys.workspace(workspaceId) }),
+  });
+}
+
+export function useRevokeInvitation(workspaceId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (invitationId: string) =>
+      api<void>(`/api/v1/workspaces/${workspaceId}/invitations/${invitationId}`, { method: "DELETE" }),
+    onSettled: () => client.invalidateQueries({ queryKey: keys.workspace(workspaceId) }),
+    meta: { success: "Invitation revoked", error: "Could not revoke the invitation" },
+  });
+}
+
+export function useAdminSummary(enabled: boolean) {
+  return useQuery({
+    queryKey: [...keys.admin, "summary"],
+    queryFn: () => api<{ pending_requests: number }>("/api/v1/admin/summary"),
+    enabled,
+    refetchInterval: 60_000,
+  });
+}
+
+export function useAccessRequests(status: "pending" | "decided", enabled = true) {
+  return useQuery({
+    queryKey: [...keys.admin, "requests", status],
+    queryFn: () => api<AccessRequest[]>(`/api/v1/admin/access-requests?status=${status}`),
+    enabled,
+  });
+}
+
+export type RequestDecision =
+  | { id: string; decision: "approve"; workspaceId: string | null; role: Role }
+  | { id: string; decision: "deny" };
+
+type ApproveResult = { status: "approved"; workspace: "invited" | "added" | null };
+
+export function useDecideRequest() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: RequestDecision): Promise<ApproveResult | null> => {
+      if (input.decision === "approve") {
+        return api<ApproveResult>(`/api/v1/admin/access-requests/${input.id}/approve`, {
+          method: "POST",
+          body: { workspace_id: input.workspaceId, role: input.role },
+        });
+      }
+      await api<void>(`/api/v1/admin/access-requests/${input.id}/deny`, { method: "POST" });
+      return null;
+    },
+    onSettled: () => client.invalidateQueries({ queryKey: keys.admin }),
+    meta: { error: "Could not record the decision" },
+  });
+}
+
+export function useAccessList(enabled = true) {
+  return useQuery({
+    queryKey: [...keys.admin, "access-list"],
+    queryFn: () => api<AccessEntry[]>("/api/v1/admin/access-list"),
+    enabled,
+  });
+}
+
+export function useAddAccess() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { email: string; note?: string }) =>
+      api<AccessEntry>("/api/v1/admin/access-list", { method: "POST", body }),
+    onSuccess: () => client.invalidateQueries({ queryKey: keys.admin }),
+    meta: { success: "Added to the access list" },
+  });
+}
+
+export function useRemoveAccess() {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (entryId: string) => api<void>(`/api/v1/admin/access-list/${entryId}`, { method: "DELETE" }),
+    onSettled: () => client.invalidateQueries({ queryKey: keys.admin }),
+    meta: {
+      success: "Access removed; that person was signed out everywhere",
+      error: "Could not remove access",
+    },
+  });
+}
+
+export function useAdminWorkspaces(enabled = true) {
+  return useQuery({
+    queryKey: [...keys.admin, "workspaces"],
+    queryFn: () => api<AdminWorkspace[]>("/api/v1/admin/workspaces"),
+    enabled,
   });
 }
 
@@ -129,6 +341,7 @@ export function useDeleteUpload(workspaceId: string) {
     mutationFn: (uploadId: string) =>
       api<void>(`/api/v1/workspaces/${workspaceId}/uploads/${uploadId}`, { method: "DELETE" }),
     onSettled: () => client.invalidateQueries({ queryKey: ["uploads", workspaceId] }),
+    meta: { success: "Document deleted", error: "Could not delete the document" },
   });
 }
 
@@ -180,6 +393,7 @@ export function useExportReport(runId: string) {
       return file;
     },
     onSettled: () => client.invalidateQueries({ queryKey: ["exports", runId] }),
+    meta: { success: "Report downloaded" },
   });
 }
 
@@ -189,6 +403,7 @@ export function useEditPlan(runId: string) {
     mutationFn: ({ baseVersion, plan }: { baseVersion: number; plan: PlanBody }) =>
       api<Artifact<PlanBody>>(`/api/v1/runs/${runId}/plan`, { method: "PUT", body: { base_version: baseVersion, plan } }),
     onSettled: () => client.invalidateQueries({ queryKey: keys.run(runId) }),
+    meta: { success: "Plan saved as a new version" },
   });
 }
 
@@ -205,6 +420,7 @@ export function useCreateRun(workspaceId: string) {
       client.setQueryData(keys.run(run.id), run);
       void client.invalidateQueries({ queryKey: keys.runs(workspaceId) });
     },
+    meta: { success: "Brief submitted; the planner is working on it" },
   });
 }
 
@@ -225,6 +441,7 @@ export function useDecide(runId: string) {
         { method: "POST", body },
       ),
     onSettled: () => client.invalidateQueries({ queryKey: keys.run(runId) }),
+    meta: { success: "Decision recorded" },
   });
 }
 
@@ -236,6 +453,7 @@ export function useDeleteRun(runId: string, workspaceId: string) {
       client.removeQueries({ queryKey: keys.run(runId) });
       void client.invalidateQueries({ queryKey: keys.runs(workspaceId) });
     },
+    meta: { success: "Run deleted" },
   });
 }
 
@@ -260,6 +478,7 @@ export function useRunAction(runId: string, action: "cancel" | "retry") {
     mutationFn: () => api<RunDetail>(`/api/v1/runs/${runId}/${action}`, { method: "POST" }),
     onSuccess: (run) => client.setQueryData(keys.run(runId), run),
     onError: () => client.invalidateQueries({ queryKey: keys.run(runId) }),
+    meta: { success: action === "cancel" ? "Cancellation requested" : "Retry started" },
   });
 }
 

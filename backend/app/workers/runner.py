@@ -48,6 +48,7 @@ from app.services.events import append_event, set_run_state
 from app.services.ratelimit import purge_old_windows
 from app.tools.fetcher import Fetcher, FetchPolicy, SafeFetcher
 from app.workers import jobs
+from app.workers.alive import mark_alive
 from app.workers.checkpointer import FencedPostgresSaver, checkpoint_connection, setup_checkpointer
 from app.workers.jobs import Lease, StaleOwner
 from app.workers.maintenance import expire_overdue_waits, reap_exhausted_jobs, run_retention
@@ -116,6 +117,7 @@ class Heartbeat(threading.Thread):
         while not self.stop.wait(interval):
             try:
                 jobs.heartbeat(self.ctx.sm, self.ctx.lease, self.ctx.settings.worker_lease_seconds)
+                mark_alive(self.ctx.settings)
             except StaleOwner:
                 log.warning("lease lost", extra={"run_id": str(self.ctx.run_id)})
                 self.ctx.alive.clear()
@@ -371,19 +373,20 @@ def main(argv: list[str] | None = None) -> int:
 
 def wait_for_database(settings: Settings, stopping: threading.Event, max_delay: float = 30.0) -> None:
     """At boot the database may still be starting, or this worker may have deployed before
-    the API's pre-deploy migration ran. Wait (capped backoff) until the schema is at this
-    code's migration head, instead of crash-looping or running against an old schema."""
+    the API's pre-deploy migration ran. Wait (capped backoff) until the schema is one this
+    code can run on (its migration head, or a newer schema that declares it compatible,
+    ADR 0020), instead of crash-looping or running against an old schema."""
     delay = 1.0
     while not stopping.is_set():
         try:
             with get_sessionmaker()() as db:
-                current = schema_state.current_revisions(db)
-            if current == schema_state.migration_heads():
+                status = schema_state.schema_status(db)
+            if status.compatible:
                 setup_checkpointer(settings)
                 return
             log.warning(
-                "database schema not at migration head; waiting",
-                extra={"current": sorted(current), "expected": sorted(schema_state.migration_heads())},
+                "database schema not compatible with this build; waiting",
+                extra={"current": sorted(status.current), "expected": sorted(status.expected)},
             )
         except (*OperationalError_, ProgrammingError) as exc:
             log.warning(
@@ -408,6 +411,7 @@ def run_loop(
     run_pass = pass_fn or process_one
     delay = settings.worker_poll_seconds
     while not stopping.is_set():
+        mark_alive(settings)
         try:
             _maintenance(settings, sm)
             outcome = run_pass(settings, worker_id=worker_id, run_id=run_id)

@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from app.config import get_settings
 from app.db.models import Membership, Role, User, Workspace
 from app.db.session import get_sessionmaker
+from app.services.access import grant_access
 
 DEMO_WORKSPACE = "Demo Research Team"
 OTHER_WORKSPACE = "Other Team"
@@ -55,6 +56,9 @@ def seed_demo(db: Session, issuer: str) -> dict[str, Workspace]:
         workspace = workspaces[workspace_name]
         if db.get(Membership, (workspace.id, user.id)) is None:
             db.add(Membership(workspace_id=workspace.id, user_id=user.id, role=role))
+        # Seeded people may sign in whatever the signup mode. dev-dana and dev-erin are
+        # deliberately not seeded: they exercise the invitation and access-request flows.
+        grant_access(db, email, source="seed", added_by=None, note="Demo user")
     db.commit()
     return workspaces
 

@@ -62,11 +62,74 @@ def test_text_and_pdf_uploads_are_indexed_and_searchable(
     )
     assert duplicate.status_code == 200 and duplicate.json()["id"] == body["id"]
 
+    # Render's disk is ephemeral: if the stored original vanished, the same upload restores it.
+    from app.storage import get_object_store
+
+    store, upload_id = get_object_store(), body["id"]
+    key = f"uploads/{team['home'].id}/{body['sha256']}"
+    store.delete(key)
+    assert not store.exists(key)
+    restored = upload(
+        client,
+        analyst,
+        team["home"],
+        "again.pdf",
+        make_pdf(["Encryption at rest uses AES-256.", "Keys rotate every 90 days."], title="Whitepaper"),
+    )
+    assert restored.status_code == 200 and restored.json()["id"] == upload_id
+    assert store.exists(key)
+
     hits = client.get(
         f"/api/v1/workspaces/{team['home'].id}/uploads/search", params={"q": "key rotation"}
     ).json()
     assert hits and hits[0]["filename"] == "whitepaper.pdf" and hits[0]["locator"] == "page 2, passage 1"
     assert len(client.get(f"/api/v1/workspaces/{team['home'].id}/uploads").json()) == 2
+
+
+def test_without_stored_files_uploads_are_indexed_searched_and_deleted(
+    client: TestClient,
+    team: dict[str, Any],
+    login: Callable[[User], LoggedIn],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """AOS_STORE_FILES=false (Render, ADR 0026): nothing reads an original back, so none is
+    kept; the extracted text in Postgres is the document."""
+    from app.api import uploads as uploads_api
+    from app.config import get_settings
+    from app.storage import DiscardingObjectStore, LocalObjectStore
+
+    monkeypatch.setattr(uploads_api, "get_object_store", DiscardingObjectStore)
+    analyst = login(team["analyst"])
+    data = b"# Retention\n\nRuns are kept until an admin deletes them."
+    created = upload(client, analyst, team["home"], "policy.md", data)
+    assert created.status_code == 201, created.text
+    key = f"uploads/{team['home'].id}/{created.json()['sha256']}"
+    assert not LocalObjectStore(get_settings().object_store_dir).exists(key), "no copy on disk"
+    again = upload(client, analyst, team["home"], "policy.md", data)
+    assert again.status_code == 200 and again.json()["id"] == created.json()["id"]
+    hits = client.get(
+        f"/api/v1/workspaces/{team['home'].id}/uploads/search", params={"q": "admin deletes"}
+    ).json()
+    assert hits and hits[0]["filename"] == "policy.md"
+    deleted = client.delete(
+        f"/api/v1/workspaces/{team['home'].id}/uploads/{created.json()['id']}", headers=analyst.headers
+    )
+    assert deleted.status_code == 204
+
+
+def test_the_store_follows_the_setting(tmp_path: Any) -> None:
+    from app.config import Settings
+    from app.storage import DiscardingObjectStore, LocalObjectStore, build_object_store
+
+    assert isinstance(build_object_store(Settings(store_files=False)), DiscardingObjectStore)
+    kept = build_object_store(Settings(store_files=True, object_store_dir=tmp_path))
+    assert isinstance(kept, LocalObjectStore) and kept.keeps_files
+    discarding = DiscardingObjectStore()
+    discarding.put("uploads/x", b"data")
+    discarding.delete("uploads/x")
+    assert not discarding.exists("uploads/x") and not discarding.keeps_files
+    with pytest.raises(FileNotFoundError):
+        discarding.get("uploads/x")
 
 
 @pytest.mark.parametrize(

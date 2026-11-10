@@ -1,4 +1,6 @@
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
+import { createWriteStream, mkdirSync } from "node:fs";
+import { join } from "node:path";
 
 import { BACKEND_DIR, BACKEND_ENV, E2E_DATABASE_URL, PYTHON } from "../playwright.config";
 
@@ -29,12 +31,19 @@ export default async function globalSetup(): Promise<() => Promise<void>> {
   python(["-m", "alembic", "upgrade", "head"]);
   python(["-m", "app.cli", "seed-demo"]);
 
+  // The worker's log is kept with the test results (uploaded by CI on failure).
+  const resultsDir = join(import.meta.dirname, "..", "test-results");
+  mkdirSync(resultsDir, { recursive: true });
+  const log = createWriteStream(join(resultsDir, "e2e-worker.log"));
   const worker: ChildProcess = spawn(PYTHON, ["-m", "app.workers.runner"], {
     cwd: BACKEND_DIR,
     env: { ...process.env, ...BACKEND_ENV },
-    stdio: "ignore",
+    stdio: ["ignore", "pipe", "pipe"],
   });
+  worker.stdout?.pipe(log, { end: false });
+  worker.stderr?.pipe(log, { end: false });
   return async () => {
     worker.kill();
+    log.end();
   };
 }

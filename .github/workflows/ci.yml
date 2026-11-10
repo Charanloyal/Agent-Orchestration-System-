@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, "release/**"]
   pull_request:
 
 permissions:
@@ -130,7 +130,9 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: playwright-report
-          path: frontend/playwright-report
+          path: |
+            frontend/playwright-report
+            frontend/test-results
           retention-days: 7
 
   containers:
@@ -144,8 +146,10 @@ jobs:
       - name: Build images
         run: docker compose build
 
-  # The single-origin image deployed to Render (ADR 0018), smoke-tested with production
-  # settings against a real Postgres: migrate, start web + worker, probe the public surface.
+  # Proves the image can be deployed (ADR 0018, 0020, 0023): every blueprint is valid and starts
+  # the image the way this job does; each topology starts with production settings against a
+  # real Postgres and passes scripts/smoke_prod.py; the build before the newest migration stays
+  # ready on the new schema, so rolling back needs no schema change.
   deploy-image:
     runs-on: ubuntu-latest
     services:
@@ -157,52 +161,112 @@ jobs:
         ports: ["5432:5432"]
         options: >-
           --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 3s --health-retries 20
+    env:
+      DB_ROOT: postgresql://postgres:ci-only-ephemeral@127.0.0.1:5432
+      # The image's own HEALTHCHECK command, run often so CI need not wait 30 s (G4).
+      HC: --health-interval=3s --health-start-period=0s --health-retries=3
+      # Settings only the web service needs. The worker and the migration get database settings only.
+      WEB_ENVS: >-
+        -e AOS_COOKIE_SECURE=true
+        -e AOS_OIDC_ISSUER=https://login.example.org -e AOS_OIDC_CLIENT_ID=ci-client
+        -e AOS_PLATFORM_ADMIN_EMAILS=ops@example.org -e AOS_SIGNUP_MODE=request
+        -e AOS_STORE_FILES=false -e AOS_TRUSTED_PROXY_HOPS=1
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0  # the older-build check builds an earlier commit
       - uses: actions/setup-python@v7
         with:
           python-version: "3.14"
-      - name: Validate render.yaml against Render's published Blueprint schema
+      - name: Validate every render*.yaml (Render's published schema; starts the image as this job does)
         run: |
           python -m pip install --quiet jsonschema pyyaml
           curl -fsSL https://render.com/schema/render.yaml.json -o "$RUNNER_TEMP/render.schema.json"
-          python - <<'EOF'
-          import json, os, sys, jsonschema, yaml
-          schema = json.load(open(os.path.join(os.environ["RUNNER_TEMP"], "render.schema.json")))
-          errors = list(jsonschema.Draft7Validator(schema).iter_errors(yaml.safe_load(open("render.yaml"))))
-          for e in errors:
-              print("render.yaml:", "/".join(map(str, e.path)), e.message[:300])
-          sys.exit(1 if errors else 0)
-          EOF
+          python backend/scripts/check_blueprints.py --schema "$RUNNER_TEMP/render.schema.json"
       - name: Build the production image
         run: docker build -t aos:ci .
-      - name: Migrate, start web and worker, smoke test
+      - name: Health-check helper
+        run: |
+          cat > "$RUNNER_TEMP/healthy.sh" <<'EOF'
+          # $1 container, $2 the roles its HEALTHCHECK must find ("web ok", "worker ok", both).
+          for i in $(seq 1 20); do
+            s=$(docker inspect -f '{{.State.Health.Status}}' "$1")
+            if [ "$s" = healthy ]; then
+              found=$(docker exec "$1" python -m app.healthcheck)
+              if [ "$found" = "$2" ]; then echo "$1 healthy: $found"; exit 0; fi
+              echo "$1 healthy but found '$found', expected '$2'"; exit 1
+            fi
+            sleep 2
+          done
+          echo "$1 is $s"; docker inspect -f '{{json .State.Health.Log}}' "$1"; exit 1
+          EOF
+      - name: "Web + worker (render.yaml): pre-deploy migration, web, worker without web settings"
         run: |
           set -eu
-          ENVS="-e AOS_ENV=prod -e AOS_DATABASE_URL=postgresql://postgres:ci-only-ephemeral@127.0.0.1:5432/aos \
-            -e AOS_COOKIE_SECURE=true -e AOS_PUBLIC_URL=https://aos.example.org \
-            -e AOS_OIDC_ISSUER=https://login.example.org -e AOS_OIDC_CLIENT_ID=ci-client \
-            -e AOS_ALLOWED_EMAIL_DOMAINS=example.org"
-          docker run --rm --network host $ENVS aos:ci alembic upgrade head
-          docker run -d --name web --network host $ENVS -e PORT=10000 aos:ci
-          docker run -d --name worker --network host $ENVS aos:ci python -m app.workers.runner
+          DB="-e AOS_ENV=prod -e AOS_DATABASE_URL=$DB_ROOT/aos"
+          docker run --rm --network host $DB aos:ci alembic upgrade head
+          docker run -d --name web --network host $DB $WEB_ENVS $HC -e AOS_PUBLIC_URL=https://aos.example.org \
+            -e AOS_BUILD_COMMIT="$GITHUB_SHA" -e PORT=10000 aos:ci
+          # Host networking shares ports: the worker's health check gets a port nothing listens on,
+          # so it can only pass on the worker's own signal, as on Render.
+          docker run -d --name worker --network host $DB $HC -e PORT=10099 aos:ci python -m app.workers.runner
           for i in $(seq 1 30); do curl -fsS http://127.0.0.1:10000/readyz && break; sleep 2; done
-          curl -fsS http://127.0.0.1:10000/readyz
-          curl -fsS http://127.0.0.1:10000/ | grep -q 'id="root"'
-          curl -fsS http://127.0.0.1:10000/runs/client-side-route | grep -q 'id="root"'
-          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:10000/api/openapi.json)" = 404
-          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:10000/api/v1/auth/me)" = 401
-          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:10000/metrics)" = 404
+          python backend/scripts/smoke_prod.py http://127.0.0.1:10000 --allow-http --idp-unreachable \
+            --expect-commit "$GITHUB_SHA" --expect-signup-mode request
           if docker exec web test -e /srv/backend/devtools; then echo "dev issuer shipped"; exit 1; fi
-          docker exec web python -c "from app.storage import get_object_store as s; s().put('ci/probe.txt', b'ok'); assert s().get('ci/probe.txt') == b'ok'"
+          # The image's object store directory is writable, and with Render's AOS_STORE_FILES=false
+          # the app keeps no copies there (ADR 0026).
+          docker exec web python -c "from app.config import get_settings as g; from app.storage import LocalObjectStore as L, get_object_store as s; d = L(g().object_store_dir); d.put('ci/probe.txt', b'ok'); assert d.get('ci/probe.txt') == b'ok' and not s().keeps_files"
           sleep 5
           docker logs worker 2>&1 | grep -q '"worker started"'
-          if docker logs web 2>&1 | grep -q 'ci-only-ephemeral'; then echo "secret in logs"; exit 1; fi
-          if docker logs worker 2>&1 | grep -q 'ci-only-ephemeral'; then echo "secret in logs"; exit 1; fi
+          sh "$RUNNER_TEMP/healthy.sh" web "web ok"
+          sh "$RUNNER_TEMP/healthy.sh" worker "worker ok"
+          for c in web worker; do
+            if docker logs "$c" 2>&1 | grep -q 'ci-only-ephemeral'; then echo "secret in $c logs"; exit 1; fi
+          done
           docker stop -t 30 worker
           docker logs worker 2>&1 | grep -q '"worker stopped"'
+          docker stop -t 30 web
+      - name: "Single process (render.hybrid.yaml, render.free.yaml): fresh database, migrate on start, worker"
+        run: |
+          set -eu
+          docker run --rm --network host aos:ci python -c \
+            "import psycopg; psycopg.connect('$DB_ROOT/postgres', autocommit=True).execute('CREATE DATABASE aos_single')"
+          # As on Render: no AOS_PUBLIC_URL, the platform's RENDER_EXTERNAL_URL is used (F4).
+          docker run -d --name single --network host -e AOS_ENV=prod -e AOS_DATABASE_URL="$DB_ROOT/aos_single" \
+            $WEB_ENVS $HC -e RENDER_EXTERNAL_URL=https://aos-web.example.org \
+            -e AOS_BUILD_COMMIT="$GITHUB_SHA" -e PORT=10001 aos:ci python -m app.serve --migrate --with-worker
+          for i in $(seq 1 45); do curl -fsS http://127.0.0.1:10001/readyz && break; sleep 2; done
+          python backend/scripts/smoke_prod.py http://127.0.0.1:10001 --allow-http --idp-unreachable \
+            --expect-commit "$GITHUB_SHA" --expect-signup-mode request
+          sleep 5
+          docker logs single 2>&1 | grep -q '"worker started"'
+          sh "$RUNNER_TEMP/healthy.sh" single "web ok, worker ok"
+          docker stop -t 30 single
+          docker logs single 2>&1 | grep -q '"worker stopped"'
+      - name: Older build stays ready on the new schema (ADR 0020)
+        run: |
+          set -eu
+          newest=$(ls backend/migrations/versions | grep -E '^[0-9]{4}_.*\.py$' | sort | tail -n 1)
+          added=$(git log --diff-filter=A --format=%H -n 1 -- "backend/migrations/versions/$newest")
+          prev=$(git rev-parse "$added^")
+          echo "Newest migration $newest was added in ${added:0:12}; older build: ${prev:0:12}"
+          git worktree add --detach "$RUNNER_TEMP/prev" "$prev"
+          docker build -t aos:prev "$RUNNER_TEMP/prev"
+          # The older build may need its own settings (the 0009 build requires an allowlist and
+          # validates web settings in its worker); newer builds ignore unknown variables.
+          OLD="-e AOS_ENV=prod -e AOS_DATABASE_URL=$DB_ROOT/aos $WEB_ENVS -e AOS_PUBLIC_URL=https://aos.example.org -e AOS_ALLOWED_EMAIL_DOMAINS=example.org"
+          docker run -d --name prev-web --network host $OLD -e AOS_BUILD_COMMIT="$prev" -e PORT=10002 aos:prev
+          docker run -d --name prev-worker --network host $OLD aos:prev python -m app.workers.runner
+          for i in $(seq 1 30); do curl -fsS http://127.0.0.1:10002/readyz && break; sleep 2; done
+          python backend/scripts/smoke_prod.py http://127.0.0.1:10002 --allow-http --idp-unreachable \
+            --expect-commit "$prev"
+          sleep 5
+          docker logs prev-worker 2>&1 | grep -q '"worker started"'
+          docker stop -t 30 prev-worker prev-web
       - if: always()
         name: Container logs
         run: |
-          docker logs web || true
-          docker logs worker || true
+          for c in web worker single prev-web prev-worker; do
+            echo "::group::$c"; docker logs "$c" 2>&1 || true; echo "::endgroup::"
+          done

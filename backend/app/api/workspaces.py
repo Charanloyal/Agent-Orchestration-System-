@@ -6,11 +6,23 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Query, Response
 from pydantic import BaseModel, Field, StringConstraints
 from sqlalchemy import Integer, cast, func, select
+from sqlalchemy.orm import aliased
 
-from app.auth.deps import CurrentPrincipal, DbSession, WorkspaceAccess, workspace_access
-from app.db.models import AuditEvent, Brief, BudgetReservation, Membership, Role, Run, User, Workspace
-from app.errors import Conflict, NotFound, Unprocessable
+from app.auth.deps import AppSettings, CurrentPrincipal, DbSession, WorkspaceAccess, workspace_access
+from app.db.models import (
+    AuditEvent,
+    Brief,
+    BudgetReservation,
+    Membership,
+    Role,
+    Run,
+    User,
+    Workspace,
+    WorkspaceInvitation,
+)
+from app.errors import Conflict, Forbidden, NotFound, Unprocessable
 from app.policy.permissions import Action
+from app.services import access as access_service
 from app.services.audit import audit
 
 router = APIRouter(prefix="/api/v1/workspaces", tags=["workspaces"])
@@ -48,6 +60,29 @@ class MemberRoleIn(BaseModel):
     role: Role
 
 
+class InvitationIn(BaseModel):
+    email: Email
+    role: Role = Role.ANALYST
+
+
+class InvitationOut(BaseModel):
+    id: uuid.UUID
+    email: str
+    role: str
+    invited_by: str | None
+    created_at: datetime
+    expires_at: datetime
+
+
+class InviteResultOut(BaseModel):
+    """`added` when the person already had an account (they are a member now); `invited`
+    when the invitation waits for their first sign-in."""
+
+    status: str
+    invitation: InvitationOut | None
+    member: MemberOut | None
+
+
 @router.get("", response_model=list[WorkspaceOut])
 def list_workspaces(principal: CurrentPrincipal, db: DbSession) -> list[WorkspaceOut]:
     rows = db.execute(
@@ -60,8 +95,14 @@ def list_workspaces(principal: CurrentPrincipal, db: DbSession) -> list[Workspac
 
 
 @router.post("", response_model=WorkspaceOut, status_code=201)
-def create_workspace(body: WorkspaceIn, principal: CurrentPrincipal, db: DbSession) -> WorkspaceOut:
-    workspace = Workspace(name=body.name)
+def create_workspace(
+    body: WorkspaceIn, principal: CurrentPrincipal, db: DbSession, settings: AppSettings
+) -> WorkspaceOut:
+    if settings.effective_workspace_creation == "platform_admins" and not settings.is_platform_admin(
+        principal.email
+    ):
+        raise Forbidden("Only platform admins can create workspaces here; ask one to create it for you")
+    workspace = Workspace(name=body.name.strip())
     db.add(workspace)
     db.flush()
     db.add(Membership(workspace_id=workspace.id, user_id=principal.user_id, role=Role.ADMIN))
@@ -92,6 +133,86 @@ def get_workspace(
         name=workspace.name,
         role=access.role,
         created_at=workspace.created_at,
+    )
+
+
+@router.patch("/{workspace_id}", response_model=WorkspaceOut)
+def rename_workspace(
+    body: WorkspaceIn,
+    access: Annotated[WorkspaceAccess, Depends(workspace_access(Action.WORKSPACE_MANAGE))],
+    db: DbSession,
+) -> WorkspaceOut:
+    workspace = db.get(Workspace, access.workspace_id, with_for_update=True)
+    assert workspace is not None
+    workspace.name = body.name.strip()
+    audit(db, "workspace.rename", actor_user_id=access.principal.user_id, workspace_id=workspace.id)
+    db.commit()
+    return WorkspaceOut(
+        id=workspace.id, name=workspace.name, role=access.role, created_at=workspace.created_at
+    )
+
+
+@router.get("/{workspace_id}/invitations", response_model=list[InvitationOut])
+def list_invitations(
+    access: Annotated[WorkspaceAccess, Depends(workspace_access(Action.MEMBERS_MANAGE))],
+    db: DbSession,
+) -> list[InvitationOut]:
+    """Pending invitations, including expired ones (shown so an admin can invite again)."""
+    inviter = aliased(User)
+    rows = db.execute(
+        select(WorkspaceInvitation, inviter.display_name)
+        .outerjoin(inviter, inviter.id == WorkspaceInvitation.invited_by)
+        .where(
+            WorkspaceInvitation.workspace_id == access.workspace_id,
+            WorkspaceInvitation.accepted_at.is_(None),
+            WorkspaceInvitation.revoked_at.is_(None),
+        )
+        .order_by(WorkspaceInvitation.created_at.desc())
+    ).all()
+    return [_invitation_out(i, name) for i, name in rows]
+
+
+@router.post("/{workspace_id}/invitations", response_model=InviteResultOut, status_code=201)
+def invite(
+    body: InvitationIn,
+    access: Annotated[WorkspaceAccess, Depends(workspace_access(Action.MEMBERS_MANAGE))],
+    db: DbSession,
+    settings: AppSettings,
+) -> InviteResultOut:
+    result = access_service.invite_to_workspace(
+        db, settings, access.workspace_id, body.email, body.role, invited_by=access.principal.user_id
+    )
+    db.commit()
+    if result.user is not None:
+        user = result.user
+        member = MemberOut(user_id=user.id, email=user.email, display_name=user.display_name, role=body.role)
+        return InviteResultOut(status=result.status, invitation=None, member=member)
+    assert result.invitation is not None
+    invitation = _invitation_out(result.invitation, access.principal.display_name)
+    return InviteResultOut(status=result.status, invitation=invitation, member=None)
+
+
+@router.delete("/{workspace_id}/invitations/{invitation_id}", status_code=204)
+def revoke_invitation(
+    invitation_id: uuid.UUID,
+    access: Annotated[WorkspaceAccess, Depends(workspace_access(Action.MEMBERS_MANAGE))],
+    db: DbSession,
+) -> Response:
+    access_service.revoke_invitation(
+        db, access.workspace_id, invitation_id, actor_user_id=access.principal.user_id
+    )
+    db.commit()
+    return Response(status_code=204)
+
+
+def _invitation_out(invitation: WorkspaceInvitation, invited_by: str | None) -> InvitationOut:
+    return InvitationOut(
+        id=invitation.id,
+        email=invitation.email,
+        role=invitation.role,
+        invited_by=invited_by,
+        created_at=invitation.created_at,
+        expires_at=invitation.expires_at,
     )
 
 

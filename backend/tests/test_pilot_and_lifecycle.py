@@ -32,6 +32,7 @@ SAFE_PROD: dict[str, Any] = {
     "oidc_client_id": "aos-pilot",
     "public_url": "https://aos.example.org",
     "allowed_email_domains": "example.org",
+    "platform_admin_emails": "Ops@Example.org",
 }
 
 
@@ -42,6 +43,11 @@ def test_safe_production_settings_are_accepted() -> None:
     settings = Settings(**SAFE_PROD)
     assert settings.email_allowed("Ana@Example.org") and not settings.email_allowed("eve@evil.test")
     assert not settings.email_allowed(None), "unverified or missing email never passes an allowlist"
+    assert settings.effective_signup_mode == "invite", "prod defaults to invite-only sign-in"
+    assert settings.effective_workspace_creation == "platform_admins"
+    assert settings.is_platform_admin("ops@example.org") and not settings.is_platform_admin("ana@example.org")
+    without_allowlist = Settings(**{**SAFE_PROD, "allowed_email_domains": ""})
+    assert without_allowlist.effective_signup_mode == "invite", "no allowlist no longer means anyone"
 
 
 @pytest.mark.parametrize(
@@ -54,17 +60,45 @@ def test_safe_production_settings_are_accepted() -> None:
         ({"oidc_client_id": "aos-local"}, "dev OIDC issuer"),
         ({"oidc_backchannel_url": "http://127.0.0.1:8001"}, "AOS_OIDC_BACKCHANNEL_URL"),
         ({"public_url": "http://aos.example.org"}, "AOS_PUBLIC_URL"),
-        ({"allowed_email_domains": ""}, "allowlist"),
+        ({"platform_admin_emails": ""}, "AOS_PLATFORM_ADMIN_EMAILS"),
+        ({"signup_mode": "open", "agent_mode": "llm"}, "AOS_SIGNUP_MODE"),
         ({"crash_at": "after_research"}, "AOS_CRASH_AT"),
     ],
 )
 def test_unsafe_production_settings_refuse_to_start(override: dict[str, Any], message: str) -> None:
     with pytest.raises(ValueError, match=message):
-        Settings(**{**SAFE_PROD, **override})
+        create_app(Settings(**{**SAFE_PROD, **override}))
 
 
-def test_unreachable_identity_provider_is_a_503_with_an_actionable_message(
-    client: TestClient, db: Session
+def test_worker_and_migrations_need_only_the_database_in_production() -> None:
+    """The worker and the pre-deploy migration serve no HTTP: no sign-in, cookie or public URL
+    settings. The web app still refuses to start without them."""
+    worker = Settings(env="prod", database_url="postgresql://u:p@db.internal:5432/aos")
+    assert worker.sqlalchemy_url().startswith("postgresql+psycopg://")
+    with pytest.raises(ValueError, match="AOS_OIDC_ISSUER") as refused:
+        create_app(worker)
+    for variable in ("AOS_COOKIE_SECURE", "AOS_PUBLIC_URL", "AOS_PLATFORM_ADMIN_EMAILS"):
+        assert variable in str(refused.value)
+    with pytest.raises(ValueError, match="AOS_DATABASE_URL"):
+        Settings(env="prod", database_url=None)
+
+
+def test_render_external_url_is_the_public_url_unless_one_is_set(monkeypatch: pytest.MonkeyPatch) -> None:
+    """F4: Render gives every web service RENDER_EXTERNAL_URL, so the blueprint needs no
+    AOS_PUBLIC_URL prompt. An explicit AOS_PUBLIC_URL (a custom domain) still wins."""
+    monkeypatch.delenv("AOS_PUBLIC_URL", raising=False)
+    monkeypatch.setenv("RENDER_EXTERNAL_URL", "https://aos-web-x1y2.onrender.com/")
+    settings = Settings(**{k: v for k, v in SAFE_PROD.items() if k != "public_url"})
+    assert settings.public_url == "https://aos-web-x1y2.onrender.com"
+    assert settings.oidc_redirect_uri == "https://aos-web-x1y2.onrender.com/api/v1/auth/callback"
+    assert settings.web_problems() == []
+    monkeypatch.setenv("AOS_PUBLIC_URL", "https://research.example.org")
+    assert Settings().public_url == "https://research.example.org"
+    assert Settings(public_url="https://given.example.org").public_url == "https://given.example.org"
+
+
+def test_unreachable_identity_provider_sends_people_back_with_a_clear_reason(
+    client: TestClient, db: Session, caplog: pytest.LogCaptureFixture
 ) -> None:
     import httpx
 
@@ -79,9 +113,9 @@ def test_unreachable_identity_provider_is_a_503_with_an_actionable_message(
         response = client.get("/api/v1/auth/login", follow_redirects=False)
     finally:
         app.dependency_overrides.pop(get_oidc_client, None)
-    assert response.status_code == 503
-    assert response.json()["error"]["code"] == "identity_provider_unavailable"
-    assert "AOS_OIDC_ISSUER" in response.json()["error"]["message"]
+    assert response.status_code == 302
+    assert response.headers["location"] == "/signin?error=provider_unavailable"
+    assert "AOS_OIDC_ISSUER" in caplog.text, "operators get the actionable detail in the log"
 
 
 def test_production_app_hides_openapi_and_docs() -> None:
@@ -111,7 +145,7 @@ def test_allowlist_refuses_uninvited_accounts_without_creating_a_user(
     allowlist("bob@example.test")
     denied = sign_in_via_dev_issuer(client, "dev-alice")
     assert denied.status_code == 302 and denied.headers["location"] == "/signin?error=not_allowed"
-    assert "set-cookie" not in denied.headers
+    assert "aos_session" not in denied.headers.get("set-cookie", ""), "no session for a refused account"
     assert db.scalar(select(func.count()).select_from(User).where(User.email == "alice@example.test")) == 0
     event = db.scalars(select(AuditEvent).where(AuditEvent.action == "auth.denied")).one()
     assert "alice" not in str(event.details), "the refused address is not stored"
@@ -170,7 +204,7 @@ def test_api_serves_the_built_frontend_with_client_side_routing(tmp_path: Path) 
     assert asset.status_code == 200 and "immutable" in asset.headers["cache-control"]
     api_missing = spa.get("/api/v1/does-not-exist")
     assert api_missing.status_code == 404 and api_missing.json()["error"]["code"] == "not_found"
-    assert spa.get("/healthz").json() == {"status": "ok"}
+    assert spa.get("/healthz").json()["status"] == "ok", "API routes win over the SPA fallback"
     assert "nope" not in spa.get("/../secret.txt").text and "nope" not in spa.get("/%2e%2e/secret.txt").text
 
 

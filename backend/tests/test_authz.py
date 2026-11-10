@@ -18,7 +18,12 @@ from app.main import app
 from app.policy.permissions import ROLE_PERMISSIONS, Action
 from tests.conftest import SAMPLE_BRIEF, LoggedIn
 
-PUBLIC_ROUTES = {("GET", "/api/v1/auth/login"), ("GET", "/api/v1/auth/callback")}
+PUBLIC_ROUTES = {
+    ("GET", "/api/v1/auth/login"),
+    ("GET", "/api/v1/auth/callback"),
+    ("GET", "/api/v1/auth/config"),
+    ("POST", "/api/v1/access-requests"),
+}
 UNSAFE = {"POST", "PUT", "PATCH", "DELETE"}
 
 
@@ -53,10 +58,17 @@ def fill(path: str, ids: dict[str, object]) -> str:
 DECISION = {"version": 1, "digest": "0" * 64, "decision": "approve"}
 BODIES: dict[tuple[str, str], dict[str, object]] = {
     ("POST", "/api/v1/workspaces"): {"name": "X"},
+    ("PATCH", "/api/v1/workspaces/{workspace_id}"): {"name": "X"},
     ("POST", "/api/v1/workspaces/{workspace_id}/members"): {
         "email": "nobody@example.test",
         "role": "analyst",
     },
+    ("POST", "/api/v1/workspaces/{workspace_id}/invitations"): {
+        "email": "newcomer@example.test",
+        "role": "analyst",
+    },
+    ("POST", "/api/v1/admin/access-requests/{request_id}/approve"): {},
+    ("POST", "/api/v1/admin/access-list"): {"email": "newcomer@example.test"},
     ("PATCH", "/api/v1/workspaces/{workspace_id}/members/{user_id}"): {"role": "analyst"},
     ("POST", "/api/v1/runs/{run_id}/plan-decisions"): DECISION,
     ("POST", "/api/v1/reports/{report_id}/decisions"): DECISION,

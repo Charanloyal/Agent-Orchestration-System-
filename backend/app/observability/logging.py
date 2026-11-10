@@ -93,6 +93,7 @@ def startup_summary(settings: Settings, component: str) -> None:
     only: never secrets, full URLs with credentials, or the allowlist contents."""
     from urllib.parse import urlsplit
 
+    web = {"oidc_issuer_host": urlsplit(settings.oidc_issuer).hostname, "public_url": settings.public_url}
     logging.getLogger("aos.startup").info(
         "starting",
         extra={
@@ -100,8 +101,7 @@ def startup_summary(settings: Settings, component: str) -> None:
             "env": settings.env,
             "agent_mode": settings.agent_mode,
             "search_provider": settings.search_provider,
-            "oidc_issuer_host": urlsplit(settings.oidc_issuer).hostname,
-            "public_url": settings.public_url,
+            **(web if component == "api" else {}),
             "database_configured": settings.database_url is not None,
             "serves_frontend": settings.static_dir is not None,
             "signin_allowlist": bool(settings.allowed_email_set or settings.allowed_domain_set),

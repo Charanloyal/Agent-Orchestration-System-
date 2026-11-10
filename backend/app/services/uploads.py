@@ -1,6 +1,7 @@
 """Upload ingestion: validate, extract, chunk, index, and store (FR-05, threat model T8)."""
 
 import hashlib
+import logging
 import re
 import uuid
 from dataclasses import dataclass
@@ -15,6 +16,8 @@ from app.services.audit import audit
 from app.storage import ObjectStore
 from app.tools.chunking import split_passages
 from app.tools.extract import ExtractedDocument, ExtractionError, extract_pdf, extract_plain
+
+log = logging.getLogger("aos.uploads")
 
 TEXT_SUFFIXES = (".txt", ".md", ".markdown")
 
@@ -80,6 +83,11 @@ def ingest_upload(
 
     existing = db.scalar(select(Upload).where(Upload.workspace_id == workspace_id, Upload.sha256 == digest))
     if existing is not None:
+        if store.keeps_files and not store.exists(existing.object_key):
+            # The stored original was lost (an ephemeral disk) while the extracted text in
+            # Postgres is intact. Uploading the same file again restores it.
+            store.put(existing.object_key, data)
+            log.warning("restored a missing stored original", extra={"upload_id": str(existing.id)})
         return IngestResult(existing, created=False)
 
     try:

@@ -48,6 +48,8 @@ DEFAULT_USERS = (
         "Mallory Outsider",
         "member of another workspace",
     ),
+    DevUser("dev-dana", "dana@example.test", "Dana Newcomer", "not seeded: try an invitation"),
+    DevUser("dev-erin", "erin@example.test", "Erin Requester", "not seeded: try requesting access"),
 )
 
 _CODE_TTL_SECONDS = 60

@@ -12,20 +12,27 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Protocol
 
-from app.config import get_settings
+from app.config import Settings, get_settings
 
 _KEY = re.compile(r"^[a-z0-9][a-z0-9/_.-]{0,199}$")
 
 
 class ObjectStore(Protocol):
+    # False when copies are discarded (AOS_STORE_FILES=false): nothing to restore or read back.
+    keeps_files: bool
+
     def put(self, key: str, data: bytes) -> None: ...
 
     def get(self, key: str) -> bytes: ...
+
+    def exists(self, key: str) -> bool: ...
 
     def delete(self, key: str) -> None: ...
 
 
 class LocalObjectStore:
+    keeps_files = True
+
     def __init__(self, root: Path) -> None:
         self.root = root.resolve()
 
@@ -52,10 +59,40 @@ class LocalObjectStore:
     def get(self, key: str) -> bytes:
         return self._path(key).read_bytes()
 
+    def exists(self, key: str) -> bool:
+        return self._path(key).is_file()
+
     def delete(self, key: str) -> None:
         self._path(key).unlink(missing_ok=True)
 
 
+class DiscardingObjectStore:
+    """AOS_STORE_FILES=false (ADR 0026). Nothing reads a stored copy back: uploads are used
+    through their extracted text and exports are rendered from Postgres on every download.
+    On hosts with ephemeral, per-service disks (Render) copies would only be lost, and a
+    worker could not delete the web service's files, so none are kept."""
+
+    keeps_files = False
+
+    def put(self, key: str, data: bytes) -> None:
+        return None
+
+    def get(self, key: str) -> bytes:
+        raise FileNotFoundError(key)
+
+    def exists(self, key: str) -> bool:
+        return False
+
+    def delete(self, key: str) -> None:
+        return None
+
+
+def build_object_store(settings: Settings) -> ObjectStore:
+    if not settings.store_files:
+        return DiscardingObjectStore()
+    return LocalObjectStore(settings.object_store_dir)
+
+
 @lru_cache
 def get_object_store() -> ObjectStore:
-    return LocalObjectStore(get_settings().object_store_dir)
+    return build_object_store(get_settings())

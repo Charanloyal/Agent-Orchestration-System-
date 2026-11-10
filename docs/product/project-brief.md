@@ -69,18 +69,18 @@ These are the P0 items from PRD §2.5:
 - durable execution with retries, cancellation and bounded revision,
 - run timeline, structured logs, cost ledger and automated evaluation.
 
-## Open decisions (owner: project lead)
+## Decisions (owner: project lead)
 
 | Decision | Status | Record |
 | --- | --- | --- |
-| Model provider | UNDECIDED | [ADR 0002](../decisions/0002-model-provider.md) |
-| Search provider | UNDECIDED | [ADR 0003](../decisions/0003-search-provider.md) |
-| Deployment target | UNDECIDED | [ADR 0004](../decisions/0004-deployment-target.md) |
-| Development spending ceiling | UNDECIDED | [ADR 0005](../decisions/0005-spending-ceiling.md) |
-| Allowed data | Proposed: public or synthetic only | [Threat model](../security/threat-model.md) |
+| Model provider | Accepted: one OpenAI-compatible adapter; fake model by default | [ADR 0002](../decisions/0002-model-provider.md) |
+| Search provider | Accepted: Tavily for live runs, offline corpus for evaluation; fake by default | [ADR 0003](../decisions/0003-search-provider.md) |
+| Deployment target | Accepted: Render, hybrid blueprint in `singapore` (supersedes ADR 0004's local-only decision) | [ADR 0018](../decisions/0018-production-image-render-hardening.md), [ADR 0023](../decisions/0023-deploy-topologies-and-ci-proof.md) |
+| Development spending ceiling | Accepted: USD 10 in total, each live session approved first | [ADR 0005](../decisions/0005-spending-ceiling.md) |
+| Allowed data | Public or synthetic only | [Threat model](../security/threat-model.md) |
 
-Until these are decided, all development uses deterministic fake model and search providers,
-and no paid calls are made.
+All development and the hosted demo use deterministic fake model and search providers; paid
+calls happen only in approved live evaluation sessions within the ceiling.
 
 ## Week-1 exit gate: "a human can explain the intended report and judge a manually produced example"
 

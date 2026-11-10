@@ -15,12 +15,21 @@ New here? Read the [user guide](docs/user-guide.md) (illustrated walkthrough), t
 [troubleshooting](docs/troubleshooting.md). The [final project report](docs/report/final-report.md)
 describes the design, the measured results and the limitations.
 
-> **Status:** milestones M3–M16 are done on the repository side. This is a controlled-pilot
-> build that has been verified locally and in CI, but it has **not been deployed** and is
-> **not production-ready**. The live-model evaluation has not been run. See
-> [docs/README.md](docs/README.md) for milestone status and [docs/handoff.md](docs/handoff.md)
-> for the verified state. **Do not expose it publicly**: the bundled dev identity provider is
-> for local use only.
+> **Status:** v1.0 release candidate (`v1.0.0-pilot` once approved). The repository side is
+> complete and verified locally: backend, frontend, end-to-end and accessibility tests. CI
+> repeats them, builds the images and runs the production-image smoke tests when the commits
+> are pushed. It has **not been deployed yet**: the Render deployment, both rollback
+> rehearsals, the live-model evaluation and the user research need the owner's accounts,
+> budget and participants, and are prepared step by step. See
+> [docs/README.md](docs/README.md) for status and [docs/handoff.md](docs/handoff.md) for the
+> verified state. **Do not expose a local stack publicly**: the bundled dev identity provider
+> is for local use only.
+
+**What a visitor gets:** "Continue with Google" sign-in; invitations by workspace admins;
+a request-access form reviewed by platform admins; a welcome page for people without a
+workspace; role-based workspaces (analyst, reviewer, admin); notifications for every action;
+friendly messages for every sign-in and permission problem; dark mode; layouts down to 360 px;
+and every page checked with axe-core for WCAG 2.2 A/AA on each test run.
 
 ## Repository layout
 
@@ -34,6 +43,8 @@ backend/evaluation/       Evaluation harness: systems A/B/C, metrics, blind scor
 spikes/week2_persistence/ Archived Week-2 spike (evidence for ADR 0007/0008)
 docker-compose.yml        Local production-like stack (Postgres, API, dev IdP, web)
 Dockerfile, render.yaml   Single-origin production image and Render Blueprint (web + worker + Postgres)
+render.hybrid.yaml        Chosen variant: one free service runs API and worker, paid Postgres (ADR 0023)
+render.free.yaml          Free-plan variant: as hybrid, with a free Postgres (ADR 0022)
 .github/workflows/ci.yml  Lint, type-check, tests on Postgres, frontend build, image builds
 ```
 
@@ -84,8 +95,9 @@ python -m venv .venv
 .\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-In a second terminal, start the **local dev identity provider** (sign-in for the demo users
-Alice/analyst, Bob/reviewer, Carol/admin and Mallory/other workspace):
+In a second terminal, start the **local dev identity provider**. It offers the demo users
+Alice/analyst, Bob/reviewer, Carol/admin and Mallory/other workspace, plus Dana and Erin, who
+are not seeded, for trying invitations and access requests:
 
 ```powershell
 cd backend
@@ -105,9 +117,11 @@ without any model provider or cost.
 
 | Endpoint | Purpose |
 | --- | --- |
-| `GET /healthz` | Liveness |
-| `GET /readyz` | Readiness (database reachable and at the code's migration head) |
+| `GET /healthz` | Liveness, with the release version and short commit (shown in the UI footer) |
+| `GET /readyz` | Readiness (database reachable, schema at the code's head or a newer compatible one; ADR 0020) |
+| `GET /version` | Serving build: version, commit, migration head |
 | `GET /api/docs` | Interactive OpenAPI docs (disabled in prod) |
+| `GET /api/v1/auth/config` | Public: provider label and signup mode for the sign-in page |
 | `GET /api/v1/auth/login` | Start OIDC sign-in |
 
 **Checks** (the same commands CI runs):
@@ -156,6 +170,12 @@ AOS_E2E_DATABASE_URL=postgresql://postgres:<password>@127.0.0.1:54329/aos_e2e
 npm.cmd run e2e        # uses installed Microsoft Edge locally; CI uses Playwright's Chromium
 ```
 
+The suite runs the workflow journeys, the access model (invitation, access request,
+session expiry), and an accessibility pass over every page: axe-core WCAG 2.2 A/AA in light
+and dark mode, a 360 px layout check, and a keyboard test. The E2E stack uses
+`AOS_SIGNUP_MODE=request` with Carol as platform admin.
+`$env:AOS_SCREENSHOTS=1; npm.cmd run e2e` also refreshes the documentation screenshots.
+
 ## 4. Docker Compose (optional, production-like)
 
 ```powershell
@@ -186,8 +206,11 @@ To sign in on this single origin, start both the API and the dev issuer with
 - **Demo:** `python -m app.cli seed-demo --sample-run`, then follow the 10-step
   [demonstration script](docs/demo/demo-script.md). The [user guide](docs/user-guide.md)
   explains each screen.
-- **Render:** [`render.yaml`](render.yaml) and [deploy-render.md](docs/operations/deploy-render.md)
-  (web + worker + managed Postgres; paid instance types; a real identity provider required).
+- **Render:** [`render.hybrid.yaml`](render.hybrid.yaml) (one free service, paid Postgres;
+  the chosen topology), [`render.yaml`](render.yaml) (web + worker + Postgres, paid) or
+  [`render.free.yaml`](render.free.yaml) (all free), with Google sign-in, step by step
+  in [deploy-render.md](docs/operations/deploy-render.md). After every deploy run
+  `python backend/scripts/smoke_prod.py https://<your-url>`.
 - **Operations:** [P0 checklist](docs/operations/p0-checklist.md) ·
   [migrations and rollback](docs/operations/migrations.md) ·
   [data retention](docs/operations/data-retention.md) · [runbook](docs/operations/runbook.md).
@@ -220,14 +243,21 @@ issuer.
 | `AOS_METRICS_TOKEN` | none | Bearer token for `/metrics` (required in prod, otherwise the endpoint is hidden there) |
 | `AOS_RATE_*` | 20 runs/user/h, 60 runs/workspace/h, 30 uploads/h, 60 exports/h, 30 logins/5 min | Rate limits (`0` disables one) |
 | `AOS_BREAKER_FAILURE_THRESHOLD` / `AOS_BREAKER_COOLDOWN_SECONDS` | `5` / `60` | Provider circuit breaker |
-| `AOS_ALLOWED_EMAILS` / `AOS_ALLOWED_EMAIL_DOMAINS` | empty (anyone) | Sign-in allowlist on the provider's verified email; **required in prod** |
+| `AOS_ALLOWED_EMAILS` / `AOS_ALLOWED_EMAIL_DOMAINS` | empty | Always allowed to sign in (matched on the provider's *verified* email) |
+| `AOS_PLATFORM_ADMIN_EMAILS` | empty | Who manages access for the whole deployment; **required in prod** ([ADR 0021](docs/decisions/0021-access-model.md)) |
+| `AOS_SIGNUP_MODE` | `open` in dev without an allowlist, else `invite` | `invite`, `request` (public request form) or `open` (refused in prod with model agents) |
+| `AOS_WORKSPACE_CREATION` | `everyone` in dev, `platform_admins` in prod | Who may create workspaces |
+| `AOS_INVITATION_TTL_DAYS` | `14` | Invitation lifetime |
+| `AOS_OIDC_PROVIDER_LABEL` | derived from the issuer | Name on the "Continue with …" button (Google and Microsoft are recognised) |
+| `AOS_RATE_ACCESS_REQUEST_PER_IP_HOUR` | `5` | Access requests per client address per hour |
+| `AOS_RETENTION_ACCESS_REQUEST_DAYS` | `90` | Decided access requests are deleted after this |
 | `AOS_STATIC_DIR` | unset | Serve the built SPA from the API (single origin; set in the production image) |
 | `AOS_MAX_REQUEST_BYTES` | `1000000` | Largest JSON request body (uploads: `AOS_UPLOAD_MAX_BYTES` + 1 MB) |
 | `AOS_RETENTION_RUN_DAYS` / `AOS_RETENTION_UPLOAD_DAYS` | `0` (off) | Retention sweep for finished runs and uploads ([policy](docs/operations/data-retention.md)) |
 
 With `AOS_ENV=prod` the API and worker **refuse to start** on unsafe settings: the dev
-issuer, http URLs, insecure cookies, no allowlist, a missing database URL. The error names
-each variable to fix.
+issuer, http URLs, insecure cookies, no platform admin, open signup with model agents, a
+missing database URL. The error names each variable to fix.
 
 Operations: [alert rules](docs/operations/alerts.yml) and the [incident runbook](docs/operations/runbook.md).
 

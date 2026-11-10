@@ -129,3 +129,17 @@ def test_corpus_bm25_ranking_and_domain_policy(tmp_path: Path) -> None:
     assert [h.url for h in blocked.hits] == ["https://gamma.corpus.test/sso"]
     only = corpus.search("sign-on", max_results=5, allowed_domains=["gamma.corpus.test"], blocked_domains=[])
     assert [h.url for h in only.hits] == ["https://gamma.corpus.test/sso"]
+
+
+def test_a_missing_corpus_fails_at_start_up_not_silently(tmp_path: Path) -> None:
+    """F9: the production image does not ship eval/, so a corpus search there would quietly
+    find nothing. Every process refuses to start instead, naming the variable to fix."""
+    from app.config import Settings
+
+    with pytest.raises(ValueError, match="AOS_SEARCH_PROVIDER=corpus"):
+        Settings(search_provider="corpus", corpus_dir=tmp_path / "absent")
+    with pytest.raises(ValueError, match="no corpus documents"):
+        CorpusSearch(tmp_path)
+    write_doc(tmp_path, "d1", "https://alpha.corpus.test/a", "Alpha", "Alpha text.")
+    assert Settings(search_provider="corpus", corpus_dir=tmp_path).corpus_dir == tmp_path
+    assert Settings(search_provider="fake", corpus_dir=tmp_path / "absent").search_provider == "fake"

@@ -34,7 +34,59 @@ export type Me = {
   csrf_token: string;
   memberships: Membership[];
   deployment: { environment: string; agent_mode: "fake" | "llm" };
+  is_platform_admin: boolean;
+  can_create_workspace: boolean;
 };
+
+/** GET /healthz: the release (app/version.py) and the deployed commit, if known. */
+export type Build = { status: "ok"; version: string; commit: string | null };
+
+export type SignupMode = "invite" | "request" | "open";
+
+export type AuthConfig = { provider_label: string; signup_mode: SignupMode };
+
+export type WorkspaceInfo = { id: string; name: string; role: Role; created_at: string };
+
+export type Member = { user_id: string; email: string | null; display_name: string; role: Role };
+
+export type Invitation = {
+  id: string;
+  email: string;
+  role: Role;
+  invited_by: string | null;
+  created_at: string;
+  expires_at: string;
+};
+
+export type InviteResult = {
+  status: "invited" | "added";
+  invitation: Invitation | null;
+  member: Member | null;
+};
+
+export type AccessRequest = {
+  id: string;
+  email: string;
+  name: string;
+  message: string | null;
+  status: "pending" | "approved" | "denied";
+  created_at: string;
+  decided_at: string | null;
+  decided_by: string | null;
+};
+
+export type AccessSource = "admin" | "request" | "invitation" | "existing_member" | "seed";
+
+export type AccessEntry = {
+  id: string;
+  email: string;
+  source: AccessSource;
+  note: string | null;
+  created_at: string;
+  added_by: string | null;
+};
+
+export type AdminWorkspace = { id: string; name: string; members: number };
 
 export type AuditEvent = {
   id: number;

@@ -12,6 +12,7 @@ const me: Me = {
   user_id: "u1", email: "a@example.test", display_name: "Ana", csrf_token: "csrf",
   memberships: [{ workspace_id: WS, workspace_name: "Team", role: "analyst" }],
   deployment: { environment: "test", agent_mode: "fake" },
+  is_platform_admin: false, can_create_workspace: true,
 };
 
 const doc = {

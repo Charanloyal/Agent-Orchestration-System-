@@ -1,7 +1,8 @@
-import { Link, NavLink, Navigate, Outlet, useLocation, useParams } from "react-router";
+import { Link, NavLink, Navigate, Outlet, useLocation, useOutletContext, useParams } from "react-router";
 
-import { useMe, useSignOut } from "../api/hooks";
+import { useAdminSummary, useBuild, useMe, useSignOut } from "../api/hooks";
 import type { Me } from "../api/types";
+import { OnboardingPage } from "../pages/OnboardingPage";
 import { ErrorBanner, Spinner } from "./ui";
 
 /** Gate for signed-in pages. Unauthenticated users go to /signin and come back afterwards. */
@@ -42,6 +43,7 @@ function AppShell({ me }: { me: Me }) {
             <NavLink to={`/w/${current.workspace_id}/documents`}>Documents</NavLink>
             {current.role !== "reviewer" && <NavLink to={`/w/${current.workspace_id}/usage`}>Usage</NavLink>}
             {current.role === "admin" && <NavLink to={`/w/${current.workspace_id}/activity`}>Activity</NavLink>}
+            {current.role === "admin" && <NavLink to={`/w/${current.workspace_id}/settings`}>Settings</NavLink>}
           </nav>
         )}
         <div className="topbar-right">
@@ -53,6 +55,7 @@ function AppShell({ me }: { me: Me }) {
               Demo agents
             </span>
           )}
+          {me.is_platform_admin && <AccessLink />}
           {me.memberships.length > 1 && current && (
             <WorkspaceSwitcher me={me} currentId={current.workspace_id} />
           )}
@@ -67,16 +70,37 @@ function AppShell({ me }: { me: Me }) {
         </div>
       </header>
       <main className="content" id="main" tabIndex={-1}>
-        {me.memberships.length === 0 ? (
-          <div className="banner">
-            You are signed in but not a member of any workspace yet. Ask a workspace admin to add{" "}
-            <strong>{me.email}</strong>.
-          </div>
-        ) : (
-          <Outlet context={me} />
-        )}
+        <Outlet context={me} />
       </main>
+      <BuildFooter />
     </div>
+  );
+}
+
+/** The running release and commit, so a demo shows exactly which build is live. */
+function BuildFooter() {
+  const build = useBuild().data;
+  return (
+    <footer className="build-footer small muted">
+      {build && (build.commit ? `v${build.version} · ${build.commit.slice(0, 7)}` : `v${build.version}`)}
+    </footer>
+  );
+}
+
+/** Platform admins: deployment-wide access, with the number of requests waiting. */
+function AccessLink() {
+  const summary = useAdminSummary(true);
+  const pending = summary.data?.pending_requests ?? 0;
+  const label = pending > 0 ? `Access, ${pending} pending ${pending === 1 ? "request" : "requests"}` : undefined;
+  return (
+    <NavLink to="/admin/access" className="access-link" aria-label={label}>
+      Access
+      {pending > 0 && (
+        <span className="badge badge-waiting" aria-hidden="true">
+          {pending}
+        </span>
+      )}
+    </NavLink>
   );
 }
 
@@ -96,9 +120,10 @@ function WorkspaceSwitcher({ me, currentId }: { me: Me; currentId: string }) {
   );
 }
 
+/** `/`: the first workspace's runs, or onboarding for people without a workspace yet. */
 export function HomeRedirect() {
-  const me = useMe();
-  if (me.isPending) return <Spinner />;
-  const first = me.data?.memberships[0];
-  return <Navigate to={first ? `/w/${first.workspace_id}/runs` : "/signin"} replace />;
+  const me = useOutletContext<Me>();
+  const first = me.memberships[0];
+  if (!first) return <OnboardingPage me={me} />;
+  return <Navigate to={`/w/${first.workspace_id}/runs`} replace />;
 }

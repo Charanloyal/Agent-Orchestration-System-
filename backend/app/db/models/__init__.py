@@ -1,3 +1,4 @@
+from app.db.models.access import AccessListEntry, AccessRequest, WorkspaceInvitation
 from app.db.models.billing import BudgetReservation
 from app.db.models.identity import (
     AuditEvent,
@@ -8,7 +9,7 @@ from app.db.models.identity import (
     User,
     Workspace,
 )
-from app.db.models.ops import RateLimitCounter
+from app.db.models.ops import RateLimitCounter, SchemaCompatibility
 from app.db.models.reports import ReportExport, ReviewFindingRow
 from app.db.models.runs import (
     Approval,
@@ -26,6 +27,8 @@ from app.db.models.runs import (
 from app.db.models.uploads import Upload, UploadChunk
 
 __all__ = [
+    "AccessListEntry",
+    "AccessRequest",
     "Approval",
     "AuditEvent",
     "AuthSession",
@@ -43,6 +46,7 @@ __all__ = [
     "Run",
     "RunEvent",
     "RunJob",
+    "SchemaCompatibility",
     "Source",
     "TaskResult",
     "ToolExecution",
@@ -50,4 +54,5 @@ __all__ = [
     "UploadChunk",
     "User",
     "Workspace",
+    "WorkspaceInvitation",
 ]

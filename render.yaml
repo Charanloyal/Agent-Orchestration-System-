@@ -2,7 +2,8 @@
 #
 # Topology: one Docker web service (API + built SPA on one origin), one Docker background
 # worker built from the same image, one managed Postgres. Render background workers and
-# pre-deploy commands require paid instance types, so this blueprint is not free-tier.
+# pre-deploy commands require paid instance types, so this blueprint is not free-tier; see
+# render.hybrid.yaml and render.free.yaml for the single-service variants (ADR 0022, 0023).
 #
 # Secrets are `sync: false`: Render prompts for them when the Blueprint is first created and
 # never reads them from this file. Nothing secret is committed here.
@@ -16,7 +17,7 @@ databases:
     user: aos
     plan: basic-256mb
     postgresMajorVersion: "17"
-    region: frankfurt
+    region: singapore
     ipAllowList: []   # no public access; services connect over Render's private network
 
 envVarGroups:
@@ -32,17 +33,27 @@ envVarGroups:
         value: fake
       - key: AOS_SEARCH_PROVIDER
         value: fake
+      # Render's disks are ephemeral and per service, and nothing reads a stored copy back:
+      # uploads live on as extracted text, exports are rendered on download (ADR 0026).
+      - key: AOS_STORE_FILES
+        value: "false"
+      # 0 keeps finished runs and uploads until someone deletes them (the demo must last until
+      # the viva; docs/operations/data-retention.md). Set days here to turn the sweep on.
       - key: AOS_RETENTION_RUN_DAYS
-        value: "30"
+        value: "0"
       - key: AOS_RETENTION_UPLOAD_DAYS
-        value: "30"
+        value: "0"
+      # Access model (ADR 0021): visitors can ask for access from the sign-in page; a platform
+      # admin approves. Use "invite" to accept invited people only.
+      - key: AOS_SIGNUP_MODE
+        value: request
 
 services:
   - type: web
     name: aos-web
     runtime: docker
     plan: starter
-    region: frankfurt
+    region: singapore
     dockerfilePath: ./Dockerfile
     dockerContext: .
     healthCheckPath: /readyz
@@ -51,14 +62,16 @@ services:
     autoDeployTrigger: checksPass
     envVars:
       - fromGroup: aos-shared
+      # Render's proxy appends the client address to X-Forwarded-For (ADR 0025).
+      - key: AOS_TRUSTED_PROXY_HOPS
+        value: "1"
       - key: AOS_DATABASE_URL
         fromDatabase:
           name: aos-db
           property: connectionString
-      # The service's own https URL, e.g. https://aos-web-xxxx.onrender.com (must also be
-      # registered at the identity provider as <url>/api/v1/auth/callback).
-      - key: AOS_PUBLIC_URL
-        sync: false
+      # The public URL is Render's RENDER_EXTERNAL_URL (https://aos-web-xxxx.onrender.com),
+      # registered at the identity provider as <url>/api/v1/auth/callback. Set AOS_PUBLIC_URL
+      # in the Dashboard only for a custom domain.
       # A real OpenID Connect provider (Google, Microsoft Entra ID, Auth0, Keycloak...).
       # The bundled dev issuer is refused in prod by configuration validation.
       - key: AOS_OIDC_ISSUER
@@ -67,10 +80,10 @@ services:
         sync: false
       - key: AOS_OIDC_CLIENT_SECRET
         sync: false
-      # Who may sign in (at least one is required in prod), e.g. "you@university.edu".
-      - key: AOS_ALLOWED_EMAILS
-        sync: false
-      - key: AOS_ALLOWED_EMAIL_DOMAINS
+      # Who manages access for the whole deployment (required in prod), e.g. "you@gmail.com".
+      # Optional extras, set in the Dashboard if wanted: AOS_ALLOWED_EMAILS and
+      # AOS_ALLOWED_EMAIL_DOMAINS (always allowed to sign in).
+      - key: AOS_PLATFORM_ADMIN_EMAILS
         sync: false
       - key: AOS_METRICS_TOKEN
         generateValue: true
@@ -79,7 +92,7 @@ services:
     name: aos-worker
     runtime: docker
     plan: starter
-    region: frankfurt
+    region: singapore
     dockerfilePath: ./Dockerfile
     dockerContext: .
     dockerCommand: python -m app.workers.runner
@@ -91,14 +104,5 @@ services:
         fromDatabase:
           name: aos-db
           property: connectionString
-      # The worker validates the same production settings as the web service.
-      - key: AOS_PUBLIC_URL
-        sync: false
-      - key: AOS_OIDC_ISSUER
-        sync: false
-      - key: AOS_OIDC_CLIENT_ID
-        sync: false
-      - key: AOS_ALLOWED_EMAILS
-        sync: false
-      - key: AOS_ALLOWED_EMAIL_DOMAINS
-        sync: false
+      # The worker serves no HTTP, so it needs no sign-in, cookie or public URL settings
+      # (ADR 0023). Add the AOS_LLM_* variables here too if AOS_AGENT_MODE=llm.

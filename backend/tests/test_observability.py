@@ -1,7 +1,7 @@
 """M10: tracing with redaction, metrics, rate limits, circuit breaker, workspace usage."""
 
 import uuid
-from collections.abc import Callable, Iterator
+from collections.abc import Callable
 from typing import Any
 
 import pytest
@@ -41,17 +41,6 @@ def team(
     analyst, reviewer = make_user("Ana"), make_user("Rev")
     workspace = make_workspace("Team", {analyst: Role.ANALYST, reviewer: Role.REVIEWER})
     return {"analyst": analyst, "reviewer": reviewer, "workspace": workspace}
-
-
-@pytest.fixture
-def settings_override(client: TestClient) -> Iterator[Callable[..., Settings]]:
-    def apply(**changes: Any) -> Settings:
-        settings = get_settings().model_copy(update=changes)
-        client.app.dependency_overrides[get_settings] = lambda: settings  # type: ignore[attr-defined]
-        return settings
-
-    yield apply
-    client.app.dependency_overrides.clear()  # type: ignore[attr-defined]
 
 
 SECRET_TOPIC = "Vendor sk-live-ABCDEFGHIJKLMNOPQRSTUVWX comparison"
@@ -200,8 +189,9 @@ def test_login_is_rate_limited_per_client_and_keys_hold_no_raw_ip(
     client: TestClient, settings_override: Callable[..., Settings], db: Session
 ) -> None:
     settings_override(rate_login_per_ip_5min=2)
-    codes = [client.get("/api/v1/auth/login", follow_redirects=False).status_code for _ in range(3)]
-    assert codes[:2] != [429, 429] and codes[2] == 429
+    places = [client.get("/api/v1/auth/login", follow_redirects=False).headers["location"] for _ in range(3)]
+    assert all("rate_limited" not in p for p in places[:2])
+    assert places[2] == "/signin?error=rate_limited", "the browser lands on a page that explains the wait"
     keys = db.scalars(select(RateLimitCounter.key).where(RateLimitCounter.key.like("login:%"))).all()
     assert keys and all("testclient" not in k for k in keys)
 

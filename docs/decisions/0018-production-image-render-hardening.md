@@ -1,6 +1,9 @@
 # 0018: Single-origin production image, Render topology and production hardening
 
-- **Status:** Accepted
+- **Status:** Accepted; amended by [0020](0020-schema-compatibility-window.md) (readiness
+  accepts a compatible newer schema), [0021](0021-access-model.md) (platform admins replace
+  the required allowlist) and [0022](0022-deployment-variants-ephemeral-storage.md)
+  (free single-service variant, storage behaviour)
 - **Date:** 2026-11-03
 - **Requirements:** PRD week 12 (controlled pilot), NFR security; threat model T3, T10, T11,
   T15; ADR 0004 (deployment target), ADR 0009 (identity)
@@ -43,6 +46,11 @@ A hosted pilot on Render needs three things:
 3. **Readiness means "schema at head".** `/readyz` compares `alembic_version` with the code's
    head revision, so a deploy whose migration did not run never receives traffic. Liveness
    (`/healthz`) does not touch the database.
+   - The image's Docker `HEALTHCHECK` (`python -m app.healthcheck`, finding G4) fits each role:
+     a web server must answer `/healthz`; a worker, which serves no HTTP, must have touched
+     `AOS_WORKER_ALIVE_FILE` within two minutes (every loop turn and every lease extension);
+     the single-process command must pass both. Render itself uses `/readyz` for web services;
+     the Docker check serves other runtimes and CI, which asserts each role is healthy.
    - The worker waits, with capped backoff, until the schema is at head before polling. Web
      and worker deploy independently, and the migration runs only in the web service's
      pre-deploy step.
@@ -58,7 +66,8 @@ A hosted pilot on Render needs three things:
    - fault injection enabled.
 
    The dev issuer itself also refuses `AOS_ENV=prod`.
-5. **Sign-in allowlist** (`AOS_ALLOWED_EMAILS`, `AOS_ALLOWED_EMAIL_DOMAINS`, required in prod).
+5. **Sign-in allowlist** (`AOS_ALLOWED_EMAILS`, `AOS_ALLOWED_EMAIL_DOMAINS`, required in prod;
+   since ADR 0021 optional, with `AOS_PLATFORM_ADMIN_EMAILS` required instead).
    It matches the provider's *verified* email. Uninvited accounts get no user row and no
    session; the refusal is audited without storing the address. Without this, anyone with an
    account at a public identity provider could create workspaces and runs.
@@ -71,18 +80,17 @@ A hosted pilot on Render needs three things:
 
 ## Consequences
 
-- **Ephemeral filesystem.** Render's filesystem is ephemeral. Uploaded *originals* and export
-  *copies* in the object store are lost on redeploy. Everything the workflow needs
-  (extracted upload chunks, evidence, reports, findings, approvals) is in Postgres, so runs
-  and reports survive. Exports are regenerated on demand. For durable originals, attach a
-  persistent disk at `AOS_OBJECT_STORE_DIR` (which disables zero-downtime deploys) or add an
-  S3-compatible store; neither is needed for the pilot.
+- **Ephemeral filesystem.** Render's filesystem is ephemeral and per service. Since
+  [ADR 0026](0026-no-file-copies-on-render.md) the blueprints keep no file copies at all
+  (`AOS_STORE_FILES=false`): everything the workflow reads (extracted upload chunks, evidence,
+  reports, findings, approvals) is in Postgres, and exports are rendered on every download.
+  Serving originals back would need an S3-compatible store.
 - **Fake agents by default.** The hosted demo runs the deterministic fake agents
   (`AOS_AGENT_MODE=fake`) and is labelled as such. It demonstrates the workflow, not
   real-model quality.
 - **No public authenticated deployment yet.** A real identity provider registration (client
   id, secret, redirect URI) is a manual step; see
   [deploy-render.md](../operations/deploy-render.md).
-- **Proxy headers.** `--forwarded-allow-ips '*'` trusts proxy headers. This is acceptable only
-  because the platform load balancer is the sole route to the container; do not reuse the
-  image behind an untrusted proxy without changing it.
+- **Proxy headers.** Superseded by [ADR 0025](0025-client-address-behind-proxy.md): uvicorn no
+  longer trusts forwarded headers; the app reads `X-Forwarded-For` only as far as
+  `AOS_TRUSTED_PROXY_HOPS` allows.
