@@ -184,7 +184,7 @@ All four agents are LLM-backed when `AOS_AGENT_MODE=llm`; fakes are the default.
 | [0001](decisions/0001-local-health-check-scaffold.md) | Local health-check scaffold | Accepted |
 | [0002](decisions/0002-model-provider.md) | Model provider: OpenAI-compatible adapter | Accepted |
 | [0003](decisions/0003-search-provider.md) | Search provider: Tavily + offline corpus | Accepted |
-| [0004](decisions/0004-deployment-target.md) | Deployment target: local production-like | Accepted |
+| [0004](decisions/0004-deployment-target.md) | Deployment target: local production-like | Superseded by 0018 and 0023 (Render) |
 | [0005](decisions/0005-spending-ceiling.md) | Spending ceiling: USD 10 | Accepted |
 | [0006](decisions/0006-workflow-and-contracts.md) | Workflow state machine and contracts | Accepted |
 | [0007](decisions/0007-checkpoint-persistence-and-fencing.md) | Checkpoint persistence and fencing | Accepted |

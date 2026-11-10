@@ -1,8 +1,12 @@
 # Week-2 spikes deferred (NOT RUN)
 
+> **Historical (Week 2).** The provider decisions were made afterwards (ADR 0002, 0003, 0009
+> and, for deployment, 0018 and 0023), and these areas were then built and tested directly in
+> their milestones instead of as separate spikes.
+
 PRD Week 2 also lists spikes for OIDC, search/fetch access and text-PDF extraction. Each
-depends on a provider choice that is still **UNDECIDED**, so none has been run. Each plan below
-is ready to execute once its decision is made.
+depended on a provider choice that was still undecided in Week 2, so none was run. Each plan below
+was ready to execute once its decision was made.
 
 ## OIDC (blocked by identity-provider choice; Week 3)
 

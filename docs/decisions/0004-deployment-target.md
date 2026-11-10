@@ -1,8 +1,16 @@
 # 0004: Deployment target
 
-- **Status:** Accepted (2026-10-14, project lead).
-- **Decision:** **local demo only**, production-like. Docker Compose plus a native run, a deployment guide, runbooks, and a local backup/restore and rollback drill. No paid cloud. Option A remains the documented path for a future hosted pilot.
+- **Status:** Superseded (2026-11-10) by [ADR 0018](0018-production-image-render-hardening.md)
+  and [ADR 0023](0023-deploy-topologies-and-ci-proof.md). Originally accepted 2026-10-14 by the
+  project lead.
+- **Decision (original):** **local demo only**, production-like. Docker Compose plus a native run, a deployment guide, runbooks, and a local backup/restore and rollback drill. No paid cloud. Option A remains the documented path for a future hosted pilot.
 - **Date:** 2026-10-14
+
+> **Superseded.** The project now deploys to Render (option B below): ADR 0018 defines the
+> single-origin production image and its hardening, and ADR 0023 the topologies, with the
+> hybrid blueprint (one free web service running API and worker, plus a paid Postgres,
+> `singapore`) chosen by the owner. Local Docker Compose remains the development and
+> rehearsal environment. The rest of this record is kept as written for history.
 
 ## Context
 
