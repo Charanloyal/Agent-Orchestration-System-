@@ -1,13 +1,17 @@
-# Session handoff
+﻿# Session handoff
 
-Uses the template from the context prompt (§4). Contains no secrets or private source content.
+Uses the template from the context prompt (Â§4). Contains no secrets or private source content.
 
 ```text
 Project: Agent Orchestration System
-Current state (2026-11-10): Phases A, B and C done locally. Branch release/deploy-ready holds
-  all work since M16. GitHub has it only up to 3aff454 (CI red there in e2e, fixed below).
-  The 16 newer commits wait for the owner's push: an agent shell on this machine cannot
-  authenticate to GitHub. No pull request yet; nothing is deployed.
+Current state (2026-11-10 21:00): A and C done; F (repository side) and E (preparation) done;
+  B waits for the owner's push. GitHub has release/deploy-ready at c0a74af (CI run 42822884890:
+  backend, frontend, containers, spike green; deploy-image's topology steps green; the
+  older-build step and e2e red). Local is ahead: 6afe11e (older-build fix), 2508706 (e2e
+  failures as public annotations), cca6517 (README, LICENSE, viva script, release notes),
+  dcf59ff (live-eval commands, scorer brief), and this handoff. No PR yet; nothing deployed.
+  PUSH: Git's sh.exe is broken on this laptop, so only the hidden-prompt token commands work
+  (credential.helper and askPass off; fine-grained token, Contents + Workflows write).
 
 Commits after M16 (d8de167), in order:
   45782cd sign-in hardening, schema compatibility window (migration 0009), deploy tooling
@@ -40,7 +44,7 @@ Database migrations: 0001 ... 0010 (0009 stays compatible with 0010; ADR 0020). 
   none.
 
 Tests actually run (2026-11-10, Windows 11, Python 3.14.7, PostgreSQL 17.11, Node 24.21):
-  backend: ruff + format clean, mypy clean (103 files), pytest 514 passed / 1 live deselected;
+  backend: ruff + format clean, mypy clean (103 files), pytest 515 passed / 1 live deselected;
   scripts/check_blueprints.py: all three blueprints pass;
   frontend: typecheck clean, Vitest 14 files / 83 tests, production build OK;
   Playwright with CI=1 (Edge channel; the bundled Chromium download is blocked by the local
@@ -51,9 +55,15 @@ Checks not run locally (CI deploy-image job only, first run after the push): Doc
   build, Render schema validation, per-topology smoke tests, the new health-check assertions
   (web, worker, single), RENDER_EXTERNAL_URL start-up, AOS_STORE_FILES probe.
 
-Findings: F1-F13 and G2-G9 closed on the branch (F3's e2e defect fixed). Open: G1 (push, PR,
-  green CI, merge: owner), G10 (Phase F), F14 (Phase E). Known flaky pattern, not changed:
-  test_observability's login rate-limit test counts within one 5-minute window.
+Findings: F1-F13 and G2-G10 closed on the branch (G10: README, LICENSE, release notes; the
+  GitHub About settings are owner steps in docs/github-settings.md). Open: G1 (push, PR, green
+  CI including the unexplained e2e failure, merge) and F14 (live run; budget USD 0). Known
+  flaky pattern, not changed: test_observability's login rate-limit test counts within one
+  5-minute window.
+Next steps in order: owner pushes and opens the PR -> agent reads the e2e annotations and fixes
+  until green -> owner merges with a merge commit -> Phase D guided (Google OAuth client,
+  Blueprint render.hybrid.yaml, smoke_prod + check 12, verification table, rehearsals) ->
+  hosted PENDING lines filled from pasted evidence -> tag v1.0.0 after approval.
 
 Blocked by owner (each has a written procedure):
   1. Push release/deploy-ready, open the PR to main, merge once CI is green (Phase B).
