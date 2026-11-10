@@ -22,10 +22,15 @@ for access data and storage.
 
 ## Retention
 
+The Render blueprints keep finished runs and uploads until someone deletes them, so the demo
+runs created at deploy time are still there at the viva. To clean up automatically, set
+`AOS_RETENTION_RUN_DAYS` / `AOS_RETENTION_UPLOAD_DAYS` to a number of days in the blueprint;
+finished runs are then aged by their last update and uploads by creation time.
+
 | Data | Default (local) | Render blueprint | Mechanism |
 | --- | --- | --- | --- |
-| Finished runs and everything derived from them | Kept | 30 days after the last update | Worker retention sweep (`AOS_RETENTION_RUN_DAYS`) |
-| Uploads | Kept | 30 days after upload | Worker retention sweep (`AOS_RETENTION_UPLOAD_DAYS`) |
+| Finished runs and everything derived from them | Kept | Kept until deleted (`"0"`) | Worker retention sweep (`AOS_RETENTION_RUN_DAYS`; 0 = off) |
+| Uploads | Kept | Kept until deleted (`"0"`) | Worker retention sweep (`AOS_RETENTION_UPLOAD_DAYS`; 0 = off) |
 | Unfinished runs | Never swept | Never swept | Cancel first, then they age out |
 | Decided access requests | 90 days after the decision | 90 days | Worker retention sweep (`AOS_RETENTION_ACCESS_REQUEST_DAYS`); pending requests are kept until decided |
 | Access list entries | Until a platform admin removes them | Same | Removal also revokes the person's sessions |
@@ -58,8 +63,8 @@ Rules for users:
 1. **Use only public or synthetic material.** Do not upload confidential, personal or
    employer documents. With a model enabled, text is sent to the model provider
    ([ADR 0002](../decisions/0002-model-provider.md)).
-2. **Expect data to be deleted after 30 days** (retention sweep). Uploaded originals can
-   also disappear on redeploy (ephemeral filesystem); extracted text remains until retention.
+2. **Do not rely on the demo as an archive.** Runs and uploads are kept until an admin deletes
+   them, but the hosted demo may be reset after the project ends.
 3. **Reports are research aids, not advice.** A human approval records that a reviewer
    checked the cited evidence; it does not certify the content.
 4. **Ask an admin to remove your runs or documents at any time.** Deletion is immediate in

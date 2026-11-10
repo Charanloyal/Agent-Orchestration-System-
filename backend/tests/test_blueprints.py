@@ -54,6 +54,8 @@ services:
         "must run",
         "AOS_OIDC_ISSUER",
         "region",
+        "AOS_TRUSTED_PROXY_HOPS=1",
+        "AOS_RETENTION_RUN_DAYS=0",
     ):
         assert expected in problems
     assert script.main([]) == 0, "the repository's own blueprints pass"

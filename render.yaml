@@ -33,10 +33,12 @@ envVarGroups:
         value: fake
       - key: AOS_SEARCH_PROVIDER
         value: fake
+      # 0 keeps finished runs and uploads until someone deletes them (the demo must last until
+      # the viva; docs/operations/data-retention.md). Set days here to turn the sweep on.
       - key: AOS_RETENTION_RUN_DAYS
-        value: "30"
+        value: "0"
       - key: AOS_RETENTION_UPLOAD_DAYS
-        value: "30"
+        value: "0"
       # Access model (ADR 0021): visitors can ask for access from the sign-in page; a platform
       # admin approves. Use "invite" to accept invited people only.
       - key: AOS_SIGNUP_MODE

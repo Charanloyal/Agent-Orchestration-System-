@@ -90,6 +90,7 @@ If a Blueprint was created from an earlier version of this repository:
 | **New, required** | `AOS_PLATFORM_ADMIN_EMAILS` | Add on the web service before deploying; production refuses to start without it |
 | No longer needed on the worker | `AOS_PUBLIC_URL`, `AOS_OIDC_ISSUER`, `AOS_OIDC_CLIENT_ID`, `AOS_PLATFORM_ADMIN_EMAILS` | May be deleted from `aos-worker`; it ignores them |
 | New (blueprint group) | `AOS_SIGNUP_MODE=request` | Synced from the blueprint; set `invite` to accept invited people only |
+| **Changed (blueprint group)** | `AOS_RETENTION_RUN_DAYS=0`, `AOS_RETENTION_UPLOAD_DAYS=0` | Synced from the blueprint; runs and uploads are kept until deleted (were 30 days) |
 | Now optional | `AOS_ALLOWED_EMAILS`, `AOS_ALLOWED_EMAIL_DOMAINS` | Keep or delete; people on them can always sign in. Keep `AOS_ALLOWED_EMAILS` set until rehearsal 2 is done: the 0009 build still requires an allowlist |
 | Optional | `AOS_OIDC_PROVIDER_LABEL`, `AOS_WORKSPACE_CREATION`, `AOS_INVITATION_TTL_DAYS`, `AOS_RATE_ACCESS_REQUEST_PER_IP_HOUR`, `AOS_RETENTION_ACCESS_REQUEST_DAYS` | Defaults: derived label, `platform_admins`, 14, 5, 90 |
 | **New (blueprint group)** | `AOS_TRUSTED_PROXY_HOPS=1` on the web service | Synced from the blueprint ([ADR 0025](../decisions/0025-client-address-behind-proxy.md)); check 12 confirms the value |

@@ -162,6 +162,11 @@ and deletions, so the application cannot rewrite history. Only a database superu
 bypass it. Entries remain after the runs they mention are deleted. Sign-in denials belong to
 no workspace and are kept only in the deployment-wide audit table.
 
+**How long things are kept.** Runs, reports and uploaded documents stay until an admin deletes
+them; nothing expires on the hosted demo. Waiting approvals still expire after 72 hours, and
+decided access requests are removed after 90 days. Details:
+[data-retention.md](operations/data-retention.md).
+
 ## 7. When something goes wrong
 
 | Situation | What to do |

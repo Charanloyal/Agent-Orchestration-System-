@@ -30,7 +30,8 @@ must remain trustworthy when data is deleted.
      runs are never swept.
    - Batches are small, and locks use `SKIP LOCKED`, so the sweep never blocks a worker or a
      user.
-   - The Render blueprint sets both to 30 days.
+   - The Render blueprints set both to 0 (keep until deleted), so the demo survives until the
+     viva; `scripts/check_blueprints.py` enforces it. (Until v1.0 they set 30 days.)
 3. **Audit events are append-only**, enforced by a database trigger (migration 0008).
    - DELETE and content updates are refused. The only update allowed is the foreign-key
      `SET NULL` when a user or workspace is deleted, so the record survives with its action,

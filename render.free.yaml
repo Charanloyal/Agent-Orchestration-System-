@@ -42,10 +42,12 @@ services:
         value: fake
       - key: AOS_SEARCH_PROVIDER
         value: fake
+      # 0 keeps finished runs and uploads until someone deletes them (the demo must last until
+      # the viva; docs/operations/data-retention.md). Set days here to turn the sweep on.
       - key: AOS_RETENTION_RUN_DAYS
-        value: "30"
+        value: "0"
       - key: AOS_RETENTION_UPLOAD_DAYS
-        value: "30"
+        value: "0"
       - key: AOS_SIGNUP_MODE
         value: request
       # Render's proxy appends the client address to X-Forwarded-For (ADR 0025).

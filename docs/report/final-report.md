@@ -507,7 +507,8 @@ Design points:
   Audit rows hold IDs and counts, never report or source text.
 - **Retention and deletion.** Deleting a run cascades through all run tables, removes its
   LangGraph checkpoints and deletes export files after commit. A retention sweep does the same
-  for old finished runs and uploads (30 days in the Render configuration; off locally).
+  for old finished runs and uploads when configured (off locally and on Render, so the demo
+  data lasts until the viva).
 
 ## 10. Security and threat model
 

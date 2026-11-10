@@ -10,7 +10,8 @@
      pre-deploy step; the worker runs `python -m app.workers.runner` and carries no web-only
      settings (sign-in, public URL, platform admins);
    - single: one web service runs `python -m app.serve --migrate --with-worker`.
-   Every service and database states the same region.
+   Every service and database states the same region, and the values in WEB_VALUES and
+   BLUEPRINT_VALUES (trusted proxy hops, retention) are set as decided.
 
 Prints one line per blueprint and exits 1 on any problem.
 """
@@ -28,7 +29,27 @@ ROOT = Path(__file__).resolve().parents[2]
 MIGRATE = "alembic upgrade head"
 WORKER = "python -m app.workers.runner"
 SINGLE = "python -m app.serve --migrate --with-worker"
-WEB_ONLY = ("AOS_PUBLIC_URL", "AOS_OIDC_", "AOS_PLATFORM_ADMIN_EMAILS", "AOS_COOKIE_")
+WEB_ONLY = (
+    "AOS_PUBLIC_URL",
+    "AOS_OIDC_",
+    "AOS_PLATFORM_ADMIN_EMAILS",
+    "AOS_COOKIE_",
+    "AOS_TRUSTED_PROXY_HOPS",
+)
+# Values every web service must set on Render (key -> value), with the decision behind each.
+WEB_VALUES = {
+    "AOS_TRUSTED_PROXY_HOPS": "1",  # ADR 0025: the platform proxy appends the client address
+}
+# Values a blueprint must state wherever it sets them (services and groups), at least once.
+BLUEPRINT_VALUES = {
+    # Owner's RUN_RETENTION_DAYS=0: demo runs and uploads must survive until the viva.
+    "AOS_RETENTION_RUN_DAYS": "0",
+    "AOS_RETENTION_UPLOAD_DAYS": "0",
+}
+
+
+def env_values(service: dict[str, Any]) -> dict[str, str]:
+    return {v["key"]: str(v["value"]) for v in service.get("envVars", []) if "key" in v and "value" in v}
 
 
 @dataclass
@@ -55,6 +76,10 @@ def check(path: Path) -> Blueprint:
     web = webs[0]
     if web.get("healthCheckPath") != "/readyz":
         result.problems.append("the web service must use healthCheckPath /readyz")
+    values = env_values(web)
+    for key, expected in WEB_VALUES.items():
+        if values.get(key) != expected:
+            result.problems.append(f"the web service must set {key}={expected}")
     if workers:
         result.topology = "web+worker"
         if web.get("dockerCommand") is not None:
@@ -76,6 +101,11 @@ def check(path: Path) -> Blueprint:
         result.region = regions.pop()
     else:
         result.problems.append(f"every service and database needs the same region, found {sorted(regions)}")
+    stated = [env_values(item) for item in [*services, *doc.get("envVarGroups", [])]]
+    for key, expected in BLUEPRINT_VALUES.items():
+        found = {values[key] for values in stated if key in values}
+        if found != {expected}:
+            result.problems.append(f"the blueprint must set {key}={expected}, found {sorted(found)}")
     return result
 
 
