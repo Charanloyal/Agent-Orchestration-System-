@@ -1,18 +1,17 @@
-﻿# Session handoff
+# Session handoff
 
 Uses the template from the context prompt (Â§4). Contains no secrets or private source content.
 
 ```text
 Project: Agent Orchestration System
-Current state (2026-11-10 21:00): A and C done; F (repository side) and E (preparation) done;
-  B waits for the owner's push. GitHub has release/deploy-ready at c0a74af (CI run 42822884890:
-  backend, frontend, containers, spike green; deploy-image's topology steps green; the
-  older-build step and e2e red). Local is ahead: 6afe11e (older-build fix), 2508706 (e2e
-  failures as public annotations), cca6517 (README, LICENSE, viva script, release notes),
-  dcf59ff (live-eval commands, scorer brief), and this handoff. No PR yet; nothing deployed.
-  PUSH: Git's sh.exe is broken on this laptop, so only the hidden-prompt token commands work
-  (credential.helper and askPass off; fine-grained token, Contents + Workflows write).
-
+Current state (2026-11-12 01:30): main on GitHub = 44c3887 (PR #1 merged + 6 fix commits,
+  pushed with .vscode/push.ps1). CI on 44c3887: backend, frontend, containers, spike and
+  deploy-image (every Render topology, health checks, older-build compatibility) GREEN; e2e
+  had one failing test (Documents too wide at 360 px on Linux fonts). Fixed locally in
+  bd423dd (file input can shrink; widths also checked at 320 px); waiting for the owner's
+  push. Nothing is deployed yet.
+  PUSH: `powershell -ExecutionPolicy Bypass -File .vscode\push.ps1` (classic token with repo
+  + workflow; Git's sh.exe is broken on this laptop, so normal sign-in cannot work).
 Commits after M16 (d8de167), in order:
   45782cd sign-in hardening, schema compatibility window (migration 0009), deploy tooling
   02074c7 access model (migration 0010): platform admins, signup modes, invitations, requests
