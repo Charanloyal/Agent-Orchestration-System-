@@ -92,7 +92,9 @@ jobs:
       - run: npm run build
 
   e2e:
-    runs-on: ubuntu-latest
+    # Pinned: ubuntu-latest is moving to Ubuntu 26, whose system packages Playwright's
+    # `install --with-deps` may not know yet; 24.04 is the image the browsers are built for.
+    runs-on: ubuntu-24.04
     services:
       postgres:
         image: postgres:17
@@ -121,11 +123,29 @@ jobs:
       - name: Install frontend and browser
         working-directory: frontend
         run: |
-          npm ci --no-audit --no-fund
-          npx playwright install --with-deps chromium
+          set -o pipefail
+          npm ci --no-audit --no-fund 2>&1 | tee "$RUNNER_TEMP/e2e-install.log"
+          # The browser download and apt step occasionally fail on a transient network error.
+          for attempt in 1 2 3; do
+            npx playwright install --with-deps chromium 2>&1 | tee -a "$RUNNER_TEMP/e2e-install.log" && break
+            if [ "$attempt" = 3 ]; then exit 1; fi
+            sleep 15
+          done
       - name: End-to-end tests (dev IdP, API, worker, web, Postgres)
         working-directory: frontend
-        run: npx playwright test
+        run: |
+          set -o pipefail
+          npx playwright test 2>&1 | tee "$RUNNER_TEMP/e2e-tests.log"
+      # Job logs need a sign-in to read; annotations are public. On failure, the end of each
+      # log becomes one annotation, so the cause is visible without the logs.
+      - if: failure()
+        name: Show the failure as annotations
+        run: |
+          for f in "$RUNNER_TEMP/e2e-install.log" "$RUNNER_TEMP/e2e-tests.log" frontend/test-results/e2e-worker.log; do
+            [ -s "$f" ] || continue
+            body=$(tail -n 60 "$f" | sed -e 's/\x1b\[[0-9;]*m//g' -e 's/%/%25/g' -e 's/\r/%0D/g' | sed ':a;N;$!ba;s/\n/%0A/g')
+            echo "::error title=$(basename "$f")::${body}"
+          done
       - if: failure()
         uses: actions/upload-artifact@v7
         with:
