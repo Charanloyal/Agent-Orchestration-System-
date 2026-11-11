@@ -231,7 +231,9 @@ select { width: auto; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .sources { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.45rem; }
 .source-row { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: baseline; }
-input[type="file"] { width: auto; flex: 1 1 16rem; }
+/* A native file input has an intrinsic width (button + file name) that wider fonts grow; let it
+   shrink inside its row at phone widths instead of pushing the page sideways. */
+input[type="file"] { width: auto; flex: 1 1 12rem; min-width: 0; max-width: 100%; }
 .side { position: sticky; top: 4.5rem; align-self: start; }
 .side .timeline-card { position: static; max-height: calc(100vh - 22rem); }
 .meter { height: 0.5rem; border-radius: 999px; background: var(--tone-neutral-bg); overflow: hidden; margin-bottom: 0.5rem; }

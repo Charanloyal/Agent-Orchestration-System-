@@ -64,6 +64,10 @@ test("every page fits a 360 px wide screen", async ({ page }) => {
   await signIn(page, "Carol Admin");
   const runUrl = await submitBrief(page);
   await visitAll(page, runUrl, (label) => expectFitsWidth(page, label));
+  // Fonts differ between systems (Linux CI renders wider than Windows), so a layout that only
+  // just fits at 360 px elsewhere must also fit at 320 px here.
+  await page.setViewportSize({ width: 320, height: 740 });
+  await visitAll(page, runUrl, (label) => expectFitsWidth(page, `${label} at 320 px`));
 });
 
 test("the app works from the keyboard", async ({ page }) => {
