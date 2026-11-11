@@ -4,6 +4,8 @@ on:
   push:
     branches: [main, "release/**"]
   pull_request:
+  # Re-run from the Actions tab ("Run workflow") without a new commit.
+  workflow_dispatch:
 
 permissions:
   contents: read
