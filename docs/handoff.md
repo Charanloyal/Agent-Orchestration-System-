@@ -4,12 +4,10 @@ Uses the template from the context prompt (Â§4). Contains no secrets or privat
 
 ```text
 Project: Agent Orchestration System
-Current state (2026-11-12 01:30): main on GitHub = 44c3887 (PR #1 merged + 6 fix commits,
-  pushed with .vscode/push.ps1). CI on 44c3887: backend, frontend, containers, spike and
-  deploy-image (every Render topology, health checks, older-build compatibility) GREEN; e2e
-  had one failing test (Documents too wide at 360 px on Linux fonts). Fixed locally in
-  bd423dd (file input can shrink; widths also checked at 320 px); waiting for the owner's
-  push. Nothing is deployed yet.
+Current state (2026-11-12 02:45): Phases A, B and C done. main on GitHub = ce682e5 and CI is
+  GREEN on it (run 43098800908: backend, frontend, e2e, containers, deploy-image, spike).
+  F (repository side) and E (preparation) done. Next: Phase D, the Render deployment (owner
+  clicks, agent guides). Nothing is deployed yet.
   PUSH: `powershell -ExecutionPolicy Bypass -File .vscode\push.ps1` (classic token with repo
   + workflow; Git's sh.exe is broken on this laptop, so normal sign-in cannot work).
 Commits after M16 (d8de167), in order:
