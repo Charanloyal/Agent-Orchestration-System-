@@ -85,3 +85,24 @@ def test_without_trusted_proxies_the_header_is_ignored(
     for n in range(3):
         attempt(client, f"203.0.113.{n}")
     assert len(login_keys(db)) == 1
+
+
+def test_network_check_locates_an_address_without_revealing_any(
+    client: TestClient, settings_override: Callable[..., Settings]
+) -> None:
+    """Deploy check 12 helper: the caller names their own address and learns where it sits in
+    this request's X-Forwarded-For and whether the rate limiter keys on it. No address is
+    ever returned."""
+    settings_override(trusted_proxy_hops=2)
+    forwarded = {"X-Forwarded-For": "6.6.6.6, 203.0.113.7, 198.51.100.2"}
+    found = client.get("/network-check", params={"address": "203.0.113.7"}, headers=forwarded).json()
+    assert found == {
+        "trusted_proxy_hops": 2,
+        "forwarded_entries": 3,
+        "address_position_from_right": 2,
+        "rate_limit_uses_address": True,
+    }
+    other = client.get("/network-check", params={"address": "192.0.2.1"}, headers=forwarded).json()
+    assert other["address_position_from_right"] is None and other["rate_limit_uses_address"] is False
+    assert "203.0.113.7" not in str(other) and "198.51.100.2" not in str(other)
+    assert client.get("/network-check", params={"address": "x" * 80}).status_code == 422

@@ -2,7 +2,7 @@ import hmac
 import os
 from typing import Annotated, Literal
 
-from fastapi import APIRouter, Header
+from fastapi import APIRouter, Header, Query, Request
 from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
 
@@ -10,6 +10,7 @@ from app.auth.deps import AppSettings, DbSession
 from app.db import schema_state
 from app.errors import AppError, NotFound, Unauthenticated
 from app.observability.metrics import http_metrics, workflow_metrics
+from app.services.ratelimit import client_address
 from app.version import __version__
 
 router = APIRouter(tags=["health"])
@@ -28,6 +29,13 @@ class VersionResponse(BaseModel):
     version: str
     commit: str | None
     migration_head: str
+
+
+class NetworkCheckResponse(BaseModel):
+    trusted_proxy_hops: int
+    forwarded_entries: int
+    address_position_from_right: int | None
+    rate_limit_uses_address: bool
 
 
 class NotReady(AppError):
@@ -62,6 +70,31 @@ def version() -> VersionResponse:
         version=__version__,
         commit=build_commit(),
         migration_head=",".join(sorted(schema_state.migration_heads())),
+    )
+
+
+@router.get("/network-check", response_model=NetworkCheckResponse)
+def network_check(
+    request: Request,
+    settings: AppSettings,
+    address: Annotated[str, Query(min_length=2, max_length=45)],
+) -> NetworkCheckResponse:
+    """Deploy check 12 (ADR 0025). The caller names their own public address and learns where it
+    sits in this request's X-Forwarded-For (counted from the right) and whether the rate limiter
+    keys on it, so AOS_TRUSTED_PROXY_HOPS can be set from evidence. No address is returned or
+    logged; the answer only concerns the caller's own request."""
+    entries = [
+        entry.strip()
+        for value in request.headers.getlist("x-forwarded-for")
+        for entry in value.split(",")
+        if entry.strip()
+    ]
+    position = next((n for n, entry in enumerate(reversed(entries), 1) if entry == address), None)
+    return NetworkCheckResponse(
+        trusted_proxy_hops=settings.trusted_proxy_hops,
+        forwarded_entries=len(entries),
+        address_position_from_right=position,
+        rate_limit_uses_address=client_address(request, settings.trusted_proxy_hops) == address,
     )
 
 

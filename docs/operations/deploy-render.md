@@ -167,6 +167,18 @@ Check 12 (a), in PowerShell (`curl.exe` ships with Windows):
 
 The last line must end with `/signin?error=rate_limited`.
 
+To set `AOS_TRUSTED_PROXY_HOPS` from evidence rather than by trial, ask the service where your
+own address sits (no address is ever returned):
+
+```powershell
+$me = curl.exe -s https://api.ipify.org
+curl.exe -s "https://<url>/network-check?address=$me"
+# {"trusted_proxy_hops":2,"forwarded_entries":3,"address_position_from_right":2,"rate_limit_uses_address":true}
+```
+
+`address_position_from_right` is the value `AOS_TRUSTED_PROXY_HOPS` must have;
+`rate_limit_uses_address` must be `true`.
+
 ## 5. Rollback
 
 Render keeps previous builds. To roll back code, open the service's **Deploys** page and use
