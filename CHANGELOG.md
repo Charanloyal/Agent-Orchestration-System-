@@ -49,6 +49,19 @@ been deployed yet; the hosted steps are prepared and listed under *Not done*.
   mode, a 360 px layout check and a keyboard test.
 - **Research preparation:** recruiting message, consent note, usability task script and
   record, WCAG 2.2 AA checklist.
+- **Style studio** ([ADR 0027](docs/decisions/0027-style-studio-honest-metrics.md)):
+  - measures pasted text or an uploaded document: sentence-length variation, vocabulary
+    diversity, stock phrases per 1,000 words (highlighted), paragraph-length variation;
+  - deterministic rewrite for journalist, academic, executive or technical readers;
+  - fact lock: numbers, dates, quotes, citations and links compared exactly, and any change
+    that would alter one is rejected;
+  - `POST .../style/analyze` and `.../style/rewrite`, rate-limited per user
+    (`AOS_RATE_STYLE_PER_USER_HOUR`, default 120). Nothing is stored. No detector-evasion
+    claims.
+- **Agents page:** what each agent does, its inputs and outputs, and its guards.
+- `GET /network-check?address=`: reports where a given address appears in `X-Forwarded-For`
+  (positions and counts only), used to measure `AOS_TRUSTED_PROXY_HOPS=3` on Render
+  ([ADR 0025](docs/decisions/0025-client-address-behind-proxy.md)).
 
 ### Changed
 

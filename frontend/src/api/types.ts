@@ -325,3 +325,37 @@ export type WorkspaceUsage = {
   top_runs: { run_id: string; topic: string; state: RunState; created_at: string; committed: string; budget: string }[];
   note: string;
 };
+
+/** Writing Style Studio (backend/app/api/style.py). Metrics describe the text; they are not a
+ *  prediction of authorship. */
+export type StylePersona = "journalist" | "academic" | "executive" | "technical";
+export type StyleSentence = { text: string; words: number; phrases: string[] };
+export type StyleReport = {
+  words: number;
+  sentences: number;
+  paragraphs: number;
+  mean_sentence_words: number;
+  sentence_length_cv: number;
+  shortest_sentence: number;
+  longest_sentence: number;
+  vocabulary_mattr: number;
+  word_entropy_bits: number;
+  stock_phrases: number;
+  stock_phrases_per_1000_words: number;
+  paragraph_length_cv: number;
+  flagged: number[];
+  sentence_list: StyleSentence[];
+};
+export type StyleSourceInput = { text: string } | { upload_id: string };
+export type StyleRewrite = {
+  source: string;
+  persona: StylePersona;
+  original: string;
+  rewritten: string;
+  before: StyleReport;
+  after: StyleReport;
+  fact_lock: { total: number; preserved: number; missing: string[] };
+  passes: number;
+  changed_sentences: number;
+  rejected_changes: number;
+};

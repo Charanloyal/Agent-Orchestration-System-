@@ -26,7 +26,7 @@ async function visitAll(page: Page, runUrl: string, check: (label: string) => Pr
   await page.goto("/");
   const nav = page.getByRole("navigation", { name: "Workspace" });
   await expect(nav).toBeVisible();
-  for (const name of ["Runs", "New brief", "Documents", "Agents", "Usage", "Activity", "Settings"]) {
+  for (const name of ["Runs", "New brief", "Documents", "Style studio", "Agents", "Usage", "Activity", "Settings"]) {
     await nav.getByRole("link", { name, exact: true }).click();
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     await check(name);

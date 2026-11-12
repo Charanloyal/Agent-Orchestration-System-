@@ -30,6 +30,13 @@ brief ──▶ planner ──▶ [HUMAN: approve plan] ──▶ researchers (p
 The two **human approval gates** bind to a version and a digest: approving plan v2 never
 approves an edited v3, and the export records who approved which exact report.
 
+**Style studio.** A separate page measures any pasted text or uploaded document (sentence-length
+variation, vocabulary diversity, stock phrases per 1,000 words) and rewrites it for a journalist,
+academic, executive or technical reader. Numbers, dates, quotes, citations and links are locked, so
+a change that would alter one is rejected. The metrics describe the text; they do not predict who
+or what wrote it, and the feature makes no detector-evasion claims
+([ADR 0027](docs/decisions/0027-style-studio-honest-metrics.md)).
+
 ```mermaid
 flowchart LR
   SPA["React SPA"] -- "same-origin HTTPS, cookie + CSRF" --> API["FastAPI: REST + SSE + SPA"]
@@ -310,7 +317,7 @@ issuer.
 | `AOS_APPROVAL_TTL_HOURS` | `72` | How long a plan or report waits for a human |
 | `AOS_OTEL_EXPORTER` / `AOS_OTEL_ENDPOINT` | `none` / `http://127.0.0.1:4318/v1/traces` | Traces: `none`, `console` or `otlp` (redacted; [ADR 0016](docs/decisions/0016-observability-rate-limits.md)) |
 | `AOS_METRICS_TOKEN` | none | Bearer token for `/metrics` (required in prod, otherwise the endpoint is hidden there) |
-| `AOS_RATE_*` | 20 runs/user/h, 60 runs/workspace/h, 30 uploads/h, 60 exports/h, 30 logins/5 min | Rate limits (`0` disables one) |
+| `AOS_RATE_*` | 20 runs/user/h, 60 runs/workspace/h, 30 uploads/h, 60 exports/h, 120 style studio calls/h, 30 logins/5 min | Rate limits (`0` disables one) |
 | `AOS_BREAKER_FAILURE_THRESHOLD` / `AOS_BREAKER_COOLDOWN_SECONDS` | `5` / `60` | Provider circuit breaker |
 | `AOS_ALLOWED_EMAILS` / `AOS_ALLOWED_EMAIL_DOMAINS` | empty | Always allowed to sign in (matched on the provider's *verified* email) |
 | `AOS_PLATFORM_ADMIN_EMAILS` | empty | Who manages access for the whole deployment; **required in prod** ([ADR 0021](docs/decisions/0021-access-model.md)) |

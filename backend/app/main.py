@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from app.api import access, auth, health, runs, uploads, workspaces
+from app.api import access, auth, health, runs, style, uploads, workspaces
 from app.config import Settings, get_settings
 from app.errors import install_error_handlers
 from app.observability.logging import configure_logging, startup_summary
@@ -29,7 +29,15 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.add_middleware(BodySizeLimitMiddleware, settings=get_settings)
     app.add_middleware(RequestContextMiddleware, production=prod)
     install_error_handlers(app)
-    routers = (health.router, auth.router, access.router, workspaces.router, runs.router, uploads.router)
+    routers = (
+        health.router,
+        auth.router,
+        access.router,
+        workspaces.router,
+        runs.router,
+        uploads.router,
+        style.router,
+    )
     for router in routers:
         app.include_router(router)
     if settings.static_dir is not None:

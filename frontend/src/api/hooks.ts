@@ -28,6 +28,9 @@ import type {
   RunSummary,
   RunUsage,
   Source,
+  StylePersona,
+  StyleRewrite,
+  StyleSourceInput,
   UploadInfo,
   UploadSearchHit,
   WorkspaceInfo,
@@ -320,6 +323,14 @@ export function useUploadSearch(workspaceId: string, query: string) {
     queryFn: () =>
       api<UploadSearchHit[]>(`/api/v1/workspaces/${workspaceId}/uploads/search?q=${encodeURIComponent(query)}`),
     enabled: query.trim().length >= 2,
+  });
+}
+
+export function useStyleRewrite(workspaceId: string) {
+  return useMutation({
+    mutationFn: (input: StyleSourceInput & { persona: StylePersona }) =>
+      api<StyleRewrite>(`/api/v1/workspaces/${workspaceId}/style/rewrite`, { method: "POST", body: input }),
+    meta: { error: "Could not rewrite the text" },
   });
 }
 

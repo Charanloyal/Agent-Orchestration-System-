@@ -73,6 +73,8 @@ BODIES: dict[tuple[str, str], dict[str, object]] = {
     ("POST", "/api/v1/runs/{run_id}/plan-decisions"): DECISION,
     ("POST", "/api/v1/reports/{report_id}/decisions"): DECISION,
     ("PUT", "/api/v1/runs/{run_id}/plan"): {"base_version": 1, "plan": {}},
+    ("POST", "/api/v1/workspaces/{workspace_id}/style/analyze"): {"text": "A short text."},
+    ("POST", "/api/v1/workspaces/{workspace_id}/style/rewrite"): {"text": "A short text."},
 }
 
 

@@ -1,5 +1,5 @@
 import { useRef, useState, type FormEvent } from "react";
-import { useOutletContext, useParams } from "react-router";
+import { Link, useOutletContext, useParams } from "react-router";
 
 import { useDeleteUpload, useDocumentTitle, useUploadFile, useUploads, useUploadSearch } from "../api/hooks";
 import type { Me } from "../api/types";
@@ -120,6 +120,10 @@ export function UploadsPage() {
                     <div className="small muted nowrap">{formatDateTime(u.created_at)}</div>
                   </td>
                   <td className="cell-actions">
+                    <Link className="btn btn-ghost" to={`/w/${workspaceId}/style?upload=${u.id}`}
+                          aria-label={`Open ${u.filename} in the style studio`}>
+                      Style
+                    </Link>
                     {(role === "admin" || u.uploaded_by_id === me.user_id) && (
                       <button type="button" className="btn btn-ghost" disabled={deleteUpload.isPending}
                               onClick={() => deleteUpload.mutate(u.id)} aria-label={`Delete ${u.filename}`}>

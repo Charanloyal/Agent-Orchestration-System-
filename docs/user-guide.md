@@ -192,6 +192,32 @@ immutable record, until the run itself is deleted.
 > the file itself: search, evidence and reports use the text, and nothing offers the original
 > back for download. Keep your own copy of anything you upload.
 
+### Style studio
+
+**Style studio** (every workspace member) measures a piece of writing and rewrites it for a
+chosen reader. Paste up to 50,000 characters, or choose an uploaded document (the **Style**
+link next to each document opens it here). Then pick a voice and select **Measure and rewrite**:
+
+| Voice | What changes |
+| --- | --- |
+| Journalist | Short, direct sentences; stock phrases removed |
+| Executive | Short sentences; stock phrases removed |
+| Academic | Long sentences kept; formal transitions such as "moreover" kept |
+| Technical | Medium sentences; stock phrases removed, but "robust" and "consequently" kept |
+
+The page shows each measurement before and after the rewrite:
+
+- **Sentence-length variation:** how much sentence lengths differ. Uniform lengths read flat.
+- **Vocabulary diversity:** the share of distinct words, averaged over 50-word windows.
+- **Stock phrases per 1,000 words:** phrases such as "it is important to note that". The
+  sentences that contain them are highlighted.
+- **Facts preserved:** numbers, dates, percentages, quoted text, citations and links, compared
+  exactly. Any change that would alter one is rejected, so this should always read *n / n*.
+
+**Download .md** saves the rewritten text. Nothing is stored. The measurements describe the
+text; they are not a prediction of who or what wrote it, and the studio does not try to get
+past AI-detection tools ([ADR 0027](decisions/0027-style-studio-honest-metrics.md)).
+
 ## 9. Workspace settings (admins)
 
 ![Workspace settings](assets/screenshots/13-workspace-settings.png)

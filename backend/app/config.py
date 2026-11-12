@@ -99,6 +99,7 @@ class Settings(BaseSettings):
     rate_run_create_per_workspace_hour: int = 60
     rate_upload_per_user_hour: int = 30
     rate_export_per_user_hour: int = 60
+    rate_style_per_user_hour: int = 120
     rate_login_per_ip_5min: int = 30
     rate_access_request_per_ip_hour: int = 5
     # Proxies in front of the app that append to X-Forwarded-For (ADR 0025). 0: use the socket
