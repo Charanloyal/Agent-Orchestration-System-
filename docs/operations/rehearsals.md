@@ -18,7 +18,8 @@ Rollback rehearsals and the hosted checks 4-11 are still open. Steps:
 | Commit (`GET /version`) | `ce682e54bfb7` |
 | Migration head (`GET /version`) | `0010` |
 | `smoke_prod.py` result | **27/27 passed** with `--expect-signup-mode request --expect-commit ce682e5`, file [records/2026-11-12-smoke-ce682e5.json](records/2026-11-12-smoke-ce682e5.json) (run by the agent from the owner's laptop) |
-| Check 12 (client address) | **Failed with `AOS_TRUSTED_PROXY_HOPS=1`**: 32 sign-in attempts within a minute were never rate-limited, with a forged rotating `X-Forwarded-For` and also without one. Fixed in `582db43` (two hops, [ADR 0025](../decisions/0025-client-address-behind-proxy.md)); to be repeated once that commit is live |
+| Check 12 (client address) | **Passed on `29449a6` with `AOS_TRUSTED_PROXY_HOPS=3`** (2026-11-12 12:00 UTC): in a fresh 5-minute window, 32 sign-in attempts from one laptop, each forging a different `X-Forwarded-For`: attempts 1-30 reached Google, 31 and 32 were rate-limited. `/network-check` with the laptop's own address: 3 entries, position 3 from the right, `rate_limit_uses_address: true`. History: failed with 1 and 2 trusted hops (rate limit never triggered); measured with `/network-check` ([ADR 0025](../decisions/0025-client-address-behind-proxy.md)). Check 12 (b), a second network still reaching Google while the laptop is limited, needs the owner's phone |
+| `smoke_prod.py` on the fixed build | **27/27 passed** on `29449a6`, file [records/2026-11-12-smoke-29449a6.json](records/2026-11-12-smoke-29449a6.json) |
 | Checks 4-11 of the verification table | Not yet recorded (need the owner's sign-in) |
 | Done by | Owner (Render, Google); agent (smoke test, check 12) |
 
