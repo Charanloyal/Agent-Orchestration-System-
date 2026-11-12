@@ -4,15 +4,15 @@ Uses the template from the context prompt (§4). Contains no secrets or private 
 
 ```text
 Project: Agent Orchestration System
-Current state (2026-11-12 17:45): DEPLOYED at https://aos-web-8b4t.onrender.com
-  (render.free.yaml; Google OAuth app "aoss" in Testing, redirect URI added, owner signed in).
-  Live commit 919ae76. smoke_prod.py 27/27 (on ce682e5). Check 12: measured with
-  /network-check that Render appends THREE X-Forwarded-For entries (client = 3rd from the
-  right, with or without a forged header). 4cdc937 sets AOS_TRUSTED_PROXY_HOPS=3 in every
-  blueprint; CI green. Render does not auto-deploy and env values change only on a Blueprint
-  sync: the owner must run Blueprints > Manual sync. Then re-run check 12 (expect the 31st
-  attempt rate-limited and /network-check rate_limit_uses_address=true), checks 4-11,
-  rehearsals. Free Postgres expires after about 30 days.
+Current state (2026-11-12 17:40): DEPLOYED and verified by the agent at
+  https://aos-web-8b4t.onrender.com (render.free.yaml; live commit 29449a6; migration 0010;
+  Google OAuth app "aoss" in Testing mode with the owner as test user). smoke_prod.py 27/27 on
+  29449a6; check 12 (a) PASSED with AOS_TRUSTED_PROXY_HOPS=3 (measured with /network-check;
+  attempts 1-30 reach Google, 31-32 rate-limited despite forged headers). Records in
+  docs/operations/rehearsals.md and records/. OPEN (owner, in the browser): checks 4-11 and
+  12 (b) of deploy-render.md, both rollback rehearsals, GitHub About settings, v1.0.0 tag.
+  Render does not auto-deploy: use Manual Deploy (code) or Blueprint Manual sync (settings).
+  Free Postgres expires after about 30 days: upgrade or recreate before the viva.
   PUSH: `powershell -ExecutionPolicy Bypass -File .vscode\push.ps1` (classic token, repo +
   workflow). Tokens pasted in chat on 2026-11-11/12 must be deleted by the owner.
 Commits after M16 (d8de167), in order:
