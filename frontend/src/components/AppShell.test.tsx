@@ -60,7 +60,7 @@ describe("AppShell", () => {
   it("shows navigation by role", async () => {
     render(me("reviewer", "llm"));
     const nav = await screen.findByRole("navigation", { name: "Workspace" });
-    expect(within(nav).getAllByRole("link").map((a) => a.textContent)).toEqual(["Runs", "Documents"]);
+    expect(within(nav).getAllByRole("link").map((a) => a.textContent)).toEqual(["Runs", "Documents", "Agents"]);
   });
 
   it("gives admins the activity log and workspace settings", async () => {

@@ -41,6 +41,7 @@ function AppShell({ me }: { me: Me }) {
             </NavLink>
             {current.role !== "reviewer" && <NavLink to={`/w/${current.workspace_id}/new`}>New brief</NavLink>}
             <NavLink to={`/w/${current.workspace_id}/documents`}>Documents</NavLink>
+            <NavLink to={`/w/${current.workspace_id}/agents`}>Agents</NavLink>
             {current.role !== "reviewer" && <NavLink to={`/w/${current.workspace_id}/usage`}>Usage</NavLink>}
             {current.role === "admin" && <NavLink to={`/w/${current.workspace_id}/activity`}>Activity</NavLink>}
             {current.role === "admin" && <NavLink to={`/w/${current.workspace_id}/settings`}>Settings</NavLink>}

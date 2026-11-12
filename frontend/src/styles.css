@@ -103,6 +103,18 @@ code { font-family: var(--mono); font-size: 0.85em; background: var(--tone-neutr
 .topnav a.active { background: var(--primary-soft); color: var(--primary); }
 .topbar-right { margin-left: auto; display: flex; align-items: center; gap: 0.75rem; }
 .content { max-width: 80rem; margin: 0 auto; padding: 1.75rem 1.5rem 4rem; }
+/* The sticky top bar must never cover what the browser scrolls to (skip link, focus, anchors). */
+html { scroll-padding-top: 5rem; }
+@media (max-width: 960px) { html { scroll-padding-top: 8rem; } }
+.agent-list { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+@media (max-width: 960px) { .agent-list { grid-template-columns: minmax(0, 1fr); } }
+.agent-head { display: flex; align-items: center; gap: 0.6rem; margin-bottom: 0.5rem; }
+.agent-head h2 { margin: 0; font-size: 1.1rem; }
+.agent-step { display: inline-grid; place-items: center; width: 1.75rem; height: 1.75rem; border-radius: 999px; background: var(--primary-soft); color: var(--primary); font-weight: 700; font-size: 0.85rem; }
+.agent-io { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 0.25rem 0.75rem; margin: 0.75rem 0; font-size: 0.9rem; }
+.agent-io dt { color: var(--muted); font-weight: 600; }
+.agent-io dd { margin: 0; }
+.agent-guards { margin: 0; padding-left: 1.1rem; font-size: 0.9rem; color: var(--muted); }
 .build-footer { max-width: 80rem; margin: 0 auto; padding: 0 1.5rem 1.5rem; text-align: right; }
 .page-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; }
 .page-header p { margin: 0.25rem 0 0; }
