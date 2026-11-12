@@ -4,22 +4,23 @@ Evidence for the manual items in [p0-checklist.md](p0-checklist.md). Fill in one
 attempt; attach the `smoke_prod.py --json` output next to this file
 (`docs/operations/records/`). An empty block means *not done yet*.
 
-Status as of 2026-11-06: **blocked by owner**. No Render deployment exists yet; it needs
-the owner's Render and Google Cloud accounts (and payment details for `render.yaml`). Steps:
+Status as of 2026-11-12: **deployed** (`render.free.yaml`, owner's Render and Google accounts).
+Rollback rehearsals and the hosted checks 4-11 are still open. Steps:
 [deploy-render.md](deploy-render.md).
 
 ## Deployment verification
 
 | Field | Value |
 | --- | --- |
-| Date, time (UTC) | |
-| Blueprint | `render.hybrid.yaml` / `render.yaml` / `render.free.yaml` |
-| Service URL | |
-| Commit (`GET /version`) | |
-| Migration head (`GET /version`) | |
-| `smoke_prod.py` result | e.g. 21/21 (22 with `--expect-commit`), file `records/<date>-smoke.json` |
-| Checks 4-11 of the verification table | pass/fail each, with notes |
-| Done by | |
+| Date, time (UTC) | 2026-11-12 09:31 |
+| Blueprint | `render.free.yaml` (free web service, free Postgres, `singapore`); chosen because the paid database needs a card |
+| Service URL | https://aos-web-8b4t.onrender.com |
+| Commit (`GET /version`) | `ce682e54bfb7` |
+| Migration head (`GET /version`) | `0010` |
+| `smoke_prod.py` result | **27/27 passed** with `--expect-signup-mode request --expect-commit ce682e5`, file [records/2026-11-12-smoke-ce682e5.json](records/2026-11-12-smoke-ce682e5.json) (run by the agent from the owner's laptop) |
+| Check 12 (client address) | **Failed with `AOS_TRUSTED_PROXY_HOPS=1`**: 32 sign-in attempts within a minute were never rate-limited, with a forged rotating `X-Forwarded-For` and also without one. Fixed in `582db43` (two hops, [ADR 0025](../decisions/0025-client-address-behind-proxy.md)); to be repeated once that commit is live |
+| Checks 4-11 of the verification table | Not yet recorded (need the owner's sign-in) |
+| Done by | Owner (Render, Google); agent (smoke test, check 12) |
 
 ## Rehearsal 1: code-only rollback
 

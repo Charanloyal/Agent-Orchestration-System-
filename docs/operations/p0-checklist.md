@@ -49,10 +49,11 @@ every push; "manual" items must be redone for each environment.
       0 integrity violations; crash takeover within the lease (same document; local machine,
       fake providers).
 - [x] Alert rules and incident runbook ([alerts.yml](alerts.yml), [runbook.md](runbook.md)).
-- [ ] **Manual, per environment (blocked by owner, 2026-11-06):** Google OAuth client
-      registered; `AOS_PLATFORM_ADMIN_EMAILS` set; the verification in
-      [deploy-render.md](deploy-render.md#4-verify-the-deployment) recorded in
-      [rehearsals.md](rehearsals.md). Needs the owner's Render and Google Cloud accounts.
+- [ ] **Manual, per environment (in progress, 2026-11-12):** deployed at
+      https://aos-web-8b4t.onrender.com (`render.free.yaml`); Google OAuth client registered;
+      `AOS_PLATFORM_ADMIN_EMAILS` set; `smoke_prod.py` 27/27. Open: check 12 after `582db43`
+      (two proxy hops) and checks 4-11 with the owner's sign-in, recorded in
+      [rehearsals.md](rehearsals.md).
 - [ ] **Manual (blocked by owner):** rollback rehearsal 1 (code only) and rehearsal 2 (across
       migration 0010) on the hosted environment, recorded in [rehearsals.md](rehearsals.md).
 

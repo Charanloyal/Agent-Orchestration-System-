@@ -6,8 +6,9 @@ person approves the plan and the final report before anything leaves the system.
 [![CI](https://github.com/Charanloyal/Agent-Orchestration-System-/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/Charanloyal/Agent-Orchestration-System-/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-**Live demo:** PENDING (the Render deployment is the next step; the URL goes here once it is
-verified). 15-credit AI/ML major project.
+**Live demo:** https://aos-web-8b4t.onrender.com (free Render instance: the first request after
+15 idle minutes takes up to a minute; sign-in is by invitation or access request). 15-credit
+AI/ML major project.
 
 ![Report awaiting reviewer approval, with the automatic review history](docs/assets/screenshots/04-report-with-review.png)
 

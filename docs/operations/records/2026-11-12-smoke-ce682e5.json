@@ -1,0 +1,142 @@
+{
+  "url": "https://aos-web-8b4t.onrender.com",
+  "started_at": "2026-11-12T09:31:34.375218+00:00",
+  "passed": true,
+  "results": [
+    {
+      "name": "https",
+      "ok": true,
+      "detail": "public URL uses https"
+    },
+    {
+      "name": "liveness",
+      "ok": true,
+      "detail": "/healthz -> 200"
+    },
+    {
+      "name": "readiness",
+      "ok": true,
+      "detail": "/readyz -> 200 b'{\"status\":\"ok\"}'"
+    },
+    {
+      "name": "version",
+      "ok": true,
+      "detail": "/version -> {'version': '1.0.0', 'commit': 'ce682e54bfb7', 'migration_head': '0010'}"
+    },
+    {
+      "name": "expected build",
+      "ok": true,
+      "detail": "serving commit ce682e54bfb7, expected ce682e5"
+    },
+    {
+      "name": "footer names the build",
+      "ok": true,
+      "detail": "/healthz commit ce682e54bfb7 (shown in the UI footer)"
+    },
+    {
+      "name": "header x-content-type-options",
+      "ok": true,
+      "detail": "x-content-type-options: nosniff"
+    },
+    {
+      "name": "header x-frame-options",
+      "ok": true,
+      "detail": "x-frame-options: DENY"
+    },
+    {
+      "name": "header strict-transport-security",
+      "ok": true,
+      "detail": "strict-transport-security: max-age=31536000"
+    },
+    {
+      "name": "header cross-origin-opener-policy",
+      "ok": true,
+      "detail": "cross-origin-opener-policy: same-origin"
+    },
+    {
+      "name": "header permissions-policy",
+      "ok": true,
+      "detail": "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+    },
+    {
+      "name": "request id",
+      "ok": true,
+      "detail": "responses carry x-request-id"
+    },
+    {
+      "name": "app shell",
+      "ok": true,
+      "detail": "/ -> 200"
+    },
+    {
+      "name": "content security policy",
+      "ok": true,
+      "detail": "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'; frame"
+    },
+    {
+      "name": "client-side routes",
+      "ok": true,
+      "detail": "deep link -> 200"
+    },
+    {
+      "name": "favicon",
+      "ok": true,
+      "detail": "/favicon.svg -> 200"
+    },
+    {
+      "name": "no API docs in prod",
+      "ok": true,
+      "detail": "/api/openapi.json hidden"
+    },
+    {
+      "name": "metrics not public",
+      "ok": true,
+      "detail": "/metrics needs a token"
+    },
+    {
+      "name": "sign-in required",
+      "ok": true,
+      "detail": "/me -> 401"
+    },
+    {
+      "name": "auth config",
+      "ok": true,
+      "detail": "{'provider_label': 'Google', 'signup_mode': 'request'}"
+    },
+    {
+      "name": "signup mode",
+      "ok": true,
+      "detail": "expected request"
+    },
+    {
+      "name": "login redirects to the identity provider",
+      "ok": true,
+      "detail": "302 -> accounts.google.com"
+    },
+    {
+      "name": "redirect URI",
+      "ok": true,
+      "detail": "redirect_uri=https://aos-web-8b4t.onrender.com/api/v1/auth/callback"
+    },
+    {
+      "name": "login cookie",
+      "ok": true,
+      "detail": "__secure-aos_login=-..."
+    },
+    {
+      "name": "login cookie prefix",
+      "ok": true,
+      "detail": "a Secure login cookie is named __Secure-aos_login"
+    },
+    {
+      "name": "callback errors return to sign-in",
+      "ok": true,
+      "detail": "302 -> /signin?error=provider_denied"
+    },
+    {
+      "name": "cross-origin writes refused",
+      "ok": true,
+      "detail": "cross-origin access request -> 403"
+    }
+  ]
+}
