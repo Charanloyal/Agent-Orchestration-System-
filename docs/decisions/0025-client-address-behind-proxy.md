@@ -28,8 +28,9 @@ everything on the left may be forged.
    - `0` (local, Docker Compose, tests): the socket peer; the header is ignored.
    - `N`: the Nth entry **from the right**. Repeated headers are joined into one list; empty
      entries are skipped; with fewer than N entries the socket peer is used.
-3. The Render blueprints set `AOS_TRUSTED_PROXY_HOPS=1` on the web service, and
-   `scripts/check_blueprints.py` fails CI if one does not.
+3. The Render blueprints set `AOS_TRUSTED_PROXY_HOPS=2` on the web service, and
+   `scripts/check_blueprints.py` fails CI if one does not (see "Measured on Render" below;
+   the first release used `1`).
 4. Addresses are only hashed into rate-limit keys (SHA-256, truncated); they are never logged
    or stored raw. Uvicorn's access log stays off.
 
@@ -54,3 +55,19 @@ everything on the left may be forged.
   ([deploy-render.md](../operations/deploy-render.md), check 12) verifies both on the live
   service, and the value is changed in the Render dashboard if needed.
 - Supersedes the "Proxy headers" note in ADR 0018.
+
+## Measured on Render (2026-11-12, deploy check 12)
+
+With `AOS_TRUSTED_PROXY_HOPS=1` on `https://aos-web-8b4t.onrender.com` (commit `ce682e5`),
+32 sign-in attempts from one laptop within a minute were never rate-limited (limit 30 per
+5 minutes): neither with a forged, rotating `X-Forwarded-For` nor **without any forged
+header**. So the right-most entry changes from request to request although the client does
+not: it is a proxy address from a pool (Render's edge is fronted by Cloudflare), not the
+client. The limit was therefore too lenient, never spoofable in a worse way.
+
+Raising the value to `2` moves the key one entry left, past that rotating proxy. It cannot
+select a client-written entry unless a single proxy appended both of the right-most entries,
+which the measurement rules out. Whether `2` is exactly right is verified by repeating check
+12 after the deploy: (a) the forged-header loop must be limited, (b) a second network must
+still reach the provider. The result is recorded in
+[rehearsals.md](../operations/rehearsals.md).

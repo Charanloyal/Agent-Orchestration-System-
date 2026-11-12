@@ -108,7 +108,7 @@ If a Blueprint was created from an earlier version of this repository:
 | Behaviour change, no variable | Session cookie renamed to `__Host-aos_session` (login cookie `__Secure-aos_login`); HSTS, COOP and Permissions-Policy headers | Everyone signed in before the deploy signs in once more; the old `aos_session` cookie expires on its own |
 | Now optional | `AOS_ALLOWED_EMAILS`, `AOS_ALLOWED_EMAIL_DOMAINS` | Keep or delete; people on them can always sign in. Keep `AOS_ALLOWED_EMAILS` set until rehearsal 2 is done: the 0009 build still requires an allowlist |
 | Optional | `AOS_OIDC_PROVIDER_LABEL`, `AOS_WORKSPACE_CREATION`, `AOS_INVITATION_TTL_DAYS`, `AOS_RATE_ACCESS_REQUEST_PER_IP_HOUR`, `AOS_RETENTION_ACCESS_REQUEST_DAYS` | Defaults: derived label, `platform_admins`, 14, 5, 90 |
-| **New (blueprint group)** | `AOS_TRUSTED_PROXY_HOPS=1` on the web service | Synced from the blueprint ([ADR 0025](../decisions/0025-client-address-behind-proxy.md)); check 12 confirms the value |
+| **New (blueprint group)** | `AOS_TRUSTED_PROXY_HOPS=2` on the web service | Synced from the blueprint ([ADR 0025](../decisions/0025-client-address-behind-proxy.md)); check 12 confirms the value |
 | New (hybrid and free blueprints) | `AOS_DB_POOL_SIZE=5`, `AOS_DB_MAX_OVERFLOW=5` | Synced from the blueprint; smaller pools for one shared instance (defaults 10 + 10 elsewhere) |
 | New (all blueprints) | `AOS_STORE_FILES=false` | Synced from the blueprint; no file copies on Render's ephemeral disks ([ADR 0026](../decisions/0026-no-file-copies-on-render.md)) |
 | Now optional | `AOS_PUBLIC_URL` | Defaults to Render's `RENDER_EXTERNAL_URL`; keep it only for a custom domain |

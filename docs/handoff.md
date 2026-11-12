@@ -1,6 +1,6 @@
 # Session handoff
 
-Uses the template from the context prompt (Â§4). Contains no secrets or private source content.
+Uses the template from the context prompt (§4). Contains no secrets or private source content.
 
 ```text
 Project: Agent Orchestration System

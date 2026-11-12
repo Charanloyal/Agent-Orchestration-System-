@@ -1,4 +1,4 @@
-﻿# Agent Orchestration System
+# Agent Orchestration System
 
 **Four AI agents research a question, cite their sources and review each other's work, and a
 person approves the plan and the final report before anything leaves the system.**

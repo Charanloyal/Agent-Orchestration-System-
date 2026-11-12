@@ -55,9 +55,10 @@ services:
         value: "0"
       - key: AOS_SIGNUP_MODE
         value: request
-      # Render's proxy appends the client address to X-Forwarded-For (ADR 0025).
+      # On Render the right-most X-Forwarded-For entry is a rotating proxy address (measured
+      # 2026-11-12, ADR 0025), so the client is counted from the second entry from the right.
       - key: AOS_TRUSTED_PROXY_HOPS
-        value: "1"
+        value: "2"
       # API and worker share this instance and its database pools (G6): at most 43 connections
       # during a deploy against the plan's 100 (scripts/check_blueprints.py).
       - key: AOS_DB_POOL_SIZE
