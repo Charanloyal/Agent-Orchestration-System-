@@ -4,15 +4,16 @@ Uses the template from the context prompt (§4). Contains no secrets or private 
 
 ```text
 Project: Agent Orchestration System
-Current state (2026-11-12 16:30): DEPLOYED at https://aos-web-8b4t.onrender.com
-  (render.free.yaml, owner's accounts; Google OAuth app "aoss" in Testing mode with the owner as
-  test user). Live commit ce682e5, migration 0010; smoke_prod.py 27/27 (record in
-  docs/operations/records). Check 12 FAILED with one trusted hop (rate limit never triggered);
-  fixed in 582db43 (two hops), CI green, but Render still serves ce682e5: the owner must run
-  the Blueprint "Manual sync" (env values change only on sync). Owner also has to add the
-  redirect URI https://aos-web-8b4t.onrender.com/api/v1/auth/callback to the Google client,
-  then sign in and create the first workspace. Then: repeat check 12, checks 4-11, rehearsals.
-  Free Postgres expires after about 30 days: upgrade or recreate before the viva (2027-04-30).
+Current state (2026-11-12 17:10): DEPLOYED at https://aos-web-8b4t.onrender.com
+  (render.free.yaml; Google OAuth app "aoss" in Testing, redirect URI added, owner signed in).
+  Live commit a1c3d71 (hops=2 applied by the owner's Blueprint sync). smoke_prod.py 27/27 on
+  ce682e5. Check 12 (a) still FAILS with two hops (32 forged and unforged sign-ins never
+  limited), although this laptop's egress address is constant (20/20 identical). dfc80c5 adds
+  GET /network-check?address=<own IP> to measure the right hop count; CI green, but Render does
+  not auto-deploy (checksPass never fires): the owner must use Manual Deploy > Deploy latest
+  commit. Then: curl /network-check, set AOS_TRUSTED_PROXY_HOPS to address_position_from_right
+  in the blueprints (check_blueprints.py WEB_VALUES too), push, Manual sync, repeat check 12.
+  Then checks 4-11 and the rehearsals. Free Postgres expires after about 30 days.
   PUSH: `powershell -ExecutionPolicy Bypass -File .vscode\push.ps1` (classic token, repo +
   workflow). Tokens pasted in chat on 2026-11-11/12 must be deleted by the owner.
 Commits after M16 (d8de167), in order:
