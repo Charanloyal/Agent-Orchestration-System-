@@ -4,16 +4,15 @@ Uses the template from the context prompt (§4). Contains no secrets or private 
 
 ```text
 Project: Agent Orchestration System
-Current state (2026-11-12 17:10): DEPLOYED at https://aos-web-8b4t.onrender.com
+Current state (2026-11-12 17:45): DEPLOYED at https://aos-web-8b4t.onrender.com
   (render.free.yaml; Google OAuth app "aoss" in Testing, redirect URI added, owner signed in).
-  Live commit a1c3d71 (hops=2 applied by the owner's Blueprint sync). smoke_prod.py 27/27 on
-  ce682e5. Check 12 (a) still FAILS with two hops (32 forged and unforged sign-ins never
-  limited), although this laptop's egress address is constant (20/20 identical). dfc80c5 adds
-  GET /network-check?address=<own IP> to measure the right hop count; CI green, but Render does
-  not auto-deploy (checksPass never fires): the owner must use Manual Deploy > Deploy latest
-  commit. Then: curl /network-check, set AOS_TRUSTED_PROXY_HOPS to address_position_from_right
-  in the blueprints (check_blueprints.py WEB_VALUES too), push, Manual sync, repeat check 12.
-  Then checks 4-11 and the rehearsals. Free Postgres expires after about 30 days.
+  Live commit 919ae76. smoke_prod.py 27/27 (on ce682e5). Check 12: measured with
+  /network-check that Render appends THREE X-Forwarded-For entries (client = 3rd from the
+  right, with or without a forged header). 4cdc937 sets AOS_TRUSTED_PROXY_HOPS=3 in every
+  blueprint; CI green. Render does not auto-deploy and env values change only on a Blueprint
+  sync: the owner must run Blueprints > Manual sync. Then re-run check 12 (expect the 31st
+  attempt rate-limited and /network-check rate_limit_uses_address=true), checks 4-11,
+  rehearsals. Free Postgres expires after about 30 days.
   PUSH: `powershell -ExecutionPolicy Bypass -File .vscode\push.ps1` (classic token, repo +
   workflow). Tokens pasted in chat on 2026-11-11/12 must be deleted by the owner.
 Commits after M16 (d8de167), in order:
