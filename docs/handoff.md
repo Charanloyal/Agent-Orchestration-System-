@@ -4,17 +4,30 @@ Uses the template from the context prompt (§4). Contains no secrets or private 
 
 ```text
 Project: Agent Orchestration System
-Current state (2026-11-12 17:40): DEPLOYED and verified by the agent at
-  https://aos-web-8b4t.onrender.com (render.free.yaml; live commit 29449a6; migration 0010;
-  Google OAuth app "aoss" in Testing mode with the owner as test user). smoke_prod.py 27/27 on
-  29449a6; check 12 (a) PASSED with AOS_TRUSTED_PROXY_HOPS=3 (measured with /network-check;
-  attempts 1-30 reach Google, 31-32 rate-limited despite forged headers). Records in
-  docs/operations/rehearsals.md and records/. OPEN (owner, in the browser): checks 4-11 and
-  12 (b) of deploy-render.md, both rollback rehearsals, GitHub About settings, v1.0.0 tag.
+Current state (2026-11-13 04:30): main = release/deploy-ready = 60adbbc, CI green up to
+  26159a4 (60adbbc running at handoff). DEPLOYED at https://aos-web-8b4t.onrender.com
+  (render.free.yaml; last verified live commit 29449a6). The owner must Manual Deploy to ship
+  96df17e..60adbbc: Agents page, Style studio (ADR 0027), glass theme. Code needs no Blueprint
+  sync (no blueprint change). After deploying: footer shows 60adbbc; sign in with Google (the
+  owner replaced the masked client secret on 2026-11-12, not yet confirmed working); open
+  Style studio and run one rewrite.
+  Earlier: smoke_prod.py 27/27 on 29449a6; check 12 (a) PASSED with AOS_TRUSTED_PROXY_HOPS=3
+  (measured with /network-check; attempts 1-30 reach Google, 31-32 rate-limited despite
+  forged headers). Records in docs/operations/rehearsals.md and records/. OPEN (owner, in the
+  browser): checks 4-11 and 12 (b) of deploy-render.md, both rollback rehearsals, GitHub
+  About settings, v1.0.0 tag. Live model: deploy-render.md section 6 (keys in Render's
+  environment; AOS_AGENT_MODE is pinned in the blueprint); budget still USD 0.
   Render does not auto-deploy: use Manual Deploy (code) or Blueprint Manual sync (settings).
   Free Postgres expires after about 30 days: upgrade or recreate before the viva.
   PUSH: `powershell -ExecutionPolicy Bypass -File .vscode\push.ps1` (classic token, repo +
   workflow). Tokens pasted in chat on 2026-11-11/12 must be deleted by the owner.
+Commits after the deployment (newest first), all on main:
+  60adbbc ui: glass theme (contrast computed for overlapping aurora); deploy-render.md section 6
+  26159a4 Style studio: measured metrics, fact-locked persona rewrite, no detector claims (0027)
+  96df17e Agents page; sticky header never covers scrolled-to content
+  4cdc937 trust three proxy hops (measured); dfc80c5 /network-check
+  Tests at 60adbbc: backend pytest 543 passed / 1 live deselected, ruff + mypy clean;
+  Vitest 16 files / 88 tests; Playwright 13 passed (Chrome channel, CI=1).
 Commits after M16 (d8de167), in order:
   45782cd sign-in hardening, schema compatibility window (migration 0009), deploy tooling
   02074c7 access model (migration 0010): platform admins, signup modes, invitations, requests
@@ -41,7 +54,7 @@ Commits after M16 (d8de167), in order:
   3d9ddba F13 ADR 0004 superseded; project brief and risk register current
   (this handoff)
 
-Architecture decisions: 0001-0026 (0004 superseded by 0018/0023; 0022 amended by 0026).
+Architecture decisions: 0001-0027 (0004 superseded by 0018/0023; 0022 amended by 0026).
 Database migrations: 0001 ... 0010 (0009 stays compatible with 0010; ADR 0020). Phase C added
   none.
 
