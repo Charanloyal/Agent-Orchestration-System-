@@ -370,3 +370,86 @@ details.role-help ul { margin: 0.5rem 0 0; padding-left: 1.25rem; }
   .table td, .table th { overflow-wrap: anywhere; }
   .table td, .table th, .table.compact td, .table.compact th { padding-left: 0.4rem; padding-right: 0.4rem; }
 }
+/* Glass theme. Cards, the top bar and toasts are translucent over a faint aurora; inputs stay
+   opaque. The aurora's strength is capped so muted and coloured text keep WCAG AA (4.5:1) even
+   where two blobs overlap (light 0.07, dark 0.12), and glass surfaces are at least 78% opaque
+   (85% for the top bar, which content scrolls under). Fallbacks: no backdrop-filter support,
+   prefers-reduced-transparency and forced colours all get the opaque theme. */
+:root {
+  --font: "Inter", "InterVariable", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+  --glass: rgb(255 255 255 / 78%);
+  --glass-strong: rgb(255 255 255 / 94%);
+  --glass-border: rgb(255 255 255 / 65%);
+  --glass-blur: blur(14px) saturate(1.5);
+  --topbar-bg: rgb(255 255 255 / 85%);
+  --aurora-1: rgb(99 102 241 / 7%);
+  --aurora-2: rgb(236 72 153 / 7%);
+  --aurora-3: rgb(20 184 166 / 7%);
+  --primary-end: #6b3fd4;
+  --primary-end-hover: #5631b0;
+  --shadow: 0 1px 2px rgb(16 24 40 / 5%), 0 8px 24px rgb(16 24 40 / 6%);
+  --radius: 14px;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --glass: rgb(22 27 34 / 78%);
+    --glass-strong: rgb(22 27 34 / 94%);
+    --glass-border: rgb(255 255 255 / 8%);
+    --topbar-bg: rgb(22 27 34 / 85%);
+    --aurora-1: rgb(99 102 241 / 12%);
+    --aurora-2: rgb(236 72 153 / 12%);
+    --aurora-3: rgb(20 184 166 / 12%);
+    --primary-end: #c4a6ff;
+    --primary-end-hover: #d4bdff;
+    --shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 8px 24px rgb(0 0 0 / 35%);
+  }
+}
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(60rem 40rem at 10% -10%, var(--aurora-1), transparent 70%),
+    radial-gradient(50rem 36rem at 95% 5%, var(--aurora-2), transparent 70%),
+    radial-gradient(60rem 40rem at 50% 115%, var(--aurora-3), transparent 70%);
+}
+.card, .stepper, .signin-card {
+  background: var(--glass);
+  border-color: var(--glass-border);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+}
+.toast { background: var(--glass-strong); -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur); }
+.topbar {
+  background: var(--topbar-bg);
+  border-bottom-color: var(--glass-border);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+}
+.btn-primary { background: linear-gradient(135deg, var(--primary), var(--primary-end)); }
+.btn-primary:hover:not(:disabled) { background: linear-gradient(135deg, var(--primary-hover), var(--primary-end-hover)); }
+.topnav a.active { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary) 25%, transparent); }
+/* A floating top bar on wide screens only; narrow layouts keep the full-width bar. */
+@media (min-width: 961px) {
+  .topbar { margin: 0.75rem 1rem 0; top: 0.75rem; border: 1px solid var(--glass-border); border-radius: var(--radius); box-shadow: var(--shadow); }
+  html { scroll-padding-top: 6rem; }
+  .timeline-card, .evidence-panel, .side { top: 5.5rem; }
+  .timeline-card { max-height: calc(100vh - 7rem); }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .card { transition: box-shadow 160ms ease, border-color 160ms ease; }
+  .btn { transition: background-color 120ms ease, box-shadow 120ms ease, filter 120ms ease; }
+  .btn-primary:hover:not(:disabled) { box-shadow: 0 4px 14px color-mix(in srgb, var(--primary) 35%, transparent); }
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  :root { --glass: var(--surface); --glass-strong: var(--surface); --topbar-bg: var(--surface); }
+}
+@media (prefers-reduced-transparency: reduce) {
+  :root { --glass: var(--surface); --glass-strong: var(--surface); --topbar-bg: var(--surface); }
+  body::before { display: none; }
+}
+@media (forced-colors: active) {
+  body::before { display: none; }
+}

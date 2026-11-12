@@ -59,6 +59,12 @@ been deployed yet; the hosted steps are prepared and listed under *Not done*.
     (`AOS_RATE_STYLE_PER_USER_HOUR`, default 120). Nothing is stored. No detector-evasion
     claims.
 - **Agents page:** what each agent does, its inputs and outputs, and its guards.
+- **Glass theme:** translucent cards and a floating top bar (wide screens) over a faint aurora,
+  and a gradient primary button. Aurora strength and glass opacity are capped so text keeps
+  WCAG AA contrast in light and dark mode. Opaque fallbacks apply without `backdrop-filter`,
+  with reduced transparency and in forced colours. Screenshots regenerated.
+- Deployment guide §6: switching the hosted app to a live model with Render environment
+  variables (keys never in the repository or the settings page).
 - `GET /network-check?address=`: reports where a given address appears in `X-Forwarded-For`
   (positions and counts only), used to measure `AOS_TRUSTED_PROXY_HOPS=3` on Render
   ([ADR 0025](docs/decisions/0025-client-address-behind-proxy.md)).

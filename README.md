@@ -356,6 +356,9 @@ AOS_TAVILY_API_KEY=<key>
 
 Opt-in live smoke test (one small planner call): `$env:AOS_LIVE_TESTS="1"; .\.venv\Scripts\python.exe -m pytest -m live -s tests/live`.
 
+On Render, keys go in the service's environment, never in the repository; follow
+[deploy-render.md §6](docs/operations/deploy-render.md#6-optional-switch-the-hosted-app-to-a-live-model).
+
 ### Evaluation
 
 From `backend/`, with `AOS_EVAL_DATABASE_URL` set to an empty, dedicated database:
