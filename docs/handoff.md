@@ -4,12 +4,17 @@ Uses the template from the context prompt (§4). Contains no secrets or private 
 
 ```text
 Project: Agent Orchestration System
-Current state (2026-11-12 02:45): Phases A, B and C done. main on GitHub = ce682e5 and CI is
-  GREEN on it (run 43098800908: backend, frontend, e2e, containers, deploy-image, spike).
-  F (repository side) and E (preparation) done. Next: Phase D, the Render deployment (owner
-  clicks, agent guides). Nothing is deployed yet.
-  PUSH: `powershell -ExecutionPolicy Bypass -File .vscode\push.ps1` (classic token with repo
-  + workflow; Git's sh.exe is broken on this laptop, so normal sign-in cannot work).
+Current state (2026-11-12 16:30): DEPLOYED at https://aos-web-8b4t.onrender.com
+  (render.free.yaml, owner's accounts; Google OAuth app "aoss" in Testing mode with the owner as
+  test user). Live commit ce682e5, migration 0010; smoke_prod.py 27/27 (record in
+  docs/operations/records). Check 12 FAILED with one trusted hop (rate limit never triggered);
+  fixed in 582db43 (two hops), CI green, but Render still serves ce682e5: the owner must run
+  the Blueprint "Manual sync" (env values change only on sync). Owner also has to add the
+  redirect URI https://aos-web-8b4t.onrender.com/api/v1/auth/callback to the Google client,
+  then sign in and create the first workspace. Then: repeat check 12, checks 4-11, rehearsals.
+  Free Postgres expires after about 30 days: upgrade or recreate before the viva (2027-04-30).
+  PUSH: `powershell -ExecutionPolicy Bypass -File .vscode\push.ps1` (classic token, repo +
+  workflow). Tokens pasted in chat on 2026-11-11/12 must be deleted by the owner.
 Commits after M16 (d8de167), in order:
   45782cd sign-in hardening, schema compatibility window (migration 0009), deploy tooling
   02074c7 access model (migration 0010): platform admins, signup modes, invitations, requests
