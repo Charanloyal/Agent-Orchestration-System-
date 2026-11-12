@@ -28,9 +28,9 @@ everything on the left may be forged.
    - `0` (local, Docker Compose, tests): the socket peer; the header is ignored.
    - `N`: the Nth entry **from the right**. Repeated headers are joined into one list; empty
      entries are skipped; with fewer than N entries the socket peer is used.
-3. The Render blueprints set `AOS_TRUSTED_PROXY_HOPS=2` on the web service, and
+3. The Render blueprints set `AOS_TRUSTED_PROXY_HOPS=3` on the web service, and
    `scripts/check_blueprints.py` fails CI if one does not (see "Measured on Render" below;
-   the first release used `1`).
+   the first release used `1`, then `2`, both too low).
 4. Addresses are only hashed into rate-limit keys (SHA-256, truncated); they are never logged
    or stored raw. Uvicorn's access log stays off.
 
@@ -65,9 +65,20 @@ header**. So the right-most entry changes from request to request although the c
 not: it is a proxy address from a pool (Render's edge is fronted by Cloudflare), not the
 client. The limit was therefore too lenient, never spoofable in a worse way.
 
-Raising the value to `2` moves the key one entry left, past that rotating proxy. It cannot
-select a client-written entry unless a single proxy appended both of the right-most entries,
-which the measurement rules out. Whether `2` is exactly right is verified by repeating check
-12 after the deploy: (a) the forged-header loop must be limited, (b) a second network must
-still reach the provider. The result is recorded in
-[rehearsals.md](../operations/rehearsals.md).
+Raising the value to `2` (commit `582db43`) did not help either: on the live service (commit
+`a1c3d71`) the same loops were still never limited, while the laptop's own public address was
+constant (20 of 20 identical requests to an address-echo service).
+
+So the chain was measured instead of guessed, with `GET /network-check?address=<own address>`
+(commit `dfc80c5`; it returns positions and counts, never an address). On `919ae76`:
+
+| Request | Entries in `X-Forwarded-For` | Caller's address, position from the right |
+| --- | --- | --- |
+| No client header | 3 | 3 |
+| Client sends a forged `X-Forwarded-For` | 4 | 3 (the forged value is 4th) |
+
+Render's proxies therefore append **three** entries, and the client is the third from the
+right whatever the client sends. The blueprints set `AOS_TRUSTED_PROXY_HOPS=3`. Check 12 is
+repeated after the next Blueprint sync, and the result is recorded in
+[rehearsals.md](../operations/rehearsals.md). If Render changes its proxy chain,
+`/network-check` shows the new position and only the setting changes.

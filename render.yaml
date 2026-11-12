@@ -62,10 +62,10 @@ services:
     autoDeployTrigger: checksPass
     envVars:
       - fromGroup: aos-shared
-      # On Render the right-most X-Forwarded-For entry is a rotating proxy address (measured
-      # 2026-11-12, ADR 0025), so the client is counted from the second entry from the right.
+      # Render's proxies append three X-Forwarded-For entries; the client is the third from the
+      # right (measured 2026-11-12 with /network-check, ADR 0025).
       - key: AOS_TRUSTED_PROXY_HOPS
-        value: "2"
+        value: "3"
       - key: AOS_DATABASE_URL
         fromDatabase:
           name: aos-db

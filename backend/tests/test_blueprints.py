@@ -74,7 +74,7 @@ services:
         "must run",
         "AOS_OIDC_ISSUER",
         "region",
-        "AOS_TRUSTED_PROXY_HOPS=2",
+        "AOS_TRUSTED_PROXY_HOPS=3",
         "AOS_RETENTION_RUN_DAYS=0",
         "AOS_STORE_FILES=false",
     ):

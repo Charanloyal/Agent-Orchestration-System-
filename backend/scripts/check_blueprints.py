@@ -38,7 +38,7 @@ WEB_ONLY = (
 )
 # Values every web service must set on Render (key -> value), with the decision behind each.
 WEB_VALUES = {
-    "AOS_TRUSTED_PROXY_HOPS": "2",  # ADR 0025: Cloudflare and Render each append an address
+    "AOS_TRUSTED_PROXY_HOPS": "3",  # ADR 0025: measured with /network-check on Render
 }
 # Values a blueprint must state wherever it sets them (services and groups), at least once.
 BLUEPRINT_VALUES = {
