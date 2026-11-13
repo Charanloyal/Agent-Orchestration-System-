@@ -26,7 +26,8 @@ from app.contracts import (
 from app.providers.llm import LlmProvider
 from app.tools.chunking import clip
 
-MAX_WRITER_PASSAGES = 24
+MAX_WRITER_PASSAGES = 36
+MAX_UPLOAD_PASSAGES = 25
 
 
 def _generation(llm: LlmProvider, prompt_version: str, call: StructuredCall[Any]) -> dict[str, Any]:
@@ -43,12 +44,16 @@ def _generation(llm: LlmProvider, prompt_version: str, call: StructuredCall[Any]
 def select_passages(
     plan: Plan, evidence: list[EvidenceView], limit: int = MAX_WRITER_PASSAGES
 ) -> list[EvidenceView]:
-    """Round-robin across tasks so every planned question is represented within the limit."""
+    """Every passage of the workspace's uploaded documents first (up to MAX_UPLOAD_PASSAGES,
+    in document order: a resume's projects section must not be dropped, ADR 0033), then web
+    passages round-robin across tasks so every planned question is represented."""
+    uploads = [e for e in evidence if e.kind == "upload"][:MAX_UPLOAD_PASSAGES]
+    selected: list[EvidenceView] = list(uploads)
     by_task: dict[str, list[EvidenceView]] = {}
     for item in evidence:
-        by_task.setdefault(item.task_id, []).append(item)
+        if item.kind != "upload":
+            by_task.setdefault(item.task_id, []).append(item)
     order = [t.task_id for t in plan.tasks] + sorted(set(by_task) - {t.task_id for t in plan.tasks})
-    selected: list[EvidenceView] = []
     depth = 0
     while len(selected) < limit and any(len(by_task.get(t, [])) > depth for t in order):
         for task_id in order:

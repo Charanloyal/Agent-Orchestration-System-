@@ -59,6 +59,14 @@ been deployed yet; the hosted steps are prepared and listed under *Not done*.
     (`AOS_RATE_STYLE_PER_USER_HOUR`, default 120). Nothing is stored. No detector-evasion
     claims.
 - **Agents page:** what each agent does, its inputs and outputs, and its guards.
+- **Relevant sources only** ([ADR 0033](docs/decisions/0033-relevant-sources-and-whole-uploads.md)):
+  - open-search results must share a distinctive word with the question; adult content is
+    dropped;
+  - official documentation pages for common engineering topics are offered first and fetched
+    live;
+  - the writer receives every uploaded passage first (documents up to 25 passages are read
+    whole), so a CV's projects section is never dropped;
+  - writer/v2 and reviewer/v2 ignore off-topic passages instead of listing them.
 - **Rate limits never fail a run** ([ADR 0032](docs/decisions/0032-rate-limits-never-fail-a-run.md)):
   - Gemini moves to the next model on 429, 5xx and timeouts, in the order Hydrogen, 3.8 Flash,
     Flash-Lite, then 3.1 Pro;

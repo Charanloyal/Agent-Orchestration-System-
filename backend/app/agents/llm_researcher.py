@@ -17,10 +17,10 @@ from app.providers.search import SearchHit
 from app.tools.chunking import sentences
 from app.workflow.errors import StepFailed, TransientError
 
-MAX_PASSAGES = 24
+MAX_PASSAGES = 36
 MAX_HITS_PER_SEARCH = 3
 # A short uploaded document comes back whole (ADR 0031); keep all of it.
-MAX_UPLOAD_HITS = 15
+MAX_UPLOAD_HITS = 25
 
 
 QUOTED_FINDINGS = 8

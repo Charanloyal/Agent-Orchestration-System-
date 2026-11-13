@@ -147,8 +147,12 @@ The approved report and its export are not changed:
 
 **Where sources come from.** With a Tavily key, research searches the web. Without one, the
 hosted app uses open sources with official free APIs: Wikipedia articles and arXiv abstracts.
-Every passage is the source's own text, cited by its real link. When a brief allows
-*Uploaded documents*, a short document (up to 15 passages, such as a resume) is read whole.
+Results that share no distinctive word with the question, and adult content, are dropped. For
+common engineering topics (circuit breakers, Raft, Redis, Qdrant, Faiss, Spark, LangGraph,
+Kubernetes, PostgreSQL, Docker, server-sent events) the official documentation page is fetched
+first. Every passage is the source's own text, cited by its real link. When a brief allows
+*Uploaded documents*, a document of up to 25 passages, such as a resume, is read whole, and the
+writer sees all of its passages.
 
 ## 6. Runs, usage and activity
 

@@ -215,6 +215,7 @@ All four agents are LLM-backed when `AOS_AGENT_MODE=llm`; fakes are the default.
 | [0030](decisions/0030-labelled-model-fallback.md) | Provider error details; a permanent model error falls back to the deterministic agent, labelled | Accepted |
 | [0031](decisions/0031-open-sources-and-complete-passages.md) | Keyless open sources (Wikipedia, arXiv); sentence-aware passages; short documents whole; re-index; report to Style studio | Accepted |
 | [0032](decisions/0032-rate-limits-never-fail-a-run.md) | Model rotation on 429/5xx/timeouts, two requests per key, retried tasks reuse passages, quoted-findings fallback | Accepted |
+| [0033](decisions/0033-relevant-sources-and-whole-uploads.md) | Relevance filter and adult-content block on open search; official documentation directory; every uploaded passage reaches the writer | Accepted |
 
 ## Session handoff
 

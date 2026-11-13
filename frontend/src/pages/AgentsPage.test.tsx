@@ -48,7 +48,7 @@ describe("AgentsPage", () => {
     await user.click(within(flow).getByRole("button", { name: /Reviewer/ }));
     expect(screen.getByRole("heading", { level: 2, name: "Reviewer" })).toBeInTheDocument();
     expect(screen.getByText(/At most 2 review rounds/)).toBeInTheDocument();
-    expect(screen.getByText("reviewer/v1")).toBeInTheDocument();
+    expect(screen.getByText("reviewer/v2")).toBeInTheDocument();
 
     await user.click(within(flow).getByRole("button", { name: /Report approval/ }));
     expect(screen.getByText("Human approval")).toBeInTheDocument();

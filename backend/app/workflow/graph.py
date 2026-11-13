@@ -12,6 +12,7 @@ first committed result wins.
 """
 
 import contextvars
+import re
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any, TypedDict
@@ -90,20 +91,37 @@ def provenance(generation: dict[str, Any]) -> dict[str, Any]:
     return {k: generation[k] for k in keys if k in generation}
 
 
+def _natural(text: str | None) -> tuple[object, ...]:
+    """'page 1, passage 10' sorts after 'page 1, passage 2'."""
+    return tuple(int(part) if part.isdigit() else part for part in re.split(r"(\d+)", text or ""))
+
+
 def load_evidence(ctx: RunContext) -> list[EvidenceView]:
+    """Every passage of the run, per task: uploaded documents first and in document order
+    (ADR 0033), then web sources in the order they were collected."""
     with ctx.sm() as session:
         rows = session.execute(
-            select(EvidencePassage, Source.title, Source.url, Source.published_on)
+            select(
+                EvidencePassage,
+                Source.title,
+                Source.url,
+                Source.published_on,
+                Source.kind,
+                Source.retrieved_at,
+            )
             .join(
                 Source,
                 (Source.run_id == EvidencePassage.run_id) & (Source.source_id == EvidencePassage.source_id),
             )
             .where(EvidencePassage.run_id == ctx.run_id, Source.fetch_status == "fetched")
-            .order_by(EvidencePassage.task_id, EvidencePassage.evidence_id)
         ).all()
+    rows = sorted(
+        rows,
+        key=lambda r: (r[0].task_id, r[4] != "upload", r[5], r[0].source_id, _natural(r[0].locator)),
+    )
     return [
-        EvidenceView(e.evidence_id, e.source_id, e.task_id, title, url, published, e.text)
-        for e, title, url, published in rows
+        EvidenceView(e.evidence_id, e.source_id, e.task_id, title, url, published, e.text, kind)
+        for e, title, url, published, kind, _ in rows
     ]
 
 

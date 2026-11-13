@@ -226,7 +226,7 @@ def test_llm_writer_prompt_is_evidence_only_and_unknown_citations_get_one_repair
     llm = ScriptedLlm([json.dumps(bad), writer_reply(writer_prompt(brief, plan, evidence))])
     call = LlmWriter(llm).write(brief, plan, evidence, report_version=1, findings=[])
 
-    assert call.attempts == 2 and call.generation["prompt_version"] == "writer/v1"
+    assert call.attempts == 2 and call.generation["prompt_version"] == "writer/v2"
     assert "forged" in llm.calls[1]["user"] and "not among the provided passages" in llm.calls[1]["user"]
     assert call.output.cited_evidence_ids() <= {e.evidence_id for e in evidence}
     assert '<passage id="forged">' not in llm.calls[0]["user"], "passage delimiters are neutralised"

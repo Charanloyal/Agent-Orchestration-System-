@@ -26,6 +26,7 @@ class EvidenceView:
     url: str | None
     published_on: str | None
     text: str
+    kind: str = "web"  # "upload" for the workspace's own documents
 
 
 class ResearchTools(Protocol):

@@ -186,13 +186,13 @@ def search_chunks(
     ]
 
 
-WHOLE_DOCUMENT_PASSAGES = 15
+WHOLE_DOCUMENT_PASSAGES = 25
 
 
 def with_short_documents_whole(
     db: Session, workspace_id: uuid.UUID, hits: list[ChunkHit], max_passages: int = WHOLE_DOCUMENT_PASSAGES
 ) -> list[ChunkHit]:
-    """For a matching document of at most `max_passages` passages (a resume, a short brief),
+    """For a matching document of at most `max_passages` passages (a resume, a project report),
     return all of its passages in order instead of only the matching ones, so nothing between
     two headings is missing (ADR 0031). Longer documents keep their best-ranked passages.
     Documents keep their rank order."""
@@ -268,3 +268,32 @@ def rechunk_upload(db: Session, upload: Upload) -> tuple[int, int]:
             index += 1
     db.flush()
     return len(old), index
+
+
+def short_documents(
+    db: Session, workspace_id: uuid.UUID, max_passages: int = WHOLE_DOCUMENT_PASSAGES
+) -> list[ChunkHit]:
+    """All passages of the workspace's short documents (at most `max_passages` each, and at most
+    `max_passages` in total), newest document first. Used when a brief allows uploaded documents
+    but full-text search matched none of the question's words (ADR 0033)."""
+    counts = (
+        select(UploadChunk.upload_id, func.count().label("n"))
+        .where(UploadChunk.workspace_id == workspace_id)
+        .group_by(UploadChunk.upload_id)
+        .subquery()
+    )
+    uploads = db.execute(
+        select(Upload.id, Upload.filename, Upload.title)
+        .join(counts, counts.c.upload_id == Upload.id)
+        .where(Upload.workspace_id == workspace_id, counts.c.n <= max_passages)
+        .order_by(Upload.created_at.desc())
+    ).all()
+    out: list[ChunkHit] = []
+    for upload_id, filename, title in uploads:
+        chunks = db.scalars(
+            select(UploadChunk).where(UploadChunk.upload_id == upload_id).order_by(UploadChunk.chunk_index)
+        ).all()
+        if len(out) + len(chunks) > max_passages:
+            break
+        out += [ChunkHit(c.upload_id, c.chunk_index, filename, title, c.locator, c.text, 0.0) for c in chunks]
+    return out

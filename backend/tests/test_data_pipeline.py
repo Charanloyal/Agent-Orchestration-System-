@@ -14,15 +14,18 @@ from sqlalchemy.orm import Session
 
 from app.agents.base import EvidenceRef, EvidenceView
 from app.agents.llm_researcher import LlmResearcher
-from app.agents.llm_writer_reviewer import _refs
+from app.agents.llm_writer_reviewer import _refs, select_passages
 from app.config import Settings
 from app.contracts import PlanTask
-from app.db.models import Role, Upload, UploadChunk, User, Workspace
-from app.providers.open_search import OpenWebSearch, keywords
+from app.contracts.common import sha256_hex
+from app.db.models import EvidencePassage, Role, Source, Upload, UploadChunk, User, Workspace
+from app.db.session import get_sessionmaker
+from app.providers.open_search import OpenWebSearch, curated_hits, is_relevant, keywords
 from app.services.uploads import search_chunks, with_short_documents_whole
 from app.tools.chunking import PASSAGE_MAX_CHARS, clip, sentences, split_passages
 from app.workers.runner import build_search
 from app.workflow.errors import TransientError
+from app.workflow.graph import load_evidence
 from tests.conftest import LoggedIn
 from tests.test_uploads import upload
 
@@ -192,10 +195,12 @@ def test_open_search_returns_real_source_text_from_wikipedia_and_arxiv() -> None
         "Compare FAISS GPU similarity search", max_results=4, allowed_domains=[], blocked_domains=[]
     )
     assert [h.url for h in response.hits] == [
+        "https://github.com/facebookresearch/faiss/wiki",
         "https://en.wikipedia.org/wiki/FAISS",
         "https://arxiv.org/abs/1702.08734v1",
     ]
-    wiki, paper = response.hits
+    docs, wiki, paper = response.hits
+    assert docs.content is None, "curated documentation is fetched live, never stored text"
     assert wiki.title == "FAISS (Wikipedia)" and wiki.published_on == "2026-10-01"
     assert wiki.content and "References" not in wiki.content
     assert paper.title == "Billion-scale similarity search with GPUs (arXiv)"
@@ -208,11 +213,17 @@ def test_open_search_returns_real_source_text_from_wikipedia_and_arxiv() -> None
 
 def test_open_search_respects_the_domain_policy_and_skips_an_outage() -> None:
     search = OpenWebSearch(client=httpx.Client(transport=httpx.MockTransport(fake_web)))
-    only_arxiv = search.search("FAISS", max_results=3, allowed_domains=["arxiv.org"], blocked_domains=[])
+    only_arxiv = search.search(
+        "similarity search", max_results=3, allowed_domains=["arxiv.org"], blocked_domains=[]
+    )
     assert [h.url.split("/")[2] for h in only_arxiv.hits if h.url] == ["arxiv.org"]
     down = OpenWebSearch(client=httpx.Client(transport=httpx.MockTransport(lambda _: httpx.Response(503))))
-    outage = down.search("FAISS", max_results=3, allowed_domains=[], blocked_domains=[])
+    outage = down.search(
+        "Bloom filter false positives", max_results=3, allowed_domains=[], blocked_domains=[]
+    )
     assert outage.hits == [], "a source that is down is skipped, never a transient error that fails the run"
+    faiss = down.search("FAISS", max_results=3, allowed_domains=[], blocked_domains=[])
+    assert [h.url for h in faiss.hits] == ["https://github.com/facebookresearch/faiss/wiki"]
 
 
 def test_auto_search_without_a_key_uses_open_sources() -> None:
@@ -225,6 +236,135 @@ def test_auto_search_without_a_key_uses_open_sources() -> None:
         "vector",
         "search",
     ]
+
+
+# --- relevance (ADR 0033) -------------------------------------------------------------------
+
+BREAKER_QUESTION = (
+    "How should the gateway implement the circuit breaker pattern for building resilient "
+    "handling of transient upstream errors?"
+)
+OFF_TOPIC_PAGES = {
+    "Sick building syndrome": "Sick building syndrome is a condition in which occupants of a building "
+    "experience acute health effects that seem linked to time spent in it. ",
+    "Pattern (sewing)": "In sewing and fashion design, a pattern is the template from which the parts "
+    "of a garment are traced onto fabric before being cut out. ",
+    "Pornography": "Pornography is sexually explicit material; one gateway site was studied. ",
+    "Circuit breaker design pattern": "Circuit breaker is a design pattern used in software development "
+    "to detect failures and stop a failing upstream call from being retried constantly. ",
+}
+
+
+def polluted_web(request: httpx.Request) -> httpx.Response:
+    params = dict(request.url.params)
+    if request.url.host == "en.wikipedia.org" and params.get("list") == "search":
+        return httpx.Response(200, json={"query": {"search": [{"title": t} for t in OFF_TOPIC_PAGES]}})
+    if request.url.host == "en.wikipedia.org":
+        title = params["titles"]
+        page = {"title": title, "extract": OFF_TOPIC_PAGES[title] * 4, "revisions": []}
+        return httpx.Response(200, json={"query": {"pages": {"1": page}}})
+    if request.url.host == "export.arxiv.org":
+        return httpx.Response(200, text='<feed xmlns="http://www.w3.org/2005/Atom"></feed>')
+    return httpx.Response(404)
+
+
+def test_off_topic_and_adult_pages_never_reach_the_evidence() -> None:
+    search = OpenWebSearch(client=httpx.Client(transport=httpx.MockTransport(polluted_web)))
+    response = search.search(BREAKER_QUESTION, max_results=6, allowed_domains=[], blocked_domains=[])
+    titles = [h.title for h in response.hits]
+    assert titles == ["CircuitBreaker (Martin Fowler)", "Circuit breaker design pattern (Wikipedia)"]
+    assert response.hits[0].url == "https://martinfowler.com/bliki/CircuitBreaker.html"
+
+
+def test_relevance_needs_a_distinctive_word_not_only_generic_ones() -> None:
+    assert not is_relevant(
+        "transient errors in a rate limit gateway",
+        "GWTC-5.0: a catalog of gravitational-wave transient sources (arXiv)",
+        "We report transient signals observed by the detector network.",
+    )
+    assert is_relevant(
+        "token bucket rate limit in Redis",
+        "Rate limiting (Wikipedia)",
+        "A token bucket allows bursts while enforcing an average rate limit.",
+    )
+    assert is_relevant("Raft", "Raft (algorithm) (Wikipedia)", "Raft is a consensus algorithm.")
+
+
+def test_curated_documentation_matches_whole_terms_and_respects_the_policy() -> None:
+    assert [h.url for h in curated_hits("Raft leader election versus Paxos")] == ["https://raft.github.io/"]
+    assert curated_hits("assess the draft report") == [], "no match inside other words"
+    search = OpenWebSearch(client=httpx.Client(transport=httpx.MockTransport(lambda _: httpx.Response(503))))
+    blocked = search.search(
+        "Raft log replication", max_results=3, allowed_domains=[], blocked_domains=["raft.github.io"]
+    )
+    assert blocked.hits == []
+
+
+def test_writer_sees_every_uploaded_passage_before_web_passages() -> None:
+    upload_passages = [
+        EvidenceView(f"u{i}", "upl-cv", "t1", "CV", None, None, f"passage {i}", "upload") for i in range(1, 5)
+    ]
+    web = [
+        EvidenceView(f"w{t}{i}", f"web-{t}{i}", t, "Doc", "https://example.com", None, "text")
+        for t in ("t1", "t2", "t3")
+        for i in range(15)
+    ]
+    plan = SimpleNamespace(tasks=[SimpleNamespace(task_id=t) for t in ("t1", "t2", "t3")])
+    chosen = select_passages(plan, web[:20] + upload_passages + web[20:])  # type: ignore[arg-type]
+    assert [e.evidence_id for e in chosen[:4]] == ["u1", "u2", "u3", "u4"]
+    assert len(chosen) == 36 and {e.task_id for e in chosen[4:]} == {"t1", "t2", "t3"}
+
+
+def test_evidence_is_loaded_uploads_first_in_document_order(
+    db: Session,
+    make_user: Callable[..., User],
+    make_workspace: Callable[..., Workspace],
+    make_run: Callable[..., uuid.UUID],
+) -> None:
+    from datetime import UTC, datetime, timedelta
+
+    user = make_user("Owner")
+    workspace = make_workspace("Evidence order", {user: Role.ADMIN})
+    run_id = make_run(workspace, user)
+    now = datetime.now(UTC)
+    for source_id, kind, at in (("web-1", "web", now - timedelta(minutes=5)), ("upl-cv", "upload", now)):
+        db.add(
+            Source(
+                run_id=run_id,
+                source_id=source_id,
+                workspace_id=workspace.id,
+                kind=kind,
+                url="https://example.com" if kind == "web" else None,
+                title=source_id,
+                retrieved_at=at,
+                fetch_status="fetched",
+            )
+        )
+    db.flush()
+    rows = [
+        ("0-web", "web-1", None, "Web passage."),
+        ("9-cv1", "upl-cv", "page 1, passage 1", "Header and summary."),
+        ("1-cv10", "upl-cv", "page 1, passage 10", "Last project."),
+        ("5-cv2", "upl-cv", "page 1, passage 2", "Skills and internships."),
+    ]
+    for evidence_id, source_id, locator, text in rows:
+        db.add(
+            EvidencePassage(
+                run_id=run_id,
+                evidence_id=evidence_id,
+                workspace_id=workspace.id,
+                source_id=source_id,
+                task_id="t1",
+                locator=locator,
+                text=text,
+                text_sha256=sha256_hex(text),
+                fencing_token=1,
+            )
+        )
+    db.commit()
+    loaded = load_evidence(SimpleNamespace(sm=get_sessionmaker(), run_id=run_id))  # type: ignore[arg-type]
+    assert [e.evidence_id for e in loaded] == ["9-cv1", "5-cv2", "1-cv10", "0-web"]
+    assert [e.kind for e in loaded] == ["upload", "upload", "upload", "web"]
 
 
 class EarlierAttemptTools:

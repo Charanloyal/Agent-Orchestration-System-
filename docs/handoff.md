@@ -27,6 +27,10 @@ Current state (2026-11-13 15:00): main = release/deploy-ready, pushed after this
   Rate limits (ADR 0032): the failed run (transient errors after 5 attempts) can be retried
   after deploying; finished tasks are skipped, the failed task reuses its passages, Gemini
   rotates models on 429/503/timeouts, and a task with no answering model quotes its passages.
+  Relevance (ADR 0033): open search drops results without a distinctive question word, and
+  drops adult content. An official documentation directory (URLs checked) is fetched first.
+  The writer sees every uploaded passage first (cause of the "unknown" NeuralGateway: random
+  evidence order plus a 24-passage cap). Start a new run after deploying.
   Hotfix (ADR 0030): the live Gemini run failed at planning with a bare "HTTP 400". Errors
   now carry Google's message (key masked), so Settings -> Test connection shows the real
   reason (most often "API key not valid": paste the key again). Non-key 400s retry once with

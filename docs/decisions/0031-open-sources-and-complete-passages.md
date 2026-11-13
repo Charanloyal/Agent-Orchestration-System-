@@ -1,6 +1,7 @@
 # 0031: Real open sources, complete passages, short documents whole
 
-- **Status:** Accepted
+- **Status:** Accepted; amended by [ADR 0033](0033-relevant-sources-and-whole-uploads.md)
+  (relevance filter; whole documents up to 25 passages; uploads first for the writer)
 - **Date:** 2026-11-13
 - **Amends:** [ADR 0030](0030-labelled-model-fallback.md), decision 5 (search)
 - **Requirements:** owner's review of a live Gemini 4 run: the report's *Limitations* said the

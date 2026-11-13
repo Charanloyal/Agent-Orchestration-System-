@@ -64,7 +64,7 @@ export const FLOW: FlowStep[] = [
     output: "A report version whose citations point at this run's passages.",
     tools: ["This run's evidence only"],
     guards: ["Citations validated against this run's evidence", "Revises the draft when the reviewer finds blockers"],
-    prompt: "writer/v1",
+    prompt: "writer/v2",
   },
   {
     id: "reviewer",
@@ -76,7 +76,7 @@ export const FLOW: FlowStep[] = [
     output: "Findings by severity; blockers send the draft back to the writer (at most 2 rounds).",
     tools: ["Deterministic support checks", "The model, when configured"],
     guards: ["At most 2 review rounds, then the run needs attention"],
-    prompt: "reviewer/v1",
+    prompt: "reviewer/v2",
   },
   {
     id: "report-gate",
