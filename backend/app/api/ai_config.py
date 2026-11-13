@@ -45,6 +45,7 @@ class ConfigIn(BaseModel):
 
     @model_validator(mode="after")
     def _known_model(self) -> ConfigIn:
+        self.model = ai_engine.current_model(self.provider, self.model)
         if self.model not in ai_engine.PROVIDERS[self.provider].models:
             raise ValueError(f"{self.model} is not offered for {self.provider}")
         if self.api_key is not None:

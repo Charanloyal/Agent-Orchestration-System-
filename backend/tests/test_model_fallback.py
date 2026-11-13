@@ -14,7 +14,7 @@ from app.db.models import User
 from app.providers.gemini import GeminiLlm, normalize_model
 from app.providers.llm import LlmResult
 from app.workers.runner import process_one
-from app.workflow.errors import StepFailed
+from app.workflow.errors import StepFailed, TransientError
 from tests.conftest import LoggedIn
 from tests.test_workflow import decide, start_run
 from tests.test_workflow import team as team
@@ -25,7 +25,7 @@ KEY = "AIzaSy-secret-KEY9"
 class Rejecting:
     """A provider that rejects every request, like Gemini with a bad key."""
 
-    name, model = "google-gemini", "gemini-2.5-flash"
+    name, model = "google-gemini", "gemini-3.8-flash"
 
     def __init__(self) -> None:
         self.calls = 0
@@ -60,7 +60,7 @@ def test_a_rejecting_model_falls_back_step_by_step_and_the_run_completes(
     assert detail["state"] == "AWAITING_REPORT_APPROVAL", detail.get("outcome_reason")
     assert llm.calls >= 4, "every step tried the model first"
     assert detail["plan"]["generation"]["fallback_reason"].endswith("API key not valid)")
-    assert detail["report"]["generation"]["fallback_from"] == "google-gemini/gemini-2.5-flash"
+    assert detail["report"]["generation"]["fallback_from"] == "google-gemini/gemini-3.8-flash"
     timeline = client.get(f"/api/v1/runs/{run_id}/timeline").json()
     proposed = next(e for e in timeline if e["type"] == "plan_proposed")
     assert "API key not valid" in proposed["payload"]["fallback_reason"]
@@ -81,7 +81,7 @@ def test_without_fallback_the_run_fails_with_the_providers_reason(
 
 
 def gemini(
-    responses: list[httpx.Response], seen: list[dict[str, Any]], model: str = "gemini-2.5-flash"
+    responses: list[httpx.Response], seen: list[dict[str, Any]], model: str = "gemini-3.8-flash"
 ) -> GeminiLlm:
     def handler(request: httpx.Request) -> httpx.Response:
         import json
@@ -105,11 +105,11 @@ def test_a_rejected_optional_setting_is_retried_once_with_plain_generation() -> 
     seen: list[dict[str, Any]] = []
     bad = httpx.Response(
         400, json={"error": {"status": "INVALID_ARGUMENT", "message": "Unknown name thinkingConfig"}}
-    )
+    )  # an optional setting rejected: plain retry on the same model
     result = gemini([bad, OK], seen).complete(system="S", user="U", json_output=True, max_output_tokens=50)
     assert result.text == "{}"
     assert "responseMimeType" in seen[0]["generationConfig"]
-    assert seen[1]["generationConfig"] == {"maxOutputTokens": 50}
+    assert seen[1]["generationConfig"] == {"maxOutputTokens": 50 + 4096}, "only the limit, with thinking room"
     assert seen[1]["systemInstruction"] == {"parts": [{"text": "S"}]}
     assert [c["role"] for c in seen[1]["contents"]] == ["user"]
 
@@ -131,6 +131,64 @@ def test_a_bad_key_is_not_retried_and_the_reason_is_googles_without_the_key() ->
 
 def test_the_key_and_model_are_normalised() -> None:
     seen: list[dict[str, Any]] = []
-    llm = gemini([OK], seen, model=" models/Gemini-2.5-Flash ")
-    assert llm.model == "gemini-2.5-flash" and llm._key == KEY
-    assert normalize_model("gemini-2.0-flash") == "gemini-2.0-flash"
+    llm = gemini([OK], seen, model=" models/Gemini-3.8-Flash ")
+    assert llm.model == "gemini-3.8-flash" and llm._key == KEY
+
+
+@pytest.mark.parametrize(
+    ("stored", "used"),
+    [
+        ("gemini-2.5-flash", "gemini-3.8-flash"),
+        ("models/gemini-2.5-pro", "gemini-3.8-flash"),
+        ("gemini-3.0-flash", "gemini-3.8-flash"),
+        ("gemini-3.5-flash", "gemini-3.6-flash"),
+        ("gemini-3.5-flash-lite", "gemini-3.5-flash-lite"),
+        ("", "gemini-3.8-flash"),
+    ],
+)
+def test_retired_model_ids_are_replaced(stored: str, used: str) -> None:
+    assert normalize_model(stored) == used
+
+
+def test_an_unavailable_model_moves_down_the_chain_and_reports_the_model_that_answered() -> None:
+    seen: list[dict[str, Any]] = []
+    urls: list[str] = []
+    gone = httpx.Response(
+        404, json={"error": {"status": "NOT_FOUND", "message": "models/gemini-3.8-flash is not found"}}
+    )
+    quota = httpx.Response(429, json={"error": {"status": "RESOURCE_EXHAUSTED", "message": "quota exceeded"}})
+    answered = httpx.Response(
+        200,
+        json={
+            "candidates": [{"content": {"parts": [{"text": "{}"}]}, "finishReason": "STOP"}],
+            "usageMetadata": {"promptTokenCount": 10, "candidatesTokenCount": 4, "thoughtsTokenCount": 6},
+        },
+    )
+    responses = [gone, quota, answered]
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        urls.append(str(request.url))
+        import json
+
+        seen.append(json.loads(request.content))
+        return responses.pop(0)
+
+    llm = GeminiLlm(KEY, "gemini-3.8-flash", client=httpx.Client(transport=httpx.MockTransport(handler)))
+    result = llm.complete(system="S", user="U", json_output=True, max_output_tokens=50)
+    assert [u.rsplit("/", 1)[1] for u in urls] == [
+        "gemini-3.8-flash:generateContent",
+        "gemini-3.5-flash-lite:generateContent",
+        "gemini-3.6-flash:generateContent",
+    ]
+    assert "thinkingConfig" not in seen[1]["generationConfig"], "Flash-Lite keeps its own default"
+    assert result.usage.model == "gemini-3.6-flash"
+    assert result.usage.output_tokens == 10, "thinking tokens are billed as output"
+
+
+def test_when_every_model_is_out_of_quota_the_worker_retries_later() -> None:
+    quota = httpx.Response(429, json={"error": {"status": "RESOURCE_EXHAUSTED", "message": "quota exceeded"}})
+    llm = GeminiLlm(
+        KEY, "gemini-3.8-flash", client=httpx.Client(transport=httpx.MockTransport(lambda _: quota))
+    )
+    with pytest.raises(TransientError, match=r"gemini-3\.5-flash-lite: RESOURCE_EXHAUSTED"):
+        llm.complete(system="S", user="U", json_output=False, max_output_tokens=10)

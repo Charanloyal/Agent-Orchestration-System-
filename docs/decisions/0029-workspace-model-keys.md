@@ -45,9 +45,30 @@ The risks ADR 0028 named are still real, so this decision limits them instead of
 ## Consequences
 
 - Going live: **Settings → AI engine → Google Gemini → paste key → Test connection → Save**.
-  The top bar shows **⚡ Live · gemini-2.5-flash** at once, and new runs use the model.
+  The top bar shows **⚡ Live · gemini-3.8-flash** at once, and new runs use the model.
 - A database leak alone does not expose keys. A leak of both the database and
   `AOS_SECRETS_KEY` does, so treat the secret like the database password.
 - Tests: `tests/test_ai_engine.py` (encryption, never-returned key, permissions, model list,
   live test without saving, Gemini request shape and error classes, style fallback);
   `WorkspaceSettingsPage.test.tsx`; `AppShell.test.tsx`.
+
+## Amendment (2026-11-13): current Gemini models
+
+Google deprecated `gemini-2.5-flash` and `gemini-2.5-pro`: they are no longer selectable in
+AI Studio and are routed to newer models from 1 December 2026. `gemini-3.5-flash` already
+routes to `gemini-3.6-flash`. Sources: Gemini API *Models*, *Deprecations* and *What's new in
+Gemini 3.8 Flash* pages, read 2026-11-13.
+
+1. **Models offered, in fallback order:** `gemini-3.8-flash` (default), `gemini-3.5-flash-lite`,
+   `gemini-3.6-flash`. When the chosen model answers 404 (unknown or retired for this key), or
+   429 (its quota is used up), the adapter tries the next one. It never moves on for a bad
+   key or a bad request. The model that answered is recorded in usage and provenance.
+2. **Retired IDs are mapped at runtime:** 2.0/2.5/3.0/3.7 Flash and 2.5 Pro become
+   `gemini-3.8-flash`, and 3.5 Flash becomes `gemini-3.6-flash`. This applies to saved
+   workspace settings, `AOS_LLM_MODEL` and the API, so nobody has to re-save. `GEMINI_API_KEY`
+   now defaults to `gemini-3.8-flash`.
+3. **Gemini 3 request settings:** no `temperature` (Gemini 3 ignores it, and later generations
+   will reject it with 400); `thinkingConfig.thinkingLevel = "low"` for 3.8 and 3.6 Flash
+   (never `minimal`, which 3.8 Flash rejects); Flash-Lite keeps its default. Thinking tokens
+   count against `maxOutputTokens`, so 4,096 tokens of headroom are added. They are billed as
+   output, so the budget ledger counts them (`thoughtsTokenCount`).

@@ -254,7 +254,10 @@ try to get past such tools ([ADR 0027](decisions/0027-style-studio-honest-metric
 this workspace's runs and Style studio rewrites ([ADR 0029](decisions/0029-workspace-model-keys.md)):
 
 1. Choose **Google Gemini** (recommended; a free key is available from Google AI Studio),
-   **Groq** or **OpenAI**, then a model (for example `gemini-2.5-flash`).
+   **Groq** or **OpenAI**, then a model. For Gemini the default is `gemini-3.8-flash`, with
+   `gemini-3.5-flash-lite` and `gemini-3.6-flash` as fallbacks: if the chosen model is
+   unavailable for your key or out of quota, the next one answers. Older IDs such as
+   `gemini-2.5-flash` are used as `gemini-3.8-flash`.
 2. Paste the API key (**Show** reveals it while you check it). Use a key with its own
    spending limit at the provider.
 3. Select **Test connection**: one tiny request reports *Connected to … · N ms* or the

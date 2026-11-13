@@ -299,10 +299,11 @@ function GenerationNote({ artifact }: { artifact: { author?: string; generation?
     return <p className="small muted">Edited by a person{g?.edited_from ? ` from v${g.edited_from}` : ""}.</p>;
   }
   if (g?.fallback_reason) {
+    // The reason (a provider error) is diagnostic and stays in the timeline; the artifact only
+    // says, in plain words, that the model did not write it (ADR 0030).
     return (
-      <p className="small text-warning" data-testid="generation">
-        Produced by the deterministic fallback agent because the model ({g.fallback_from}) failed:{" "}
-        {g.fallback_reason}
+      <p className="small muted" data-testid="generation">
+        Written by the built-in agent: the language model was unavailable for this step.
       </p>
     );
   }

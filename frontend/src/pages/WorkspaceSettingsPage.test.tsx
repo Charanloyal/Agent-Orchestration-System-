@@ -56,25 +56,25 @@ describe("WorkspaceSettingsPage", () => {
       source: "demo", live: false, label: "Deterministic demo agents", provider: null, model: null,
       key_hint: null, problem: null,
       providers: [
-        { id: "gemini", label: "Google Gemini", models: ["gemini-2.5-flash", "gemini-2.5-pro"] },
+        { id: "gemini", label: "Google Gemini", models: ["gemini-3.8-flash", "gemini-3.5-flash-lite", "gemini-3.6-flash"] },
         { id: "groq", label: "Groq", models: ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"] },
         { id: "openai", label: "OpenAI", models: ["gpt-4o-mini", "gpt-4o"] },
       ],
     };
     const saved = {
-      ...demo, source: "workspace", live: true, label: "Google Gemini · gemini-2.5-flash", provider: "gemini",
-      model: "gemini-2.5-flash", key_hint: "WXYZ",
+      ...demo, source: "workspace", live: true, label: "Google Gemini · gemini-3.8-flash", provider: "gemini",
+      model: "gemini-3.8-flash", key_hint: "WXYZ",
     };
     const calls = render("admin", [
       { method: "PUT", path: `${BASE}/ai-config`, body: saved },
-      { method: "POST", path: `${BASE}/ai-config/test`, body: { ok: true, latency_ms: 240, model: "gemini-2.5-flash", detail: "ready" } },
+      { method: "POST", path: `${BASE}/ai-config/test`, body: { ok: true, latency_ms: 240, model: "gemini-3.8-flash", detail: "ready" } },
       { path: `${BASE}/ai-config`, body: demo },
     ]);
     expect(await screen.findByTestId("engine-status")).toHaveTextContent("Deterministic demo fallback");
     const headings = screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent);
     expect(headings.slice(0, 2)).toEqual(["AI engine and model provider", "Name"]);
     expect(screen.getByRole("radio", { name: /Google Gemini/ })).toBeChecked();
-    expect(screen.getByRole("combobox", { name: "Model" })).toHaveValue("gemini-2.5-flash");
+    expect(screen.getByRole("combobox", { name: "Model" })).toHaveValue("gemini-3.8-flash");
 
     const key = screen.getByLabelText("API key");
     expect(key).toHaveAttribute("type", "password");
@@ -83,12 +83,12 @@ describe("WorkspaceSettingsPage", () => {
     expect(key).toHaveAttribute("type", "text");
 
     await user.click(screen.getByRole("button", { name: "Test connection" }));
-    expect(await screen.findByTestId("engine-test")).toHaveTextContent("Connected to gemini-2.5-flash · 240 ms");
-    const sent = { provider: "gemini", model: "gemini-2.5-flash", api_key: "AIzaSy-test-WXYZ" };
+    expect(await screen.findByTestId("engine-test")).toHaveTextContent("Connected to gemini-3.8-flash · 240 ms");
+    const sent = { provider: "gemini", model: "gemini-3.8-flash", api_key: "AIzaSy-test-WXYZ" };
     expect(calls.find((c) => c.method === "POST")?.body).toEqual(sent);
 
     await user.click(screen.getByRole("button", { name: "Save and use this engine" }));
-    expect(await screen.findByText("Live · Google Gemini · gemini-2.5-flash")).toBeInTheDocument();
+    expect(await screen.findByText("Live · Google Gemini · gemini-3.8-flash")).toBeInTheDocument();
     expect(calls.find((c) => c.method === "PUT")?.body).toEqual(sent);
     expect(key).toHaveValue("");
   });

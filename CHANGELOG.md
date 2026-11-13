@@ -59,6 +59,15 @@ been deployed yet; the hosted steps are prepared and listed under *Not done*.
     (`AOS_RATE_STYLE_PER_USER_HOUR`, default 120). Nothing is stored. No detector-evasion
     claims.
 - **Agents page:** what each agent does, its inputs and outputs, and its guards.
+- **Current Gemini models** ([ADR 0029 amendment](docs/decisions/0029-workspace-model-keys.md)):
+  - `gemini-3.8-flash` is the default, falling back to `gemini-3.5-flash-lite` and then
+    `gemini-3.6-flash` on 404 or 429;
+  - retired IDs (2.x, 3.0, 3.5 and 3.7 Flash) are mapped at runtime, including saved
+    workspace settings;
+  - Gemini 3 requests send no `temperature` and use `thinkingLevel: low`, with output headroom;
+    thinking tokens are counted as output;
+  - plan and report cards say only "Written by the built-in agent: the language model was
+    unavailable for this step"; the provider's reason stays in the timeline.
 - **Model errors** ([ADR 0030](docs/decisions/0030-labelled-model-fallback.md)): the provider's
   own message (key masked) in the timeline, the run's failure reason and the settings test;
   Gemini retries a non-key 400 once with plain generation settings; server-level Gemini keys
@@ -73,7 +82,7 @@ been deployed yet; the hosted steps are prepared and listed under *Not done*.
     demo agents. The top bar shows **⚡ Live · <model>** and links admins to the settings. The
     Agents page names the engine and offers a diagnostic;
   - native Gemini adapter (`models/{model}:generateContent`, key in a header, JSON output,
-    no thinking budget on Flash).
+    no thinking budget on Flash 2.5; Gemini 3 uses `thinkingLevel`, see the amendment).
 - **Style studio:**
   - with a live engine, the model rewrites the document, accepted only when the fact lock and
     the Markdown structure hold (one correction round, then the rules), and the page says

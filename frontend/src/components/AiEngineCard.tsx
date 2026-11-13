@@ -28,7 +28,7 @@ export function AiEngineCard({ workspaceId }: { workspaceId: string }) {
   const ref = useRef<HTMLDivElement>(null);
   const ids = useId();
   const [provider, setProvider] = useState<AiProviderId>("gemini");
-  const [model, setModel] = useState("gemini-2.5-flash");
+  const [model, setModel] = useState("gemini-3.8-flash");
   const [apiKey, setApiKey] = useState("");
   const [showKey, setShowKey] = useState(false);
 

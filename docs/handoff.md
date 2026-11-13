@@ -9,7 +9,7 @@ Current state (2026-11-13 15:00): main = release/deploy-ready, pushed after this
   or similar). The BLUEPRINTS CHANGED again (AOS_SECRETS_KEY generateValue; agents/search
   auto), so: Blueprint -> Manual sync, then Manual Deploy (migration 0011 runs on start).
   After deploying: Settings shows "AI engine and model provider" first; choose Google Gemini,
-  paste a key, Test connection, Save; the pill turns "⚡ Live · gemini-2.5-flash" and new
+  paste a key, Test connection, Save; the pill turns "⚡ Live · gemini-3.8-flash" and new
   runs and Style studio rewrites use it (ADR 0029). Environment keys (GROQ_API_KEY etc.)
   still work for all workspaces (ADR 0028). Budget is USD 0 unless the owner approves: use a
   free-tier key with a provider-side limit. Gemini native adapter is unit-tested only; no live

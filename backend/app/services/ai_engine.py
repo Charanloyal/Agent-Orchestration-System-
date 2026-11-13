@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 
 from app.config import Settings
 from app.db.models import WorkspaceAiConfig
-from app.providers.gemini import GeminiLlm
+from app.providers.gemini import FALLBACK_CHAIN, GeminiLlm, normalize_model
 from app.providers.llm import LlmProvider, OpenAICompatibleLlm
 
 Provider = Literal["gemini", "groq", "openai"]
@@ -33,13 +33,19 @@ class ProviderInfo:
 
 
 PROVIDERS: dict[Provider, ProviderInfo] = {
-    "gemini": ProviderInfo("Google Gemini", ("gemini-2.5-flash", "gemini-2.5-pro"), None),
+    "gemini": ProviderInfo("Google Gemini", FALLBACK_CHAIN, None),
     "groq": ProviderInfo(
         "Groq", ("llama-3.3-70b-versatile", "llama-3.1-8b-instant"), "https://api.groq.com/openai/v1"
     ),
     "openai": ProviderInfo("OpenAI", ("gpt-4o-mini", "gpt-4o"), None),
 }
 _DEV_SECRET = "aos-development-only-secret"  # noqa: S105  (dev/test only; prod requires AOS_SECRETS_KEY)
+
+
+def current_model(provider: str, model: str) -> str:
+    """A saved or configured Gemini model ID that Google has retired is used as its
+    replacement (gemini-2.5-flash -> gemini-3.8-flash) without anyone re-saving settings."""
+    return normalize_model(model) if provider == "gemini" else model
 
 
 class SecretsUnavailable(Exception):
@@ -94,14 +100,16 @@ def _environment_engine(settings: Settings) -> Engine:
         return Engine("demo", None, None)
     base = settings.llm_base_url or ""
     provider = "groq" if "groq.com" in base else "gemini" if "googleapis.com" in base else "openai"
-    return Engine("environment", provider, settings.llm_model)
+    return Engine("environment", provider, current_model(provider, settings.llm_model))
 
 
 def resolve(db: Session, settings: Settings, workspace_id: uuid.UUID) -> Engine:
     config = db.get(WorkspaceAiConfig, workspace_id)
     if config is not None:
         if decrypt_key(settings, config.key_ciphertext) is not None:
-            return Engine("workspace", config.provider, config.model, config.key_hint)
+            return Engine(
+                "workspace", config.provider, current_model(config.provider, config.model), config.key_hint
+            )
         fallback = _environment_engine(settings)
         return Engine(
             fallback.source,
@@ -153,7 +161,11 @@ def workspace_llm(db: Session, settings: Settings, workspace_id: uuid.UUID) -> L
     if config is None:
         return None
     key = decrypt_key(settings, config.key_ciphertext)
-    return build_llm(settings, config.provider, config.model, key) if key else None
+    return (
+        build_llm(settings, config.provider, current_model(config.provider, config.model), key)
+        if key
+        else None
+    )
 
 
 def engine_llm(db: Session, settings: Settings, workspace_id: uuid.UUID) -> LlmProvider | None:

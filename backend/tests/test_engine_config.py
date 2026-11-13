@@ -33,7 +33,7 @@ def test_auto_without_keys_runs_the_demo_agents() -> None:
     ("variable", "base_url", "model"),
     [
         ("GROQ_API_KEY", "https://api.groq.com/openai/v1", "llama-3.3-70b-versatile"),
-        ("GEMINI_API_KEY", "https://generativelanguage.googleapis.com/v1beta/openai/", "gemini-2.5-flash"),
+        ("GEMINI_API_KEY", "https://generativelanguage.googleapis.com/v1beta/openai/", "gemini-3.8-flash"),
         ("OPENAI_API_KEY", None, "gpt-4o-mini"),
     ],
 )

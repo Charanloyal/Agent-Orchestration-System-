@@ -32,8 +32,10 @@ format was not the cause.
    (`StepFailed`: rejected request, or output still invalid after the repair round), that
    step is done by the deterministic agent. Its artifact records `fallback_reason` and
    `fallback_from`. The timeline says "…, by the deterministic fallback (model failed: …)",
-   and the plan or report says "Produced by the deterministic fallback agent because the
-   model (…) failed: …". Transient errors (timeouts, 429, 5xx) are still retried by the
+   with the provider's reason for diagnosis. The plan or report card says only "Written by
+   the built-in agent: the language model was unavailable for this step." That note stays:
+   hiding it would misstate who wrote the artifact, and the reason belongs in the timeline,
+   not in a publication-ready card. Transient errors (timeouts, 429, 5xx) are still retried by the
    worker first and are not masked. The evaluation harness never uses the fallback, so
    measured results are always the model's.
 5. **Search is unchanged.** Without a search key, research uses the configured search provider

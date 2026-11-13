@@ -53,7 +53,7 @@ const RESULT: StyleRewrite = {
   rejected_changes: 0,
   score_before: { total: 62.5, rhythm: 0.17, vocabulary: 0.75, plain: 0, facts: 1 },
   score_after: { total: 96.4, rhythm: 0.58, vocabulary: 0.75, plain: 1, facts: 1 },
-  engine: { kind: "model", note: "rewritten by gemini-2.5-flash" },
+  engine: { kind: "model", note: "rewritten by gemini-3.8-flash" },
   changes: [
     { before: "Moreover, we delve into 2024 results.", after: "We examine 2024 results.", rules: ["stock phrase"], accepted: true },
   ],
@@ -90,7 +90,7 @@ describe("StylePage", () => {
     expect(screen.getByTestId("style-score")).toHaveTextContent("62.5 → to 96.4 / 100");
     expect(screen.getByRole("img", { name: "Style score: 62.5 before, 96.4 after, out of 100" })).toBeInTheDocument();
     expect(screen.getByText(/not an AI-detector result/)).toBeInTheDocument();
-    expect(screen.getByTestId("engine-used")).toHaveTextContent("Language model rewritten by gemini-2.5-flash");
+    expect(screen.getByTestId("engine-used")).toHaveTextContent("Language model rewritten by gemini-3.8-flash");
     expect(screen.getAllByText(/not a prediction of who or what wrote it/).length).toBeGreaterThan(0);
     for (const name of ["Download .md", "Download .txt", "Download .docx", "Copy text"]) {
       expect(screen.getByRole("button", { name })).toBeInTheDocument();

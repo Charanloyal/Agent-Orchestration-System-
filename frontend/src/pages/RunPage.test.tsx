@@ -52,6 +52,20 @@ function renderRun(role: "analyst" | "reviewer" | "admin", detail: RunDetail, ex
 }
 
 describe("RunPage", () => {
+  it("says plainly when the built-in agent wrote a step, without the provider's error text", async () => {
+    const fallback = {
+      ...plan,
+      generation: {
+        provider: "fake", fallback_from: "google-gemini/gemini-3.8-flash",
+        fallback_reason: "model provider rejected the request (HTTP 400: INVALID_ARGUMENT: API key not valid)",
+      },
+    };
+    renderRun("analyst", run({ plan: fallback as RunDetail["plan"] }));
+    const note = await screen.findByTestId("generation");
+    expect(note).toHaveTextContent("Written by the built-in agent: the language model was unavailable for this step.");
+    expect(document.body).not.toHaveTextContent("HTTP 400");
+  });
+
   it("lets an analyst approve the exact pending plan version and digest", async () => {
     const calls = renderRun("analyst", run(), [
       { method: "POST", path: `/api/v1/runs/${RUN}/plan-decisions`, status: 201, body: { id: "d1" } },
