@@ -1,7 +1,7 @@
 # 0033: Relevant sources only, and every uploaded passage reaches the writer
 
 - **Status:** Accepted
-- **Date:** 2026-11-14
+- **Date:** 2026-11-13
 - **Amends:** [ADR 0031](0031-open-sources-and-complete-passages.md) (open search, whole short documents)
 - **Requirements:** owner's report on run 0e5612a0: off-topic Wikipedia pages (Sick building
   syndrome, Pattern (sewing), International Space Station, a gravitational-wave catalogue, and
