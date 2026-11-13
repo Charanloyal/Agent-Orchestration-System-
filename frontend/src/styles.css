@@ -367,6 +367,9 @@ details.role-help ul { margin: 0.5rem 0 0; padding-left: 1.25rem; }
   .hide-narrow { display: none; }
   .table td, .table th { overflow-wrap: anywhere; }
   .table td, .table th, .table.compact td, .table.compact th { padding-left: 0.4rem; padding-right: 0.4rem; }
+  .table select { width: auto; min-width: 0; max-width: 7.5rem; padding-inline: 0.35rem; }
+  .table .cell-actions { white-space: normal; }
+  .table .cell-actions .btn { padding-inline: 0.45rem; }
 }
 
 /* Theme: "Obsidian glass" (dark, the default) and "frosted" (light). The theme is chosen in the
