@@ -128,8 +128,8 @@ html { scroll-padding-top: 5rem; }
 
 /* Cards */
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); padding: 1.1rem 1.25rem; min-width: 0; }
-.card-header { display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-bottom: 0.75rem; }
-.card-actions { display: flex; gap: 0.5rem; align-items: center; }
+.card-header { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem 1rem; margin-bottom: 0.75rem; flex-wrap: wrap; }
+.card-actions { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; min-width: 0; }
 
 /* Buttons */
 .btn { font: inherit; font-weight: 550; border-radius: var(--radius-sm); padding: 0.45rem 0.95rem; border: 1px solid transparent; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; justify-content: center; gap: 0.4rem; line-height: 1.4; white-space: nowrap; }

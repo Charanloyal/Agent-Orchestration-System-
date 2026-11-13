@@ -27,7 +27,10 @@ async function visitAll(page: Page, runUrl: string, check: (label: string) => Pr
   const nav = page.getByRole("navigation", { name: "Workspace" });
   await expect(nav).toBeVisible();
   for (const name of ["Runs", "New brief", "Documents", "Style studio", "Agents", "Usage", "Activity", "Settings"]) {
-    await nav.getByRole("link", { name, exact: true }).click();
+    const link = nav.getByRole("link", { name, exact: true });
+    await link.click();
+    // Check the page that was opened, not the one still on screen while the route changes.
+    await expect(link).toHaveClass(/active/);
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
     await check(name);
   }
