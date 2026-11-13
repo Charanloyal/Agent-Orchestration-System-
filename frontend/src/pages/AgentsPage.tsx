@@ -113,6 +113,20 @@ function EngineCard({ workspaceId, me }: { workspaceId: string; me: Me }) {
         </dd>
         <dt>Source</dt>
         <dd>{data ? engineSourceText(data) : "…"}</dd>
+        {data?.roles && data.roles.length > 0 && (
+          <>
+            <dt>Roles</dt>
+            <dd>
+              <ul className="role-list" data-testid="engine-roles">
+                {data.roles.map((r) => (
+                  <li key={r.role}>
+                    <strong>{r.role}:</strong> <code>{r.model}</code> ({r.thinking} thinking)
+                  </li>
+                ))}
+              </ul>
+            </dd>
+          </>
+        )}
         <dt>Search</dt>
         <dd>{SEARCH_LABELS[me.deployment?.search_provider ?? "fake"] ?? me.deployment?.search_provider}</dd>
         <dt>Budget</dt>

@@ -56,25 +56,40 @@ describe("WorkspaceSettingsPage", () => {
       source: "demo", live: false, label: "Deterministic demo agents", provider: null, model: null,
       key_hint: null, problem: null,
       providers: [
-        { id: "gemini", label: "Google Gemini", models: ["gemini-3.8-flash", "gemini-3.5-flash-lite", "gemini-3.6-flash"] },
+        {
+          id: "gemini", label: "Google Gemini", models: ["gemini-4-hydrogen", "gemini-4-argon"],
+          model_details: [
+            { id: "gemini-4-hydrogen", label: "Gemini 4 Hydrogen", free_tier: true, thinking_levels: ["low", "medium", "high", "xhigh"] },
+            { id: "gemini-4-argon", label: "Gemini 4 Argon", free_tier: false, thinking_levels: ["low", "medium", "high"] },
+          ],
+        },
         { id: "groq", label: "Groq", models: ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"] },
         { id: "openai", label: "OpenAI", models: ["gpt-4o-mini", "gpt-4o"] },
       ],
     };
     const saved = {
-      ...demo, source: "workspace", live: true, label: "Google Gemini · gemini-3.8-flash", provider: "gemini",
-      model: "gemini-3.8-flash", key_hint: "WXYZ",
+      ...demo, source: "workspace", live: true, label: "Google Gemini · gemini-4-hydrogen", provider: "gemini",
+      model: "gemini-4-hydrogen", key_hint: "WXYZ",
     };
     const calls = render("admin", [
       { method: "PUT", path: `${BASE}/ai-config`, body: saved },
-      { method: "POST", path: `${BASE}/ai-config/test`, body: { ok: true, latency_ms: 240, model: "gemini-3.8-flash", detail: "ready" } },
+      { method: "POST", path: `${BASE}/ai-config/test`, body: { ok: true, latency_ms: 240, model: "gemini-4-hydrogen", detail: "ready" } },
       { path: `${BASE}/ai-config`, body: demo },
     ]);
     expect(await screen.findByTestId("engine-status")).toHaveTextContent("Deterministic demo fallback");
     const headings = screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent);
     expect(headings.slice(0, 2)).toEqual(["AI engine and model provider", "Name"]);
     expect(screen.getByRole("radio", { name: /Google Gemini/ })).toBeChecked();
-    expect(screen.getByRole("combobox", { name: "Model" })).toHaveValue("gemini-3.8-flash");
+    const model = screen.getByRole("combobox", { name: "Model" });
+    expect(model).toHaveValue("gemini-4-hydrogen");
+    expect(within(model).getByRole("option", { name: "Gemini 4 Argon: gemini-4-argon (paid tier only)" })).toBeInTheDocument();
+    const thinking = screen.getByRole("combobox", { name: /Thinking depth/ });
+    await user.selectOptions(thinking, "xhigh");
+    await user.selectOptions(model, "gemini-4-argon");
+    expect(thinking).toHaveValue("");
+    expect(within(thinking).queryByRole("option", { name: "xhigh" })).toBeNull();
+    await user.selectOptions(model, "gemini-4-hydrogen");
+    await user.selectOptions(thinking, "xhigh");
 
     const key = screen.getByLabelText("API key");
     expect(key).toHaveAttribute("type", "password");
@@ -83,13 +98,13 @@ describe("WorkspaceSettingsPage", () => {
     expect(key).toHaveAttribute("type", "text");
 
     await user.click(screen.getByRole("button", { name: "Test connection" }));
-    expect(await screen.findByTestId("engine-test")).toHaveTextContent("Connected to gemini-3.8-flash · 240 ms");
-    const sent = { provider: "gemini", model: "gemini-3.8-flash", api_key: "AIzaSy-test-WXYZ" };
+    expect(await screen.findByTestId("engine-test")).toHaveTextContent("Connected to gemini-4-hydrogen · 240 ms");
+    const sent = { provider: "gemini", model: "gemini-4-hydrogen", api_key: "AIzaSy-test-WXYZ" };
     expect(calls.find((c) => c.method === "POST")?.body).toEqual(sent);
 
     await user.click(screen.getByRole("button", { name: "Save and use this engine" }));
-    expect(await screen.findByText("Live · Google Gemini · gemini-3.8-flash")).toBeInTheDocument();
-    expect(calls.find((c) => c.method === "PUT")?.body).toEqual(sent);
+    expect(await screen.findByText("Live · Google Gemini · gemini-4-hydrogen")).toBeInTheDocument();
+    expect(calls.find((c) => c.method === "PUT")?.body).toEqual({ ...sent, thinking_level: "xhigh" });
     expect(key).toHaveValue("");
   });
 

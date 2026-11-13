@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState, type FormEvent } from "react";
 import { useLocation } from "react-router";
 
 import { useAiEngine, useRemoveAiEngine, useSaveAiEngine, useTestAiEngine } from "../api/hooks";
-import type { AiEngine, AiProviderId } from "../api/types";
+import type { AiEngine, AiProviderId, ThinkingLevel } from "../api/types";
 import { Card, ConfirmButton, ErrorBanner, Spinner } from "./ui";
 
 const KEY_HINTS: Record<AiProviderId, string> = {
@@ -28,7 +28,8 @@ export function AiEngineCard({ workspaceId }: { workspaceId: string }) {
   const ref = useRef<HTMLDivElement>(null);
   const ids = useId();
   const [provider, setProvider] = useState<AiProviderId>("gemini");
-  const [model, setModel] = useState("gemini-3.8-flash");
+  const [model, setModel] = useState("gemini-4-hydrogen");
+  const [thinking, setThinking] = useState<ThinkingLevel | "">("");
   const [apiKey, setApiKey] = useState("");
   const [showKey, setShowKey] = useState(false);
 
@@ -37,6 +38,7 @@ export function AiEngineCard({ workspaceId }: { workspaceId: string }) {
     if (data?.source === "workspace" && data.provider && data.model) {
       setProvider(data.provider as AiProviderId);
       setModel(data.model);
+      setThinking(data.thinking_level ?? "");
     }
   }, [engine.data]);
   useEffect(() => {
@@ -49,17 +51,27 @@ export function AiEngineCard({ workspaceId }: { workspaceId: string }) {
   if (engine.isPending) return <Spinner label="Loading the engine…" />;
   if (engine.isError) return <ErrorBanner error={engine.error} title="Could not load the engine" />;
   const data = engine.data;
-  const models = data.providers.find((p) => p.id === provider)?.models ?? [];
+  const current = data.providers.find((p) => p.id === provider);
+  const models = current?.models ?? [];
+  const details = current?.model_details ?? [];
+  const levels = details.find((d) => d.id === model)?.thinking_levels ?? [];
   const keepsKey = data.source === "workspace" && data.provider === provider;
+  const pickModel = (next: string) => {
+    setModel(next);
+    const allowed = current?.model_details?.find((d) => d.id === next)?.thinking_levels ?? [];
+    if (thinking && !allowed.includes(thinking)) setThinking("");
+    test.reset();
+  };
   const choose = (next: AiProviderId) => {
     setProvider(next);
     setModel(data.providers.find((p) => p.id === next)?.models[0] ?? "");
+    setThinking("");
     test.reset();
   };
   const submit = (event: FormEvent) => {
     event.preventDefault();
     save.mutate(
-      { provider, model, api_key: apiKey.trim() || undefined },
+      { provider, model, api_key: apiKey.trim() || undefined, thinking_level: thinking || null },
       { onSuccess: () => setApiKey("") },
     );
   };
@@ -105,16 +117,41 @@ export function AiEngineCard({ workspaceId }: { workspaceId: string }) {
             ))}
           </fieldset>
           <div className="grid-2">
-            <label className="field">
-              <span>Model</span>
-              <select value={model} onChange={(e) => setModel(e.target.value)}>
-                {models.map((m) => (
-                  <option key={m} value={m}>
-                    {m}
-                  </option>
-                ))}
-              </select>
-            </label>
+            <div className="stack">
+              <label className="field">
+                <span>Model</span>
+                <select value={model} onChange={(e) => pickModel(e.target.value)}>
+                  {models.map((m) => {
+                    const d = details.find((x) => x.id === m);
+                    const tier = d?.free_tier === true ? " (free tier)" : d?.free_tier === false ? " (paid tier only)" : "";
+                    return (
+                      <option key={m} value={m}>
+                        {d ? `${d.label}: ${m}${tier}` : m}
+                      </option>
+                    );
+                  })}
+                </select>
+              </label>
+              {levels.length > 0 && (
+                <label className="field">
+                  <span>Thinking depth (planner, writer, reviewer, Style studio)</span>
+                  <select value={thinking} onChange={(e) => setThinking(e.target.value as ThinkingLevel | "")}>
+                    <option value="">Model default</option>
+                    {levels.map((level) => (
+                      <option key={level} value={level}>
+                        {level}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+              {provider === "gemini" && (
+                <p className="small muted">
+                  If this model is unavailable for the key or out of quota, the next of Gemini 4 Hydrogen, 3.1 Pro, 3.8
+                  Flash and 3.5 Flash-Lite answers. Researchers use Gemini 4 Hydrogen at medium thinking.
+                </p>
+              )}
+            </div>
             <div className="field">
               <label htmlFor={`${ids}-key`}>API key</label>
               <div className="row">

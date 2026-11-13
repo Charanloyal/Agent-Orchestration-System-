@@ -383,6 +383,8 @@ export type StyleRewrite = {
 };
 export type StyleScore = { total: number; rhythm: number; vocabulary: number; plain: number; facts: number };
 export type AiProviderId = "gemini" | "groq" | "openai";
+export type ThinkingLevel = "low" | "medium" | "high" | "xhigh";
+export type AiModel = { id: string; label: string; free_tier: boolean | null; thinking_levels: ThinkingLevel[] };
 export type AiEngine = {
   source: "workspace" | "environment" | "demo";
   live: boolean;
@@ -391,6 +393,8 @@ export type AiEngine = {
   model: string | null;
   key_hint: string | null;
   problem: string | null;
-  providers: { id: AiProviderId; label: string; models: string[] }[];
+  thinking_level?: ThinkingLevel | null;
+  roles?: { role: string; model: string; thinking: string }[];
+  providers: { id: AiProviderId; label: string; models: string[]; model_details?: AiModel[] }[];
 };
 export type AiEngineTest = { ok: boolean; latency_ms: number; model: string; detail: string };

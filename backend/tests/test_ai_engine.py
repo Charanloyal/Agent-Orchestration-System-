@@ -40,7 +40,7 @@ def test_admin_saves_a_key_that_is_encrypted_and_never_returned(
     assert client.get(url(team["home"]), headers=admin.headers).json()["source"] == "demo"
     saved = client.put(
         url(team["home"]),
-        json={"provider": "gemini", "model": "gemini-3.8-flash", "api_key": f"  {KEY}  "},
+        json={"provider": "gemini", "model": "gemini-4-hydrogen", "api_key": f"  {KEY}  "},
         headers=admin.headers,
     )
     assert saved.status_code == 200, saved.text
@@ -48,10 +48,10 @@ def test_admin_saves_a_key_that_is_encrypted_and_never_returned(
     assert (body["source"], body["live"], body["model"], body["key_hint"]) == (
         "workspace",
         True,
-        "gemini-3.8-flash",
+        "gemini-4-hydrogen",
         "WXYZ",
     )
-    assert body["label"] == "Google Gemini · gemini-3.8-flash"
+    assert body["label"] == "Google Gemini · gemini-4-hydrogen"
     assert KEY not in saved.text
     row = db.get(WorkspaceAiConfig, team["home"].id)
     assert row is not None and KEY not in row.key_ciphertext
@@ -59,12 +59,15 @@ def test_admin_saves_a_key_that_is_encrypted_and_never_returned(
 
     # Changing only the model keeps the key.
     changed = client.put(
-        url(team["home"]), json={"provider": "gemini", "model": "gemini-3.6-flash"}, headers=admin.headers
+        url(team["home"]),
+        json={"provider": "gemini", "model": "gemini-4-argon", "thinking_level": "high"},
+        headers=admin.headers,
     )
-    assert changed.json()["model"] == "gemini-3.6-flash" and changed.json()["key_hint"] == "WXYZ"
+    assert changed.json()["model"] == "gemini-4-argon" and changed.json()["key_hint"] == "WXYZ"
+    assert changed.json()["thinking_level"] == "high"
     db.expire_all()
     llm = ai_engine.workspace_llm(db, get_settings(), team["home"].id)
-    assert isinstance(llm, GeminiLlm) and llm.model == "gemini-3.6-flash"
+    assert isinstance(llm, GeminiLlm) and llm.model == "gemini-4-argon" and llm.thinking_level == "high"
 
     assert client.delete(url(team["home"]), headers=admin.headers).status_code == 204
     assert client.get(url(team["home"]), headers=admin.headers).json()["source"] == "demo"
@@ -86,6 +89,16 @@ def test_members_see_the_engine_but_only_admins_change_it(
         ({"provider": "gemini", "model": "gpt-4o"}, 422),  # model not offered by the provider
         ({"provider": "groq", "model": "llama-3.3-70b-versatile"}, 422),  # first save needs a key
         ({"provider": "gemini", "model": "gemini-3.8-flash", "api_key": "   "}, 422),
+        ({"provider": "gemini", "model": "gemini-4-argon", "api_key": "k", "thinking_level": "xhigh"}, 422),
+        (
+            {
+                "provider": "gemini",
+                "model": "gemini-3.1-pro-preview",
+                "api_key": "k",
+                "thinking_level": "low",
+            },
+            422,
+        ),
     ],
 )
 def test_invalid_engine_settings_are_refused(
@@ -130,7 +143,7 @@ def test_the_live_test_reports_latency_without_saving(
     assert response.status_code == 200, response.text
     body = response.json()
     assert body["ok"] is True and body["latency_ms"] >= 0 and body["detail"] == "ready"
-    assert built == [("gemini", "gemini-3.8-flash", KEY)]
+    assert built == [("gemini", "gemini-4-hydrogen", KEY)]
     assert db.get(WorkspaceAiConfig, team["home"].id) is None, "testing saves nothing"
     nothing = client.post(url(team["home"], "/test"), json={}, headers=admin.headers)
     assert nothing.status_code == 422
@@ -174,10 +187,9 @@ def test_gemini_calls_generate_content_with_the_key_in_a_header() -> None:
     assert sent["systemInstruction"]["parts"][0]["text"] == "S"
     assert sent["contents"][0]["parts"][0]["text"] == "U"
     assert sent["generationConfig"] == {
-        "maxOutputTokens": 100 + 4096,
+        "maxOutputTokens": 65536,
         "responseMimeType": "application/json",
-        "thinkingConfig": {"thinkingLevel": "low"},
-    }, "Gemini 3: no temperature, thinking level 'low' (never 'minimal'), room for thinking"
+    }, "Gemini 3/4: no temperature, the model's own thinking default, the documented output limit"
     assert result.text == '{"ok": true}'
     assert (result.usage.input_tokens, result.usage.output_tokens, result.usage.provider) == (
         12,
@@ -279,9 +291,25 @@ def test_a_saved_retired_model_is_used_as_its_replacement_without_re_saving(
     )
     db.commit()
     body = client.get(url(team["home"]), headers=login(team["analyst"]).headers).json()
-    assert (body["model"], body["label"]) == ("gemini-3.8-flash", "Google Gemini · gemini-3.8-flash")
+    assert (body["model"], body["label"]) == ("gemini-4-hydrogen", "Google Gemini · gemini-4-hydrogen")
     llm = ai_engine.workspace_llm(db, get_settings(), team["home"].id)
-    assert isinstance(llm, GeminiLlm) and llm.model == "gemini-3.8-flash"
-    assert [p["models"] for p in body["providers"] if p["id"] == "gemini"] == [
-        ["gemini-3.8-flash", "gemini-3.5-flash-lite", "gemini-3.6-flash"]
+    assert isinstance(llm, GeminiLlm) and llm.model == "gemini-4-hydrogen"
+    gemini = next(p for p in body["providers"] if p["id"] == "gemini")
+    assert gemini["models"] == [
+        "gemini-4-hydrogen",
+        "gemini-3.1-pro-preview",
+        "gemini-4-argon",
+        "gemini-4-carbon",
+        "gemini-3.8-flash",
+        "gemini-3.5-flash-lite",
+    ]
+    free = {m["id"]: m["free_tier"] for m in gemini["model_details"]}
+    assert free["gemini-4-hydrogen"] and not free["gemini-4-argon"] and not free["gemini-3.1-pro-preview"]
+    assert body["roles"] == [
+        {
+            "role": "Planner, writer, reviewer and Style studio",
+            "model": "gemini-4-hydrogen",
+            "thinking": "model default",
+        },
+        {"role": "Researchers (parallel)", "model": "gemini-4-hydrogen", "thinking": "medium"},
     ]

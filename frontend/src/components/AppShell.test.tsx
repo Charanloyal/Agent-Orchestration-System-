@@ -67,12 +67,12 @@ describe("AppShell", () => {
       {
         path: `/api/v1/workspaces/${WS}/ai-config`,
         body: {
-          source: "workspace", live: true, label: "Google Gemini · gemini-3.8-flash", provider: "gemini",
-          model: "gemini-3.8-flash", key_hint: "WXYZ", problem: null, providers: [],
+          source: "workspace", live: true, label: "Google Gemini · gemini-4-hydrogen", provider: "gemini",
+          model: "gemini-4-hydrogen", key_hint: "WXYZ", problem: null, providers: [],
         },
       },
     ]);
-    const pill = await screen.findByRole("link", { name: "⚡ Live · gemini-3.8-flash" });
+    const pill = await screen.findByRole("link", { name: "⚡ Live · gemini-4-hydrogen" });
     expect(pill).toHaveAttribute("href", `/w/${WS}/settings#ai-engine`);
   });
 

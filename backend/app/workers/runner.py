@@ -75,20 +75,19 @@ def build_agents(
         return fake_agents()
     base = llm or default_llm(settings)
     tokens = settings.llm_max_output_tokens
+
+    def wrapped(step: str) -> BreakerLlm:
+        # Providers with role routing (Gemini, ADR 0029) pick a model per role.
+        routed = getattr(base, "with_role", None)
+        model = routed(step) if callable(routed) else base
+        return BreakerLlm(MeteredLlm(model, ctx.meter, step), settings)
+
     suite = replace(
         fake_agents(),
-        planner=LlmPlanner(
-            BreakerLlm(MeteredLlm(base, ctx.meter, "planner"), settings), max_output_tokens=tokens
-        ),
-        researcher=LlmResearcher(
-            BreakerLlm(MeteredLlm(base, ctx.meter, "research"), settings), max_output_tokens=min(tokens, 1500)
-        ),
-        writer=LlmWriter(
-            BreakerLlm(MeteredLlm(base, ctx.meter, "writer"), settings), max_output_tokens=tokens
-        ),
-        reviewer=LlmReviewer(
-            BreakerLlm(MeteredLlm(base, ctx.meter, "reviewer"), settings), max_output_tokens=min(tokens, 1500)
-        ),
+        planner=LlmPlanner(wrapped("planner"), max_output_tokens=tokens),
+        researcher=LlmResearcher(wrapped("research"), max_output_tokens=min(tokens, 1500)),
+        writer=LlmWriter(wrapped("writer"), max_output_tokens=tokens),
+        reviewer=LlmReviewer(wrapped("reviewer"), max_output_tokens=min(tokens, 1500)),
     )
     return with_fallback(suite, fake_agents(), f"{base.name}/{base.model}") if fallback else suite
 

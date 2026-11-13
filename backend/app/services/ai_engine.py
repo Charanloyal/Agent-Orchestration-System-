@@ -19,7 +19,14 @@ from sqlalchemy.orm import Session
 
 from app.config import Settings
 from app.db.models import WorkspaceAiConfig
-from app.providers.gemini import FALLBACK_CHAIN, GeminiLlm, normalize_model
+from app.providers.gemini import (
+    BY_ID,
+    DEFAULT_MODEL,
+    MODEL_IDS,
+    GeminiLlm,
+    normalize_model,
+    thinking_level_for,
+)
 from app.providers.llm import LlmProvider, OpenAICompatibleLlm
 
 Provider = Literal["gemini", "groq", "openai"]
@@ -33,7 +40,7 @@ class ProviderInfo:
 
 
 PROVIDERS: dict[Provider, ProviderInfo] = {
-    "gemini": ProviderInfo("Google Gemini", FALLBACK_CHAIN, None),
+    "gemini": ProviderInfo("Google Gemini", MODEL_IDS, None),
     "groq": ProviderInfo(
         "Groq", ("llama-3.3-70b-versatile", "llama-3.1-8b-instant"), "https://api.groq.com/openai/v1"
     ),
@@ -46,6 +53,27 @@ def current_model(provider: str, model: str) -> str:
     """A saved or configured Gemini model ID that Google has retired is used as its
     replacement (gemini-2.5-flash -> gemini-3.8-flash) without anyone re-saving settings."""
     return normalize_model(model) if provider == "gemini" else model
+
+
+def thinking_levels(provider: str, model: str) -> tuple[str, ...]:
+    info = BY_ID.get(model) if provider == "gemini" else None
+    return info.levels if info else ()
+
+
+def model_details(provider: str) -> list[dict[str, object]]:
+    """Each offered model with its label, free-tier availability and thinking levels."""
+    out: list[dict[str, object]] = []
+    for model in PROVIDERS[provider].models:  # type: ignore[index]
+        info = BY_ID.get(model) if provider == "gemini" else None
+        out.append(
+            {
+                "id": model,
+                "label": info.label if info else model,
+                "free_tier": info.free_tier if info else None,
+                "thinking_levels": list(info.levels) if info else [],
+            }
+        )
+    return out
 
 
 class SecretsUnavailable(Exception):
@@ -81,6 +109,7 @@ class Engine:
     model: str | None
     key_hint: str | None = None
     problem: str | None = None  # e.g. a saved key that can no longer be decrypted
+    thinking_level: str | None = None  # None: each model's own default
 
     @property
     def live(self) -> bool:
@@ -93,6 +122,22 @@ class Engine:
         info = PROVIDERS.get(self.provider)  # type: ignore[call-overload]
         name = info.label if info else "Language model"
         return f"{name} · {self.model}"
+
+    def roles(self) -> list[tuple[str, str, str]]:
+        """(role, model, thinking) as the agents will call it, for the Agents page."""
+        if not self.live or self.model is None:
+            return []
+        if self.provider != "gemini":
+            return [("All agents and the Style studio", self.model, "provider default")]
+        research_model = (
+            self.model if self.model in ("gemini-3.8-flash", "gemini-3.5-flash-lite") else DEFAULT_MODEL
+        )
+        main = thinking_level_for(self.model, self.thinking_level) or "model default"
+        research = thinking_level_for(research_model, "medium") or "model default"
+        return [
+            ("Planner, writer, reviewer and Style studio", self.model, main),
+            ("Researchers (parallel)", research_model, research),
+        ]
 
 
 def _environment_engine(settings: Settings) -> Engine:
@@ -108,7 +153,11 @@ def resolve(db: Session, settings: Settings, workspace_id: uuid.UUID) -> Engine:
     if config is not None:
         if decrypt_key(settings, config.key_ciphertext) is not None:
             return Engine(
-                "workspace", config.provider, current_model(config.provider, config.model), config.key_hint
+                "workspace",
+                config.provider,
+                current_model(config.provider, config.model),
+                config.key_hint,
+                thinking_level=config.thinking_level,
             )
         fallback = _environment_engine(settings)
         return Engine(
@@ -120,10 +169,17 @@ def resolve(db: Session, settings: Settings, workspace_id: uuid.UUID) -> Engine:
     return _environment_engine(settings)
 
 
-def build_llm(settings: Settings, provider: str, model: str, api_key: str) -> LlmProvider:
+def build_llm(
+    settings: Settings, provider: str, model: str, api_key: str, thinking_level: str | None = None
+) -> LlmProvider:
     if provider == "gemini":
         return GeminiLlm(
-            api_key, model, temperature=settings.llm_temperature, timeout_seconds=settings.llm_timeout_seconds
+            api_key,
+            model,
+            temperature=settings.llm_temperature,
+            # Thinking models can take longer than a chat completion.
+            timeout_seconds=max(settings.llm_timeout_seconds, 180.0),
+            thinking_level=thinking_level,
         )
     info = PROVIDERS["groq" if provider == "groq" else "openai"]
     overrides = settings.model_copy(
@@ -150,7 +206,7 @@ def default_llm(settings: Settings) -> LlmProvider:
             settings.llm_api_key.get_secret_value(),
             settings.llm_model,
             temperature=settings.llm_temperature,
-            timeout_seconds=settings.llm_timeout_seconds,
+            timeout_seconds=max(settings.llm_timeout_seconds, 180.0),
         )
     return OpenAICompatibleLlm(settings)
 
@@ -162,7 +218,13 @@ def workspace_llm(db: Session, settings: Settings, workspace_id: uuid.UUID) -> L
         return None
     key = decrypt_key(settings, config.key_ciphertext)
     return (
-        build_llm(settings, config.provider, current_model(config.provider, config.model), key)
+        build_llm(
+            settings,
+            config.provider,
+            current_model(config.provider, config.model),
+            key,
+            config.thinking_level,
+        )
         if key
         else None
     )

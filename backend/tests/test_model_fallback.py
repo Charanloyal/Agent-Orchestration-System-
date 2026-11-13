@@ -109,7 +109,7 @@ def test_a_rejected_optional_setting_is_retried_once_with_plain_generation() -> 
     result = gemini([bad, OK], seen).complete(system="S", user="U", json_output=True, max_output_tokens=50)
     assert result.text == "{}"
     assert "responseMimeType" in seen[0]["generationConfig"]
-    assert seen[1]["generationConfig"] == {"maxOutputTokens": 50 + 4096}, "only the limit, with thinking room"
+    assert seen[1]["generationConfig"] == {"maxOutputTokens": 65536}, "only the limit"
     assert seen[1]["systemInstruction"] == {"parts": [{"text": "S"}]}
     assert [c["role"] for c in seen[1]["contents"]] == ["user"]
 
@@ -138,25 +138,33 @@ def test_the_key_and_model_are_normalised() -> None:
 @pytest.mark.parametrize(
     ("stored", "used"),
     [
-        ("gemini-2.5-flash", "gemini-3.8-flash"),
-        ("models/gemini-2.5-pro", "gemini-3.8-flash"),
-        ("gemini-3.0-flash", "gemini-3.8-flash"),
-        ("gemini-3.5-flash", "gemini-3.6-flash"),
+        ("gemini-2.5-flash", "gemini-4-hydrogen"),
+        ("models/gemini-2.5-pro", "gemini-4-hydrogen"),
+        ("gemini-3.0-flash", "gemini-4-hydrogen"),
+        ("gemini-3.5-flash", "gemini-4-hydrogen"),
+        ("gemini-3.8-flash", "gemini-3.8-flash"),
         ("gemini-3.5-flash-lite", "gemini-3.5-flash-lite"),
-        ("", "gemini-3.8-flash"),
+        ("", "gemini-4-hydrogen"),
     ],
 )
 def test_retired_model_ids_are_replaced(stored: str, used: str) -> None:
     assert normalize_model(stored) == used
 
 
-def test_an_unavailable_model_moves_down_the_chain_and_reports_the_model_that_answered() -> None:
+def test_a_paid_only_model_on_a_free_key_moves_down_the_chain_in_the_same_call() -> None:
     seen: list[dict[str, Any]] = []
     urls: list[str] = []
-    gone = httpx.Response(
-        404, json={"error": {"status": "NOT_FOUND", "message": "models/gemini-3.8-flash is not found"}}
+    paid = httpx.Response(
+        403,
+        json={
+            "error": {
+                "status": "PERMISSION_DENIED",
+                "message": "gemini-4-argon is not available on the free tier",
+            }
+        },
     )
     quota = httpx.Response(429, json={"error": {"status": "RESOURCE_EXHAUSTED", "message": "quota exceeded"}})
+    gone = httpx.Response(404, json={"error": {"status": "NOT_FOUND", "message": "model not found"}})
     answered = httpx.Response(
         200,
         json={
@@ -164,31 +172,54 @@ def test_an_unavailable_model_moves_down_the_chain_and_reports_the_model_that_an
             "usageMetadata": {"promptTokenCount": 10, "candidatesTokenCount": 4, "thoughtsTokenCount": 6},
         },
     )
-    responses = [gone, quota, answered]
+    responses = [paid, quota, gone, answered]
 
     def handler(request: httpx.Request) -> httpx.Response:
-        urls.append(str(request.url))
         import json
 
+        urls.append(str(request.url))
         seen.append(json.loads(request.content))
         return responses.pop(0)
 
-    llm = GeminiLlm(KEY, "gemini-3.8-flash", client=httpx.Client(transport=httpx.MockTransport(handler)))
+    llm = GeminiLlm(
+        KEY,
+        "gemini-4-argon",
+        thinking_level="xhigh",
+        client=httpx.Client(transport=httpx.MockTransport(handler)),
+    )
     result = llm.complete(system="S", user="U", json_output=True, max_output_tokens=50)
-    assert [u.rsplit("/", 1)[1] for u in urls] == [
-        "gemini-3.8-flash:generateContent",
-        "gemini-3.5-flash-lite:generateContent",
-        "gemini-3.6-flash:generateContent",
+    assert [u.rsplit("/", 1)[1].split(":")[0] for u in urls] == [
+        "gemini-4-argon",
+        "gemini-4-hydrogen",
+        "gemini-3.1-pro-preview",
+        "gemini-3.8-flash",
     ]
-    assert "thinkingConfig" not in seen[1]["generationConfig"], "Flash-Lite keeps its own default"
-    assert result.usage.model == "gemini-3.6-flash"
+    assert [c["generationConfig"].get("thinkingConfig") for c in seen] == [
+        {"thinkingLevel": "high"},  # Argon has no xhigh: the nearest level it offers
+        {"thinkingLevel": "xhigh"},
+        None,  # 3.1 Pro: the model decides
+        {"thinkingLevel": "high"},
+    ]
+    assert all(c["generationConfig"]["maxOutputTokens"] == 65536 for c in seen)
+    assert all("temperature" not in c["generationConfig"] for c in seen)
+    assert result.usage.model == "gemini-3.8-flash"
     assert result.usage.output_tokens == 10, "thinking tokens are billed as output"
+
+
+def test_researchers_use_hydrogen_at_medium_thinking() -> None:
+    llm = GeminiLlm(KEY, "gemini-4-carbon", thinking_level="high")
+    research = llm.with_role("research")
+    assert (research.model, research.thinking_level) == ("gemini-4-hydrogen", "medium")
+    assert llm.with_role("planner") is llm
+    flash = GeminiLlm(KEY, "gemini-3.8-flash").with_role("research")
+    assert flash.model == "gemini-3.8-flash"
+    assert llm.output_cap(1500) == 65536
 
 
 def test_when_every_model_is_out_of_quota_the_worker_retries_later() -> None:
     quota = httpx.Response(429, json={"error": {"status": "RESOURCE_EXHAUSTED", "message": "quota exceeded"}})
     llm = GeminiLlm(
-        KEY, "gemini-3.8-flash", client=httpx.Client(transport=httpx.MockTransport(lambda _: quota))
+        KEY, "gemini-4-hydrogen", client=httpx.Client(transport=httpx.MockTransport(lambda _: quota))
     )
     with pytest.raises(TransientError, match=r"gemini-3\.5-flash-lite: RESOURCE_EXHAUSTED"):
         llm.complete(system="S", user="U", json_output=False, max_output_tokens=10)

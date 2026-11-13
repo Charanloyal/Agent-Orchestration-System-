@@ -59,6 +59,16 @@ been deployed yet; the hosted steps are prepared and listed under *Not done*.
     (`AOS_RATE_STYLE_PER_USER_HOUR`, default 120). Nothing is stored. No detector-evasion
     claims.
 - **Agents page:** what each agent does, its inputs and outputs, and its guards.
+- **Gemini 4** ([ADR 0029 amendment 2](docs/decisions/0029-workspace-model-keys.md)):
+  - `gemini-4-hydrogen` is the default; 3.1 Pro, Argon, Carbon, 3.8 Flash and Flash-Lite are
+    offered, with their free-tier availability shown;
+  - same-call fallback on 403, 404 and 429;
+  - researchers run on Hydrogen at medium thinking;
+  - a workspace thinking-depth setting, validated per model, with migration 0012 moving
+    saved engines to Hydrogen once;
+  - `maxOutputTokens` 65,536 for Gemini 3 and 4, and the budget meter reserves against what
+    is sent;
+  - the Agents page lists the model for each role.
 - **Current Gemini models** ([ADR 0029 amendment](docs/decisions/0029-workspace-model-keys.md)):
   - `gemini-3.8-flash` is the default, falling back to `gemini-3.5-flash-lite` and then
     `gemini-3.6-flash` on 404 or 429;

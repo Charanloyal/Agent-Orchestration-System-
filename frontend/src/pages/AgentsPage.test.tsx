@@ -19,6 +19,10 @@ function me(agentMode: "fake" | "llm", model: string | null = null): Me {
 const LIVE = {
   source: "environment", live: true, label: "Groq · llama-3.3-70b-versatile", provider: "groq",
   model: "llama-3.3-70b-versatile", key_hint: null, problem: null, providers: [],
+  roles: [
+    { role: "Planner, writer, reviewer and Style studio", model: "gemini-4-argon", thinking: "high" },
+    { role: "Researchers (parallel)", model: "gemini-4-hydrogen", thinking: "medium" },
+  ],
 };
 
 function render(user: Me) {
@@ -61,6 +65,10 @@ describe("AgentsPage", () => {
     expect(await screen.findByTestId("agent-mode")).toHaveTextContent("Language-model agents");
     expect(await screen.findByTestId("engine-label")).toHaveTextContent(
       "Groq · llama-3.3-70b-versatile (live language model)",
+    );
+    expect(screen.getByTestId("engine-roles")).toHaveTextContent(
+      "Planner, writer, reviewer and Style studio: gemini-4-argon (high thinking)" +
+        "Researchers (parallel): gemini-4-hydrogen (medium thinking)",
     );
   });
 });

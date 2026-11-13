@@ -159,7 +159,10 @@ class MeteredLlm:
 
     def complete(self, *, system: str, user: str, json_output: bool, max_output_tokens: int) -> LlmResult:
         input_estimate = (len(system) + len(user)) // CHARS_PER_TOKEN + 16
-        estimate = self.meter.schedule.llm_cost(input_estimate, max_output_tokens)
+        # Thinking models are sent a larger limit (thinking + answer); reserve what is sent.
+        cap = getattr(self.inner, "output_cap", None)
+        reserved_output = cap(max_output_tokens) if callable(cap) else max_output_tokens
+        estimate = self.meter.schedule.llm_cost(input_estimate, reserved_output)
         reservation = self.meter.reserve(
             step=self.step,
             kind="llm",
@@ -167,7 +170,7 @@ class MeteredLlm:
             detail={
                 "model": self.model,
                 "estimated_input_tokens": input_estimate,
-                "max_output_tokens": max_output_tokens,
+                "max_output_tokens": reserved_output,
             },
         )
         with span("llm.call", step=self.step, provider=self.name, model=self.model) as current:

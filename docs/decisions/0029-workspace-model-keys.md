@@ -45,7 +45,7 @@ The risks ADR 0028 named are still real, so this decision limits them instead of
 ## Consequences
 
 - Going live: **Settings → AI engine → Google Gemini → paste key → Test connection → Save**.
-  The top bar shows **⚡ Live · gemini-3.8-flash** at once, and new runs use the model.
+  The top bar shows **⚡ Live · gemini-4-hydrogen** at once, and new runs use the model.
 - A database leak alone does not expose keys. A leak of both the database and
   `AOS_SECRETS_KEY` does, so treat the secret like the database password.
 - Tests: `tests/test_ai_engine.py` (encryption, never-returned key, permissions, model list,
@@ -72,3 +72,39 @@ Gemini 3.8 Flash* pages, read 2026-11-13.
    (never `minimal`, which 3.8 Flash rejects); Flash-Lite keeps its default. Thinking tokens
    count against `maxOutputTokens`, so 4,096 tokens of headroom are added. They are billed as
    output, so the budget ledger counts them (`thoughtsTokenCount`).
+
+## Amendment 2 (2026-11-13): Gemini 4 and role routing
+
+This supersedes amendment 1's model list. Facts are from the Gemini API *Models*, *Pricing* and
+*What's new in Gemini 4 Hydrogen* pages, read 2026-11-13:
+
+| Model | Free tier | Thinking levels |
+| --- | --- | --- |
+| `gemini-4-hydrogen` (default) | yes | low, medium, high (default), xhigh |
+| `gemini-3.1-pro-preview` | **no** | model decides (none sent) |
+| `gemini-4-argon` | **no** | low, medium, high |
+| `gemini-4-carbon` | **no** | low, medium, high |
+| `gemini-3.8-flash` | yes | low, medium, high |
+| `gemini-3.5-flash-lite` | yes | medium, high (default minimal) |
+
+1. **Model fallback, same call.** The chosen model is tried first, then Hydrogen, 3.1 Pro,
+   3.8 Flash and Flash-Lite. The adapter moves on for 404, for 403 (for example a paid-only
+   model on a free key) and for 429. It never moves on for a bad key or a bad request. The
+   model that answered is recorded. On a free key, 3.1 Pro and the Gemini 4 Pro-class models
+   fail fast and Hydrogen answers.
+2. **Role routing.** Planner, writer, reviewer and Style studio use the chosen model and the
+   workspace's thinking depth. Researchers run in parallel, so they use Hydrogen (or the
+   chosen Flash model) at `medium`, which is lighter on free-tier rate limits. The Agents page
+   lists the assignment.
+3. **Thinking depth** is a workspace setting (migration 0012, `thinking_level`). The API
+   refuses a level the model does not offer, such as `xhigh` on Argon. During fallback, the
+   nearest level the next model accepts is sent. `minimal` and `thinkingBudget` are never
+   sent to Gemini 3 or 4.
+4. **Output limit.** Gemini 3 and 4 get `maxOutputTokens` 65,536, the documented default,
+   because it caps thinking plus answer. A lower cap could cut the JSON off. The budget
+   meter reserves against the limit actually sent, and reconciles to the tokens used,
+   thinking included.
+5. **No `temperature`** for Gemini 3 and 4: Google documents that it is ignored.
+6. **Saved engines** on 2.x and 3.0–3.8 Flash were moved to `gemini-4-hydrogen` once, by
+   migration 0012. Retired IDs are mapped to Hydrogen at runtime. Choosing 3.8 Flash
+   deliberately afterwards is kept.

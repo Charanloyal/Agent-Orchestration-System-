@@ -1,15 +1,19 @@
-"""Google Gemini through its native REST API (`models/{model}:generateContent`), ADR 0029/0031.
+"""Google Gemini through its native REST API (`models/{model}:generateContent`), ADR 0029.
 
 The key goes in the `x-goog-api-key` header, never in the URL, so it cannot appear in access
 logs or error messages. Errors are classified like the OpenAI-compatible adapter: only
 transient failures are retried by the worker.
 
-Current models (Gemini API docs, November 2026): `gemini-3.8-flash` is the default;
-`gemini-3.5-flash-lite` and `gemini-3.6-flash` follow it in the fallback chain. Gemini 3 models
-ignore `temperature` (later generations reject it), set reasoning with `thinkingLevel`, and
-3.8 Flash rejects the `minimal` level. Retired IDs are mapped to their replacements.
+Models, levels and tiers follow the Gemini API documentation (Models, Pricing, What's new in
+Gemini 4 Hydrogen; read 2026-11-13):
+- `gemini-4-hydrogen` is the default: free and paid tiers, thinking low/medium/high (default)/xhigh;
+- `gemini-4-argon`, `gemini-4-carbon` and `gemini-3.1-pro-preview` are paid-tier only;
+- `gemini-3.8-flash` (low/medium/high) and `gemini-3.5-flash-lite` (default minimal) are free too.
+Gemini 3 and 4 ignore `temperature`; `minimal` is rejected by 3.8 Flash and Gemini 4;
+`maxOutputTokens` caps thinking plus answer, so thinking models get the documented 65,536.
 """
 
+from dataclasses import dataclass
 from typing import Any
 
 import httpx
@@ -18,35 +22,70 @@ from app.providers.llm import LlmResult, LlmUsage
 from app.workflow.errors import StepFailed, TransientError
 
 GEMINI_BASE_URL = "https://generativelanguage.googleapis.com/v1beta"
-DEFAULT_MODEL = "gemini-3.8-flash"
-# Tried in this order when a model is unavailable for the key or out of quota.
-FALLBACK_CHAIN: tuple[str, ...] = ("gemini-3.8-flash", "gemini-3.5-flash-lite", "gemini-3.6-flash")
-# Deprecated IDs and what Google routes (or recommends routing) them to.
+DEFAULT_MODEL = "gemini-4-hydrogen"
+
+
+@dataclass(frozen=True)
+class GeminiModel:
+    id: str
+    label: str
+    free_tier: bool
+    levels: tuple[str, ...]  # thinking levels the model accepts; () = do not send one
+
+
+MODELS: tuple[GeminiModel, ...] = (
+    GeminiModel("gemini-4-hydrogen", "Gemini 4 Hydrogen", True, ("low", "medium", "high", "xhigh")),
+    GeminiModel("gemini-3.1-pro-preview", "Gemini 3.1 Pro (preview)", False, ()),
+    GeminiModel("gemini-4-argon", "Gemini 4 Argon", False, ("low", "medium", "high")),
+    GeminiModel("gemini-4-carbon", "Gemini 4 Carbon", False, ("low", "medium", "high")),
+    GeminiModel("gemini-3.8-flash", "Gemini 3.8 Flash", True, ("low", "medium", "high")),
+    GeminiModel("gemini-3.5-flash-lite", "Gemini 3.5 Flash-Lite", True, ("medium", "high")),
+)
+BY_ID = {m.id: m for m in MODELS}
+MODEL_IDS: tuple[str, ...] = tuple(m.id for m in MODELS)
+# After the chosen model, in this order, when it is unavailable for the key or out of quota.
+FALLBACK_CHAIN: tuple[str, ...] = (
+    "gemini-4-hydrogen",
+    "gemini-3.1-pro-preview",
+    "gemini-3.8-flash",
+    "gemini-3.5-flash-lite",
+)
+# Retired or redirected IDs (Gemini API deprecations page) and what this app uses instead.
 _REPLACED = {
     "gemini-2.0-flash": DEFAULT_MODEL,
     "gemini-2.5-flash": DEFAULT_MODEL,
     "gemini-2.5-pro": DEFAULT_MODEL,
     "gemini-3.0-flash": DEFAULT_MODEL,
     "gemini-3-flash-preview": DEFAULT_MODEL,
-    "gemini-3.5-flash": "gemini-3.6-flash",
+    "gemini-3.5-flash": DEFAULT_MODEL,
+    "gemini-3.6-flash": DEFAULT_MODEL,
     "gemini-3.7-flash": DEFAULT_MODEL,
 }
-# Reasoning effort per model for the agents' structured tasks: enough to plan well, fast enough
-# for a demonstration. Models not listed keep their own default.
-_THINKING_LEVEL = {"gemini-3.8-flash": "low", "gemini-3.6-flash": "low"}
-# Thinking tokens count against maxOutputTokens; leave room so the answer is never cut off.
-_THINKING_HEADROOM = 4096
+LEVEL_ORDER = ("low", "medium", "high", "xhigh")
+THINKING_MAX_OUTPUT = 65_536
 
 
 def normalize_model(model: str) -> str:
-    """'models/Gemini-2.5-Flash ' becomes 'gemini-3.8-flash': prefix, case and spaces removed,
-    retired IDs replaced."""
+    """'models/Gemini-2.5-Flash ' becomes 'gemini-4-hydrogen': prefix, case and spaces
+    removed, retired IDs replaced."""
     cleaned = model.strip().removeprefix("models/").strip().lower() or DEFAULT_MODEL
     return _REPLACED.get(cleaned, cleaned)
 
 
+def thinking_level_for(model: str, requested: str | None) -> str | None:
+    """The requested level if the model accepts it, else the nearest one it does accept
+    (xhigh -> high on Argon); None leaves the model's own default."""
+    info = BY_ID.get(model)
+    if requested is None or info is None or not info.levels:
+        return None
+    if requested in info.levels:
+        return requested
+    rank = LEVEL_ORDER.index(requested)
+    return min(info.levels, key=lambda level: abs(LEVEL_ORDER.index(level) - rank))
+
+
 def generation_config(
-    model: str, *, json_output: bool, max_output_tokens: int, temperature: float
+    model: str, *, json_output: bool, max_output_tokens: int, temperature: float, thinking: str | None
 ) -> dict[str, Any]:
     config: dict[str, Any] = {"maxOutputTokens": max_output_tokens}
     if json_output:
@@ -55,9 +94,11 @@ def generation_config(
         config["temperature"] = temperature
         if "flash" in model:
             config["thinkingConfig"] = {"thinkingBudget": 0}
-    elif level := _THINKING_LEVEL.get(model):
+        return config
+    # Gemini 3 and 4 think by default; thinking and answer share maxOutputTokens.
+    config["maxOutputTokens"] = max(max_output_tokens, THINKING_MAX_OUTPUT)
+    if level := thinking_level_for(model, thinking):
         config["thinkingConfig"] = {"thinkingLevel": level}
-        config["maxOutputTokens"] = max_output_tokens + _THINKING_HEADROOM
     return config
 
 
@@ -70,16 +111,49 @@ class GeminiLlm:
         model: str,
         *,
         temperature: float = 0.2,
-        timeout_seconds: float = 60.0,
+        timeout_seconds: float = 120.0,
         client: httpx.Client | None = None,
         fallback_models: bool = True,
+        thinking_level: str | None = None,
     ) -> None:
         self.model = normalize_model(model)
+        self.thinking_level = thinking_level
         self._key = api_key.strip()
         self._temperature = temperature
+        self._timeout = timeout_seconds
+        self._fallback = fallback_models
         self._client = client or httpx.Client(timeout=timeout_seconds)
         chain = [m for m in FALLBACK_CHAIN if m != self.model] if fallback_models else []
         self._chain = [self.model, *chain]
+
+    def with_role(self, role: str) -> GeminiLlm:
+        """Role routing (ADR 0029): researchers run in parallel, so they use Gemini 4 Hydrogen
+        (free tier, fast) at medium thinking unless a Flash model was chosen; every other role
+        uses the chosen model and thinking level."""
+        if role != "research":
+            return self
+        model = self.model if self.model in ("gemini-3.8-flash", "gemini-3.5-flash-lite") else DEFAULT_MODEL
+        return GeminiLlm(
+            self._key,
+            model,
+            temperature=self._temperature,
+            timeout_seconds=self._timeout,
+            client=self._client,
+            fallback_models=self._fallback,
+            thinking_level="medium",
+        )
+
+    def output_cap(self, max_output_tokens: int) -> int:
+        """The output limit actually sent (thinking included), for the budget reservation."""
+        return int(
+            generation_config(
+                self.model,
+                json_output=False,
+                max_output_tokens=max_output_tokens,
+                temperature=0,
+                thinking=None,
+            )["maxOutputTokens"]
+        )
 
     def complete(self, *, system: str, user: str, json_output: bool, max_output_tokens: int) -> LlmResult:
         notes: list[str] = []
@@ -110,7 +184,11 @@ class GeminiLlm:
         self, model: str, system: str, user: str, json_output: bool, max_tokens: int
     ) -> httpx.Response:
         config = generation_config(
-            model, json_output=json_output, max_output_tokens=max_tokens, temperature=self._temperature
+            model,
+            json_output=json_output,
+            max_output_tokens=max_tokens,
+            temperature=self._temperature,
+            thinking=self.thinking_level,
         )
         response = self._post(model, system, user, config)
         if response.status_code == 400 and not _is_key_problem(response) and len(config) > 1:
@@ -165,14 +243,15 @@ class GeminiLlm:
 
 
 def _try_next_model(response: httpx.Response) -> bool:
-    """The model is unknown or retired for this key (404), or this model's quota is used up
-    (429): another model may still answer. A bad key or a bad request never moves on."""
-    if response.status_code == 404:
+    """The model is unknown or retired for this key (404), not open to it (403, e.g. a paid-only
+    model on a free key), or out of quota (429): another model may still answer. A bad key or a
+    bad request never moves on."""
+    if response.status_code in (404, 429):
         return True
-    if response.status_code == 429:
-        return True
+    text = _error_message(response).lower()
+    if response.status_code == 403:
+        return "api key" not in text
     if response.status_code == 400 and not _is_key_problem(response):
-        text = _error_message(response).lower()
         return "not found" in text or "not supported" in text or "is not available" in text
     return False
 

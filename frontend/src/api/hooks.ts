@@ -10,6 +10,7 @@ import type {
   AiEngine,
   AiEngineTest,
   AiProviderId,
+  ThinkingLevel,
   Artifact,
   AuditEvent,
   AuthConfig,
@@ -340,7 +341,7 @@ export function useAiEngine(workspaceId: string | undefined) {
 export function useSaveAiEngine(workspaceId: string) {
   const client = useQueryClient();
   return useMutation({
-    mutationFn: (body: { provider: AiProviderId; model: string; api_key?: string }) =>
+    mutationFn: (body: { provider: AiProviderId; model: string; api_key?: string; thinking_level?: ThinkingLevel | null }) =>
       api<AiEngine>(`/api/v1/workspaces/${workspaceId}/ai-config`, { method: "PUT", body }),
     onSuccess: (engine) => client.setQueryData(["ai-engine", workspaceId], engine),
     meta: { success: "Engine saved: new runs and rewrites use it", error: "Could not save the engine" },

@@ -22,7 +22,7 @@ def _is_local_url(url: str) -> bool:
 # (variable, OpenAI-compatible base URL or None for OpenAI itself, default model).
 _LLM_PROVIDERS: tuple[tuple[str, str | None, str], ...] = (
     ("GROQ_API_KEY", "https://api.groq.com/openai/v1", "llama-3.3-70b-versatile"),
-    ("GEMINI_API_KEY", "https://generativelanguage.googleapis.com/v1beta/openai/", "gemini-3.8-flash"),
+    ("GEMINI_API_KEY", "https://generativelanguage.googleapis.com/v1beta/openai/", "gemini-4-hydrogen"),
     ("OPENAI_API_KEY", None, "gpt-4o-mini"),
 )
 

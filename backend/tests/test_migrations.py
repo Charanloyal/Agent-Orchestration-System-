@@ -94,3 +94,33 @@ def test_a_build_is_never_ready_on_an_older_schema(client: TestClient, db: objec
         assert response.status_code == 503 and "behind" in response.json()["error"]["message"]
     finally:
         run_alembic("upgrade", "head")
+
+
+def test_saved_gemini_engines_move_to_gemini_4_hydrogen_once(db: object) -> None:
+    run_alembic("downgrade", "0011")
+    try:
+        with get_engine().begin() as conn:
+            conn.execute(text("DELETE FROM workspace_ai_configs"))
+            workspace = conn.scalar(
+                text("INSERT INTO workspaces (id, name) VALUES (gen_random_uuid(), 'm12') RETURNING id")
+            )
+            conn.execute(
+                text(
+                    "INSERT INTO workspace_ai_configs "
+                    "(workspace_id, provider, model, key_ciphertext, key_hint) "
+                    "VALUES (:w, 'gemini', 'gemini-3.8-flash', 'x', 'abcd')"
+                ),
+                {"w": workspace},
+            )
+        run_alembic("upgrade", "head")
+        with get_engine().connect() as conn:
+            row = conn.execute(
+                text("SELECT model, thinking_level FROM workspace_ai_configs WHERE workspace_id = :w"),
+                {"w": workspace},
+            ).one()
+        assert tuple(row) == ("gemini-4-hydrogen", None)
+    finally:
+        run_alembic("upgrade", "head")
+        with get_engine().begin() as conn:
+            conn.execute(text("DELETE FROM workspace_ai_configs"))
+            conn.execute(text("DELETE FROM workspaces WHERE name = 'm12'"))

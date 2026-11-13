@@ -56,7 +56,7 @@ describe("RunPage", () => {
     const fallback = {
       ...plan,
       generation: {
-        provider: "fake", fallback_from: "google-gemini/gemini-3.8-flash",
+        provider: "fake", fallback_from: "google-gemini/gemini-4-hydrogen",
         fallback_reason: "model provider rejected the request (HTTP 400: INVALID_ARGUMENT: API key not valid)",
       },
     };
