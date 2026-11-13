@@ -68,6 +68,9 @@ test("a stranger requests access, a platform admin approves, and they start a wo
 
 test("an ended session sends people back to sign in, then to where they were", async ({ page, context }) => {
   await signIn(page, "Alice Analyst");
+  // The session ends while the person is idle on a loaded page, not while it is still loading.
+  await expect(page).toHaveURL(/\/runs$/);
+  await page.waitForLoadState("networkidle");
   const runs = page.url();
   await context.clearCookies();
   await page.getByRole("link", { name: "Documents" }).click();
