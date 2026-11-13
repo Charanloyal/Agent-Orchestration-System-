@@ -191,25 +191,25 @@ def test_a_paid_only_model_on_a_free_key_moves_down_the_chain_in_the_same_call()
     assert [u.rsplit("/", 1)[1].split(":")[0] for u in urls] == [
         "gemini-4-argon",
         "gemini-4-hydrogen",
-        "gemini-3.1-pro-preview",
         "gemini-3.8-flash",
+        "gemini-3.5-flash-lite",
     ]
     assert [c["generationConfig"].get("thinkingConfig") for c in seen] == [
         {"thinkingLevel": "high"},  # Argon has no xhigh: the nearest level it offers
         {"thinkingLevel": "xhigh"},
-        None,  # 3.1 Pro: the model decides
         {"thinkingLevel": "high"},
+        {"thinkingLevel": "high"},  # Flash-Lite offers medium and high
     ]
     assert all(c["generationConfig"]["maxOutputTokens"] == 65536 for c in seen)
     assert all("temperature" not in c["generationConfig"] for c in seen)
-    assert result.usage.model == "gemini-3.8-flash"
+    assert result.usage.model == "gemini-3.5-flash-lite"
     assert result.usage.output_tokens == 10, "thinking tokens are billed as output"
 
 
-def test_researchers_use_hydrogen_at_medium_thinking() -> None:
+def test_researchers_use_hydrogen_at_low_thinking() -> None:
     llm = GeminiLlm(KEY, "gemini-4-carbon", thinking_level="high")
     research = llm.with_role("research")
-    assert (research.model, research.thinking_level) == ("gemini-4-hydrogen", "medium")
+    assert (research.model, research.thinking_level) == ("gemini-4-hydrogen", "low")
     assert llm.with_role("planner") is llm
     flash = GeminiLlm(KEY, "gemini-3.8-flash").with_role("research")
     assert flash.model == "gemini-3.8-flash"
@@ -221,5 +221,122 @@ def test_when_every_model_is_out_of_quota_the_worker_retries_later() -> None:
     llm = GeminiLlm(
         KEY, "gemini-4-hydrogen", client=httpx.Client(transport=httpx.MockTransport(lambda _: quota))
     )
-    with pytest.raises(TransientError, match=r"gemini-3\.5-flash-lite: RESOURCE_EXHAUSTED"):
+    with pytest.raises(TransientError, match=r"gemini-3\.5-flash-lite: HTTP 429 RESOURCE_EXHAUSTED"):
         llm.complete(system="S", user="U", json_output=False, max_output_tokens=10)
+
+
+def test_an_overloaded_or_slow_model_hands_the_request_to_the_next_one() -> None:
+    urls: list[str] = []
+    answered = httpx.Response(
+        200, json={"candidates": [{"content": {"parts": [{"text": "{}"}]}, "finishReason": "STOP"}]}
+    )
+    script: list[Any] = [
+        httpx.Response(503, json={"error": {"status": "UNAVAILABLE", "message": "The model is overloaded."}}),
+        httpx.ReadTimeout("slow"),
+        answered,
+    ]
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        urls.append(request.url.path.rsplit("/", 1)[1].split(":")[0])
+        step = script.pop(0)
+        if isinstance(step, Exception):
+            raise step
+        return step
+
+    llm = GeminiLlm(KEY, "gemini-4-hydrogen", client=httpx.Client(transport=httpx.MockTransport(handler)))
+    result = llm.complete(system="S", user="U", json_output=True, max_output_tokens=50)
+    assert urls == ["gemini-4-hydrogen", "gemini-3.8-flash", "gemini-3.5-flash-lite"]
+    assert result.usage.model == "gemini-3.5-flash-lite"
+
+
+def test_no_more_than_two_requests_per_key_are_in_flight() -> None:
+    import threading
+    import time
+
+    active = 0
+    peak = 0
+    lock = threading.Lock()
+    ok = httpx.Response(
+        200, json={"candidates": [{"content": {"parts": [{"text": "{}"}]}, "finishReason": "STOP"}]}
+    )
+
+    def handler(_: httpx.Request) -> httpx.Response:
+        nonlocal active, peak
+        with lock:
+            active += 1
+            peak = max(peak, active)
+        time.sleep(0.05)
+        with lock:
+            active -= 1
+        return ok
+
+    llm = GeminiLlm(
+        "slot-test-key", "gemini-4-hydrogen", client=httpx.Client(transport=httpx.MockTransport(handler))
+    )
+    call = {"system": "S", "user": "U", "json_output": False, "max_output_tokens": 5}
+    threads = [threading.Thread(target=llm.complete, kwargs=call) for _ in range(6)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join()
+    assert peak == 2
+
+
+class RateLimited:
+    """Every model in the provider's chain is out of quota, every time."""
+
+    name, model = "google-gemini", "gemini-4-hydrogen"
+
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def complete(self, **_: Any) -> LlmResult:
+        self.calls += 1
+        raise TransientError("every Gemini model was unavailable: gemini-4-hydrogen: HTTP 429 quota exceeded")
+
+
+def test_a_run_never_fails_when_every_model_stays_rate_limited(
+    client: TestClient, team: dict[str, Any], login: Callable[[User], LoggedIn]
+) -> None:
+    analyst = login(team["analyst"])
+    settings = get_settings().model_copy(update={"agent_mode": "llm", "llm_fallback": True})
+    llm = RateLimited()
+    run_id = start_run(client, analyst, team["workspace"])
+    assert process_one(settings, run_id=uuid.UUID(run_id), llm=llm) == "waiting_plan"
+    assert decide(client, analyst, run_id, "plan").status_code == 201
+    for _ in range(4):
+        if client.get(f"/api/v1/runs/{run_id}").json()["state"] == "AWAITING_REPORT_APPROVAL":
+            break
+        process_one(settings, run_id=uuid.UUID(run_id), llm=llm)
+    detail = client.get(f"/api/v1/runs/{run_id}").json()
+    assert detail["state"] == "AWAITING_REPORT_APPROVAL", detail.get("outcome_reason")
+    timeline = client.get(f"/api/v1/runs/{run_id}/timeline").json()
+    assert not [e for e in timeline if e["type"] == "retry_scheduled"], "no worker retries were needed"
+    tasks = [e["payload"] for e in timeline if e["type"] == "task_completed"]
+    assert tasks and all("HTTP 429" in t["fallback_reason"] for t in tasks)
+    assert all(t["status"] == "succeeded" for t in tasks), "findings quote the collected passages"
+
+
+def test_collected_returns_a_tasks_passages_from_the_database(
+    client: TestClient, team: dict[str, Any], login: Callable[[User], LoggedIn]
+) -> None:
+    from types import SimpleNamespace
+
+    from app.db.session import get_sessionmaker
+    from app.tools.research import RunResearchTools
+
+    analyst = login(team["analyst"])
+    run_id = start_run(client, analyst, team["workspace"])
+    process_one(get_settings(), run_id=uuid.UUID(run_id))
+    decide(client, analyst, run_id, "plan")
+    process_one(get_settings(), run_id=uuid.UUID(run_id))
+    evidence = client.get(f"/api/v1/runs/{run_id}/evidence").json()
+    task_id = evidence[0]["task_id"]
+    ctx = SimpleNamespace(
+        sm=get_sessionmaker(), run_id=uuid.UUID(run_id), brief=SimpleNamespace(source_policy=None)
+    )
+    found = RunResearchTools(ctx, task_id).collected()  # type: ignore[arg-type]
+    assert {ref.evidence_id for ref, _ in found} == {
+        e["evidence_id"] for e in evidence if e["task_id"] == task_id
+    }
+    assert all(title for _, title in found)

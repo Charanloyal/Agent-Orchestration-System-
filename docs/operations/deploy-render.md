@@ -256,7 +256,7 @@ provider:
 | Variable | Endpoint used | Default model (`AOS_LLM_MODEL` overrides it) |
 | --- | --- | --- |
 | `GROQ_API_KEY` | `https://api.groq.com/openai/v1` | `llama-3.3-70b-versatile` |
-| `GEMINI_API_KEY` | Gemini's native API (`generateContent`) | `gemini-4-hydrogen` (then 3.1 Pro, 3.8 Flash, 3.5 Flash-Lite) |
+| `GEMINI_API_KEY` | Gemini's native API (`generateContent`) | `gemini-4-hydrogen` (then 3.8 Flash, 3.5 Flash-Lite, 3.1 Pro) |
 | `OPENAI_API_KEY` | OpenAI | `gpt-4o-mini` |
 | `TAVILY_API_KEY` (optional) | Tavily web search | - |
 

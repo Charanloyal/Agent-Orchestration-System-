@@ -268,10 +268,12 @@ this workspace's runs and Style studio rewrites ([ADR 0029](decisions/0029-works
    **Groq** or **OpenAI**, then a model. For Gemini the default is **Gemini 4 Hydrogen**
    (`gemini-4-hydrogen`, free tier). The list marks which models need a paid (billing-enabled)
    key: Gemini 3.1 Pro, Gemini 4 Argon and Gemini 4 Carbon. If the chosen model is
-   unavailable for your key or out of quota, the next of Hydrogen, 3.1 Pro, 3.8 Flash and
-   3.5 Flash-Lite answers in the same call. **Thinking depth** (low, medium, high, and xhigh
-   on Hydrogen) applies to the planner, writer, reviewer and Style studio. Researchers always
-   use Hydrogen at medium. The Agents page lists which model each role uses.
+   unavailable, overloaded, slow or out of quota, the next of Hydrogen, 3.8 Flash, 3.5
+   Flash-Lite and 3.1 Pro answers in the same call (each model has its own free-tier quota).
+   **Thinking depth** (low, medium, high, and xhigh on Hydrogen) applies to the planner,
+   writer, reviewer and Style studio. Researchers always use Hydrogen at low thinking, at most
+   two requests at a time. If no model answers, a research task quotes the passages it
+   collected, and the timeline says so. The Agents page lists which model each role uses.
 2. Paste the API key (**Show** reveals it while you check it). Use a key with its own
    spending limit at the provider.
 3. Select **Test connection**: one tiny request reports *Connected to … · N ms* or the

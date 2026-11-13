@@ -24,6 +24,9 @@ Current state (2026-11-13 15:00): main = release/deploy-ready, pushed after this
   first hosted run is the live check). Passages end on sentence boundaries; the old 900-char
   cut in writer/reviewer is gone; short uploads are read whole. After deploying: Documents ->
   Re-index documents once, then start a new run (old runs keep their old evidence).
+  Rate limits (ADR 0032): the failed run (transient errors after 5 attempts) can be retried
+  after deploying; finished tasks are skipped, the failed task reuses its passages, Gemini
+  rotates models on 429/503/timeouts, and a task with no answering model quotes its passages.
   Hotfix (ADR 0030): the live Gemini run failed at planning with a bare "HTTP 400". Errors
   now carry Google's message (key masked), so Settings -> Test connection shows the real
   reason (most often "API key not valid": paste the key again). Non-key 400s retry once with

@@ -49,6 +49,24 @@ class RunResearchTools:
 
     # --- search -------------------------------------------------------------------------
 
+    def collected(self) -> list[tuple[EvidenceRef, str]]:
+        """Evidence this task already collected in an earlier attempt, with source titles, in
+        collection order. A retry reads these again instead of searching and fetching again."""
+        with self.ctx.sm() as session:
+            rows = session.execute(
+                select(
+                    EvidencePassage.evidence_id, EvidencePassage.source_id, EvidencePassage.text, Source.title
+                )
+                .join(
+                    Source,
+                    (Source.run_id == EvidencePassage.run_id)
+                    & (Source.source_id == EvidencePassage.source_id),
+                )
+                .where(EvidencePassage.run_id == self.ctx.run_id, EvidencePassage.task_id == self.task_id)
+                .order_by(Source.retrieved_at, EvidencePassage.source_id, EvidencePassage.locator)
+            ).all()
+        return [(EvidenceRef(e, s, t), title or s) for e, s, t, title in rows]
+
     def search(self, query: str) -> list[SearchHit]:
         execution_id = self._start(f"web_search:{self.ctx.search.name}")
         try:

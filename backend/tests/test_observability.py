@@ -248,7 +248,9 @@ def test_provider_outage_degrades_to_backoff_without_calling_or_reserving(
     analyst = login(team["analyst"])
     run_id = create_run(client, analyst, team["workspace"]).json()["id"]
     settings = get_settings().model_copy(
-        update={"breaker_failure_threshold": 1, "breaker_cooldown_seconds": 600}
+        # The breaker's own behaviour: without the labelled fallback (ADR 0032), which would
+        # otherwise do the step with the deterministic agent.
+        update={"breaker_failure_threshold": 1, "breaker_cooldown_seconds": 600, "llm_fallback": False}
     )
     down = DownLlm()
     assert process_one(settings, run_id=uuid.UUID(run_id), llm=down) == "retry"

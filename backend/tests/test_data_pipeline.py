@@ -3,6 +3,7 @@ sentence-aware passages, short documents whole, re-indexing, and no mid-word cut
 
 import uuid
 from collections.abc import Callable
+from types import SimpleNamespace
 from typing import Any
 
 import httpx
@@ -11,9 +12,11 @@ from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.agents.base import EvidenceView
+from app.agents.base import EvidenceRef, EvidenceView
+from app.agents.llm_researcher import LlmResearcher
 from app.agents.llm_writer_reviewer import _refs
 from app.config import Settings
+from app.contracts import PlanTask
 from app.db.models import Role, Upload, UploadChunk, User, Workspace
 from app.providers.open_search import OpenWebSearch, keywords
 from app.services.uploads import search_chunks, with_short_documents_whole
@@ -203,13 +206,13 @@ def test_open_search_returns_real_source_text_from_wikipedia_and_arxiv() -> None
         )
 
 
-def test_open_search_respects_the_domain_policy_and_reports_an_outage() -> None:
+def test_open_search_respects_the_domain_policy_and_skips_an_outage() -> None:
     search = OpenWebSearch(client=httpx.Client(transport=httpx.MockTransport(fake_web)))
     only_arxiv = search.search("FAISS", max_results=3, allowed_domains=["arxiv.org"], blocked_domains=[])
     assert [h.url.split("/")[2] for h in only_arxiv.hits if h.url] == ["arxiv.org"]
     down = OpenWebSearch(client=httpx.Client(transport=httpx.MockTransport(lambda _: httpx.Response(503))))
-    with pytest.raises(TransientError):
-        down.search("FAISS", max_results=3, allowed_domains=[], blocked_domains=[])
+    outage = down.search("FAISS", max_results=3, allowed_domains=[], blocked_domains=[])
+    assert outage.hits == [], "a source that is down is skipped, never a transient error that fails the run"
 
 
 def test_auto_search_without_a_key_uses_open_sources() -> None:
@@ -222,3 +225,54 @@ def test_auto_search_without_a_key_uses_open_sources() -> None:
         "vector",
         "search",
     ]
+
+
+class EarlierAttemptTools:
+    def __init__(self) -> None:
+        self.searches = 0
+
+    def collected(self) -> list[tuple[EvidenceRef, str]]:
+        return [
+            (
+                EvidenceRef("ev-1", "s1", "Raft keeps a replicated log. Leaders are elected."),
+                "Raft (Wikipedia)",
+            )
+        ]
+
+    def search(self, query: str) -> list[Any]:
+        self.searches += 1
+        return []
+
+    def search_uploads(self, query: str) -> list[Any]:
+        self.searches += 1
+        return []
+
+    def collect(self, hit: Any) -> list[EvidenceRef]:
+        raise AssertionError("nothing is collected twice")
+
+
+class AlwaysRateLimited:
+    name, model = "google-gemini", "gemini-4-hydrogen"
+
+    def complete(self, **_: Any) -> Any:
+        raise TransientError("every Gemini model was unavailable: HTTP 429")
+
+
+def test_a_retried_task_reuses_its_passages_and_quotes_them_when_no_model_answers() -> None:
+    task = PlanTask(
+        task_id="t3",
+        question="How does Raft elect a leader?",
+        depends_on=[],
+        tools=["web_search"],
+        expected_evidence="docs",
+        section_ids=["summary"],
+    )
+    tools = EarlierAttemptTools()
+    researcher = LlmResearcher(AlwaysRateLimited(), fallback=True)  # type: ignore[arg-type]
+    call = researcher.research(SimpleNamespace(topic="Raft"), task, tools)  # type: ignore[arg-type]
+    assert tools.searches == 0
+    assert [f.statement for f in call.output.findings] == ['Raft (Wikipedia): "Raft keeps a replicated log."']
+    assert call.output.evidence_ids == ["ev-1"] and call.generation["fallback_reason"].endswith("HTTP 429")
+    strict = LlmResearcher(AlwaysRateLimited())  # type: ignore[arg-type]
+    with pytest.raises(TransientError):
+        strict.research(SimpleNamespace(topic="Raft"), task, EarlierAttemptTools())  # type: ignore[arg-type]

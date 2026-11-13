@@ -1,10 +1,11 @@
 """Keep a live run going when the model fails permanently (ADR 0030).
 
-Each language-model agent is wrapped. If the model rejects a request or keeps returning
-invalid output (StepFailed), that one step is done by the deterministic agent instead. The
+Each language-model agent is wrapped. If the model rejects a request, keeps returning
+invalid output (StepFailed), or every model in the provider's chain is rate-limited, overloaded
+or slow (TransientError, ADR 0032), that one step is done by the deterministic agent instead. The
 artifact's provenance records `fallback_reason` and `fallback_from`, so the timeline and the
-artifact itself say which step was not written by the model. Transient errors (timeouts,
-rate limits) are not caught here: the worker retries them first.
+artifact itself say which step was not written by the model. Research tasks fall back inside
+LlmResearcher, by quoting the passages they collected.
 """
 
 import logging
@@ -13,7 +14,7 @@ from dataclasses import replace
 
 from app.agents.base import AgentCall, AgentSuite, EvidenceView, ResearchTools
 from app.contracts import Brief, Plan, PlanTask, ResearcherOutput, ReviewerOutput, ReviewFinding, WriterOutput
-from app.workflow.errors import StepFailed
+from app.workflow.errors import StepFailed, TransientError
 
 log = logging.getLogger("aos.agents")
 
@@ -23,11 +24,12 @@ def _fallback[T](
 ) -> AgentCall[T]:
     try:
         return live()
-    except StepFailed as exc:
-        reason = exc.reason[:300]
-        log.warning(
-            "model step fell back to the deterministic agent", extra={"step": exc.step, "reason": reason}
-        )
+    except (StepFailed, TransientError) as exc:
+        # TransientError reaches here only after the provider has tried every model in its
+        # chain (ADR 0032); waiting for the worker's retry would only meet the same limits.
+        reason = (exc.reason if isinstance(exc, StepFailed) else str(exc))[:300]
+        step = exc.step if isinstance(exc, StepFailed) else "model"
+        log.warning("model step fell back to the deterministic agent", extra={"step": step, "reason": reason})
         call = fake()
         return replace(
             call,

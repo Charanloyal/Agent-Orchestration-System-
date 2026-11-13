@@ -13,6 +13,8 @@ Gemini 3 and 4 ignore `temperature`; `minimal` is rejected by 3.8 Flash and Gemi
 `maxOutputTokens` caps thinking plus answer, so thinking models get the documented 65,536.
 """
 
+import hashlib
+import threading
 from dataclasses import dataclass
 from typing import Any
 
@@ -43,13 +45,27 @@ MODELS: tuple[GeminiModel, ...] = (
 )
 BY_ID = {m.id: m for m in MODELS}
 MODEL_IDS: tuple[str, ...] = tuple(m.id for m in MODELS)
-# After the chosen model, in this order, when it is unavailable for the key or out of quota.
+# After the chosen model, in this order, when it is unavailable, overloaded, slow or out of
+# quota. Each model has its own rate-limit bucket on the free tier; the paid-only 3.1 Pro is last.
 FALLBACK_CHAIN: tuple[str, ...] = (
     "gemini-4-hydrogen",
-    "gemini-3.1-pro-preview",
     "gemini-3.8-flash",
     "gemini-3.5-flash-lite",
+    "gemini-3.1-pro-preview",
 )
+# Requests in flight per API key across this process: parallel researchers queue here instead
+# of bursting through a free-tier requests-per-minute limit.
+MAX_CONCURRENT_PER_KEY = 2
+_SLOTS: dict[str, threading.BoundedSemaphore] = {}
+_SLOTS_LOCK = threading.Lock()
+
+
+def _slot(key: str) -> threading.BoundedSemaphore:
+    digest = hashlib.sha256(key.encode()).hexdigest()[:16]
+    with _SLOTS_LOCK:
+        return _SLOTS.setdefault(digest, threading.BoundedSemaphore(MAX_CONCURRENT_PER_KEY))
+
+
 # Retired or redirected IDs (Gemini API deprecations page) and what this app uses instead.
 _REPLACED = {
     "gemini-2.0-flash": DEFAULT_MODEL,
@@ -111,7 +127,7 @@ class GeminiLlm:
         model: str,
         *,
         temperature: float = 0.2,
-        timeout_seconds: float = 120.0,
+        timeout_seconds: float = 90.0,
         client: httpx.Client | None = None,
         fallback_models: bool = True,
         thinking_level: str | None = None,
@@ -128,7 +144,7 @@ class GeminiLlm:
 
     def with_role(self, role: str) -> GeminiLlm:
         """Role routing (ADR 0029): researchers run in parallel, so they use Gemini 4 Hydrogen
-        (free tier, fast) at medium thinking unless a Flash model was chosen; every other role
+        (free tier, fast) at low thinking unless a Flash model was chosen; every other role
         uses the chosen model and thinking level."""
         if role != "research":
             return self
@@ -140,7 +156,7 @@ class GeminiLlm:
             timeout_seconds=self._timeout,
             client=self._client,
             fallback_models=self._fallback,
-            thinking_level="medium",
+            thinking_level="low",
         )
 
     def output_cap(self, max_output_tokens: int) -> int:
@@ -156,29 +172,36 @@ class GeminiLlm:
         )
 
     def complete(self, *, system: str, user: str, json_output: bool, max_output_tokens: int) -> LlmResult:
+        """Try the chosen model, then the next ones in the chain, in this call: a model that is
+        unavailable to the key, overloaded (5xx), slow (timeout) or out of quota (429) hands the
+        request to the next, since each model has its own quota. Only when every model has
+        failed that way is a TransientError raised, for the worker's own retry."""
         notes: list[str] = []
         response: httpx.Response | None = None
-        model = self.model
+        retry_after: float | None = None
         for model in self._chain:
-            response = self._attempt(model, system, user, json_output, max_output_tokens)
+            try:
+                response = self._attempt(model, system, user, json_output, max_output_tokens)
+            except TransientError as exc:  # timeout or connection problem: try the next model
+                notes.append(f"{model}: {exc}")
+                response = None
+                continue
             if not _try_next_model(response):
+                if response.status_code < 400:
+                    return self._result(response.json(), model)
                 break
-            notes.append(f"{model}: {self._detail(response)}")
-        assert response is not None
-        if response.status_code == 429:
-            raise TransientError(
-                f"model provider rate limit: {'; '.join(notes) or self._detail(response)}",
-                retry_after=_retry_after(response),
-            )
-        if response.status_code >= 500:
-            raise TransientError(
-                f"model provider HTTP {response.status_code}: {self._detail(response)}",
-                retry_after=_retry_after(response),
-            )
-        if response.status_code >= 400:
-            detail = f"HTTP {response.status_code}: {'; '.join(notes) or self._detail(response)}"
-            raise StepFailed("model", f"model provider rejected the request ({detail})")
-        return self._result(response.json(), model)
+            notes.append(f"{model}: HTTP {response.status_code} {self._detail(response)}")
+            retry_after = _retry_after(response) or retry_after
+        summary = "; ".join(notes)[:600]
+        if (
+            response is None
+            or response.status_code == 429
+            or response.status_code >= 500
+            or (response.status_code in (403, 404) and notes)
+        ):
+            raise TransientError(f"every Gemini model was unavailable: {summary}", retry_after=retry_after)
+        detail = f"HTTP {response.status_code}: {summary or self._detail(response)}"
+        raise StepFailed("model", f"model provider rejected the request ({detail})")
 
     def _attempt(
         self, model: str, system: str, user: str, json_output: bool, max_tokens: int
@@ -226,11 +249,12 @@ class GeminiLlm:
             "generationConfig": config,
         }
         try:
-            return self._client.post(
-                f"{GEMINI_BASE_URL}/models/{model}:generateContent",
-                json=body,
-                headers={"x-goog-api-key": self._key},
-            )
+            with _slot(self._key):
+                return self._client.post(
+                    f"{GEMINI_BASE_URL}/models/{model}:generateContent",
+                    json=body,
+                    headers={"x-goog-api-key": self._key},
+                )
         except httpx.TimeoutException as exc:
             raise TransientError("model provider timeout") from exc
         except httpx.TransportError as exc:
@@ -244,9 +268,9 @@ class GeminiLlm:
 
 def _try_next_model(response: httpx.Response) -> bool:
     """The model is unknown or retired for this key (404), not open to it (403, e.g. a paid-only
-    model on a free key), or out of quota (429): another model may still answer. A bad key or a
-    bad request never moves on."""
-    if response.status_code in (404, 429):
+    model on a free key), out of quota (429) or overloaded (5xx): another model may still answer.
+    A bad key or a bad request never moves on."""
+    if response.status_code in (404, 429) or response.status_code >= 500:
         return True
     text = _error_message(response).lower()
     if response.status_code == 403:

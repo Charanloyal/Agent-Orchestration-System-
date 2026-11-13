@@ -59,6 +59,14 @@ been deployed yet; the hosted steps are prepared and listed under *Not done*.
     (`AOS_RATE_STYLE_PER_USER_HOUR`, default 120). Nothing is stored. No detector-evasion
     claims.
 - **Agents page:** what each agent does, its inputs and outputs, and its guards.
+- **Rate limits never fail a run** ([ADR 0032](docs/decisions/0032-rate-limits-never-fail-a-run.md)):
+  - Gemini moves to the next model on 429, 5xx and timeouts, in the order Hydrogen, 3.8 Flash,
+    Flash-Lite, then 3.1 Pro;
+  - at most two requests per key are in flight, and researchers think at `low`;
+  - a retried task reuses its collected passages instead of searching again;
+  - when no model answers, findings quote the collected passages, labelled;
+  - the writer, reviewer and planner fall back on exhausted rate limits too;
+  - open search skips an unreachable source instead of failing the step.
 - **Research data** ([ADR 0031](docs/decisions/0031-open-sources-and-complete-passages.md)):
   - without a search key, `auto` uses keyless open sources (Wikipedia, arXiv) instead of the
     test provider;

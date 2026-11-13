@@ -133,7 +133,7 @@ class Engine:
             self.model if self.model in ("gemini-3.8-flash", "gemini-3.5-flash-lite") else DEFAULT_MODEL
         )
         main = thinking_level_for(self.model, self.thinking_level) or "model default"
-        research = thinking_level_for(research_model, "medium") or "model default"
+        research = thinking_level_for(research_model, "low") or "model default"
         return [
             ("Planner, writer, reviewer and Style studio", self.model, main),
             ("Researchers (parallel)", research_model, research),

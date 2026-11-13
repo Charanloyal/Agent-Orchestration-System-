@@ -147,8 +147,9 @@ export function AiEngineCard({ workspaceId }: { workspaceId: string }) {
               )}
               {provider === "gemini" && (
                 <p className="small muted">
-                  If this model is unavailable for the key or out of quota, the next of Gemini 4 Hydrogen, 3.1 Pro, 3.8
-                  Flash and 3.5 Flash-Lite answers. Researchers use Gemini 4 Hydrogen at medium thinking.
+                  If this model is unavailable, overloaded, slow or out of quota, the next of Gemini 4 Hydrogen, 3.8
+                  Flash, 3.5 Flash-Lite and 3.1 Pro answers in the same call. Researchers use Gemini 4 Hydrogen at low
+                  thinking, at most two requests at a time.
                 </p>
               )}
             </div>

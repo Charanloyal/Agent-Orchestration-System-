@@ -311,5 +311,5 @@ def test_a_saved_retired_model_is_used_as_its_replacement_without_re_saving(
             "model": "gemini-4-hydrogen",
             "thinking": "model default",
         },
-        {"role": "Researchers (parallel)", "model": "gemini-4-hydrogen", "thinking": "medium"},
+        {"role": "Researchers (parallel)", "model": "gemini-4-hydrogen", "thinking": "low"},
     ]

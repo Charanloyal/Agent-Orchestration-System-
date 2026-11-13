@@ -26,7 +26,7 @@ Three faults, each reported correctly by the model:
    `open`). It uses Wikipedia (plain-text article extracts through the MediaWiki API) and arXiv
    (abstracts through the arXiv API). Both publish free APIs for programmatic use. The text is
    the source's own, cited by its real URL and revision or publication date, and the domain
-   policy applies. If both are unreachable, the step is retried as a transient error.
+   policy applies. A source that is unreachable is skipped (ADR 0032).
    **Not done**, and why:
    - **scraping DuckDuckGo or Google result pages:** their terms forbid automated access;
    - **Gemini "knowledge synthesis" as evidence:** text written by the model and attached to

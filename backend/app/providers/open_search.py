@@ -7,7 +7,10 @@ arXiv abstracts), never model-written; the hosts are fixed, so no user-controlle
 fetched here.
 """
 
+import logging
 import re
+import threading
+import time
 import xml.etree.ElementTree as ET
 from collections.abc import Callable
 from urllib.parse import quote
@@ -15,7 +18,8 @@ from urllib.parse import quote
 import httpx
 
 from app.providers.search import SearchHit, SearchResponse
-from app.workflow.errors import TransientError
+
+log = logging.getLogger("aos.search")
 
 WIKIPEDIA_API = "https://en.wikipedia.org/w/api.php"
 ARXIV_API = "https://export.arxiv.org/api/query"
@@ -50,7 +54,7 @@ def _domain_allowed(domain: str, allowed: list[str], blocked: list[str]) -> bool
 class OpenWebSearch:
     name = "open-web"
 
-    def __init__(self, *, client: httpx.Client | None = None, timeout_seconds: float = 20.0) -> None:
+    def __init__(self, *, client: httpx.Client | None = None, timeout_seconds: float = 6.0) -> None:
         self._client = client or httpx.Client(
             timeout=timeout_seconds, headers={"User-Agent": USER_AGENT}, follow_redirects=True
         )
@@ -68,18 +72,17 @@ class OpenWebSearch:
             ("arxiv.org", self._arxiv),
         ]
         results: list[list[SearchHit]] = []
-        failures = 0
-        tried = 0
         for domain, fetch in sources:
             if not _domain_allowed(domain, allowed_domains, blocked_domains):
                 continue
-            tried += 1
             try:
                 results.append(fetch(query, max_results))
-            except httpx.HTTPError, ValueError, ET.ParseError:
-                failures += 1
-        if tried and failures == tried:
-            raise TransientError("open web search unavailable (Wikipedia and arXiv did not answer)")
+            except (httpx.HTTPError, ValueError, ET.ParseError) as exc:
+                # A source that is down, slow or rate-limited is skipped, never retried: the task
+                # records what it could not find instead of failing the run (ADR 0031).
+                log.warning(
+                    "open search source skipped", extra={"source": domain, "error": type(exc).__name__}
+                )
         hits: list[SearchHit] = []
         for rank in range(max_results):  # interleave so both sources are represented
             for found in results:
@@ -137,6 +140,7 @@ class OpenWebSearch:
         if not words:
             return []
         search = " AND ".join(f"all:{w}" for w in words[:3])
+        _arxiv_turn()
         response = self._client.get(
             ARXIV_API, params={"search_query": search, "max_results": min(limit, 3), "sortBy": "relevance"}
         )
@@ -159,6 +163,20 @@ class OpenWebSearch:
                 )
             )
         return hits
+
+
+_ARXIV_LOCK = threading.Lock()
+_ARXIV_LAST = [0.0]
+ARXIV_INTERVAL_SECONDS = 3.0  # arXiv API terms: no more than one request every three seconds
+
+
+def _arxiv_turn() -> None:
+    """Space arXiv requests across parallel research tasks."""
+    with _ARXIV_LOCK:
+        wait = _ARXIV_LAST[0] + ARXIV_INTERVAL_SECONDS - time.monotonic()
+        if wait > 0:
+            time.sleep(wait)
+        _ARXIV_LAST[0] = time.monotonic()
 
 
 def _clean_wikipedia(text: str) -> str:

@@ -86,7 +86,7 @@ def build_agents(
     suite = replace(
         fake_agents(),
         planner=LlmPlanner(wrapped("planner"), max_output_tokens=tokens),
-        researcher=LlmResearcher(wrapped("research"), max_output_tokens=min(tokens, 1500)),
+        researcher=LlmResearcher(wrapped("research"), max_output_tokens=min(tokens, 1500), fallback=fallback),
         writer=LlmWriter(wrapped("writer"), max_output_tokens=tokens),
         reviewer=LlmReviewer(wrapped("reviewer"), max_output_tokens=min(tokens, 1500)),
     )

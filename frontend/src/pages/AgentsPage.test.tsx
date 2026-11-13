@@ -21,7 +21,7 @@ const LIVE = {
   model: "llama-3.3-70b-versatile", key_hint: null, problem: null, providers: [],
   roles: [
     { role: "Planner, writer, reviewer and Style studio", model: "gemini-4-argon", thinking: "high" },
-    { role: "Researchers (parallel)", model: "gemini-4-hydrogen", thinking: "medium" },
+    { role: "Researchers (parallel)", model: "gemini-4-hydrogen", thinking: "low" },
   ],
 };
 
@@ -68,7 +68,7 @@ describe("AgentsPage", () => {
     );
     expect(screen.getByTestId("engine-roles")).toHaveTextContent(
       "Planner, writer, reviewer and Style studio: gemini-4-argon (high thinking)" +
-        "Researchers (parallel): gemini-4-hydrogen (medium thinking)",
+        "Researchers (parallel): gemini-4-hydrogen (low thinking)",
     );
   });
 });
