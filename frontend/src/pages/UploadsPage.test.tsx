@@ -4,7 +4,7 @@ import { Outlet } from "react-router";
 import { describe, expect, it, vi } from "vitest";
 
 import type { Me } from "../api/types";
-import { renderRoutes } from "../test/utils";
+import { mockFetch, renderRoutes } from "../test/utils";
 import { UploadsPage } from "./UploadsPage";
 
 const WS = "11111111-1111-1111-1111-111111111111";
@@ -57,5 +57,19 @@ describe("UploadsPage", () => {
     expect(post?.headers["X-CSRF-Token"]).toBe("csrf");
     expect(post?.headers["Content-Type"]).toBeUndefined();
     setCsrfToken(null);
+  });
+
+  it("re-indexes the workspace's documents and reports the result", async () => {
+    const calls = mockFetch([
+      { path: `/api/v1/workspaces/${WS}/uploads`, body: [doc] },
+      { method: "POST", path: `/api/v1/workspaces/${WS}/uploads/reindex`, body: { documents: 1, passages_before: 9, passages_after: 4 } },
+    ]);
+    renderRoutes([{ element: <Outlet context={me} />, children: [{ path: "w/:workspaceId/documents", element: <UploadsPage /> }] }],
+                 `/w/${WS}/documents`);
+    await userEvent.setup().click(await screen.findByRole("button", { name: "Re-index documents" }));
+    expect(await screen.findByTestId("reindex-status")).toHaveTextContent(
+      "Re-indexed 1 document(s): 9 passages became 4, each ending on a sentence or line.",
+    );
+    expect(calls.some((c) => c.method === "POST" && c.url.endsWith("/uploads/reindex"))).toBe(true);
   });
 });

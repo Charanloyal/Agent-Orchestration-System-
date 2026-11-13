@@ -43,6 +43,7 @@ from app.observability.tracing import annotate, configure_tracing, span
 from app.providers.breaker import BreakerLlm, BreakerSearch
 from app.providers.corpus import CorpusSearch
 from app.providers.llm import LlmProvider
+from app.providers.open_search import OpenWebSearch
 from app.providers.search import FakeSearch, SearchProvider
 from app.providers.tavily import TavilySearch
 from app.services.ai_engine import default_llm, workspace_llm
@@ -99,6 +100,8 @@ def build_search(settings: Settings) -> SearchProvider:
         return TavilySearch(settings.tavily_api_key)
     if settings.search_provider == "corpus":
         return CorpusSearch(settings.corpus_dir)
+    if settings.search_provider == "open":
+        return OpenWebSearch()
     return FakeSearch()
 
 

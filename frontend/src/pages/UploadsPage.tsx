@@ -1,7 +1,14 @@
 import { useRef, useState, type FormEvent } from "react";
 import { Link, useOutletContext, useParams } from "react-router";
 
-import { useDeleteUpload, useDocumentTitle, useUploadFile, useUploads, useUploadSearch } from "../api/hooks";
+import {
+  useDeleteUpload,
+  useDocumentTitle,
+  useReindexUploads,
+  useUploadFile,
+  useUploads,
+  useUploadSearch,
+} from "../api/hooks";
 import type { Me } from "../api/types";
 import { Card, EmptyState, ErrorBanner, Spinner } from "../components/ui";
 import { formatDateTime } from "../format";
@@ -17,6 +24,7 @@ export function UploadsPage() {
   const uploads = useUploads(workspaceId);
   const uploadFile = useUploadFile(workspaceId);
   const deleteUpload = useDeleteUpload(workspaceId);
+  const reindex = useReindexUploads(workspaceId);
   const fileInput = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState("");
   const [submitted, setSubmitted] = useState("");
@@ -91,7 +99,28 @@ export function UploadsPage() {
       </Card>
       </div>
 
-      <Card title="Workspace documents">
+      <Card
+        title="Workspace documents"
+        actions={
+          canUpload && uploads.data && uploads.data.length > 0 ? (
+            <button
+              type="button"
+              className="btn btn-secondary"
+              disabled={reindex.isPending}
+              onClick={() => reindex.mutate()}
+              title="Rebuild passages so none ends mid-sentence (documents uploaded before this version)"
+            >
+              {reindex.isPending ? "Re-indexing…" : "Re-index documents"}
+            </button>
+          ) : undefined
+        }
+      >
+        {reindex.data && (
+          <p className="small muted" role="status" data-testid="reindex-status">
+            Re-indexed {reindex.data.documents} document(s): {reindex.data.passages_before} passages became{" "}
+            {reindex.data.passages_after}, each ending on a sentence or line.
+          </p>
+        )}
         {uploads.isPending && <Spinner />}
         {uploads.isError && <ErrorBanner error={uploads.error} title="Could not load documents" />}
         {uploads.data?.length === 0 && <EmptyState title="No documents yet" />}

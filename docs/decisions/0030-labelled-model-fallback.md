@@ -38,12 +38,10 @@ format was not the cause.
    not in a publication-ready card. Transient errors (timeouts, 429, 5xx) are still retried by the
    worker first and are not masked. The evaluation harness never uses the fallback, so
    measured results are always the model's.
-5. **Search is unchanged.** Without a search key, research uses the configured search provider
-   (the demo provider on the hosted app) plus uploaded documents when the brief allows them.
-   The model's own background knowledge is **not** turned into "evidence": every cited
-   passage must come from a fetched source or an uploaded document, which is the system's
-   central guarantee. Real web sources need a search key (`TAVILY_API_KEY`; Tavily has a free
-   monthly allowance).
+5. **Search** *(superseded by [ADR 0031](0031-open-sources-and-complete-passages.md): without a
+   key, research now uses open sources, Wikipedia and arXiv).* The model's own background
+   knowledge is **not** turned into "evidence": every cited passage must come from a fetched
+   source or an uploaded document, which is the system's central guarantee.
 
 ## Consequences
 

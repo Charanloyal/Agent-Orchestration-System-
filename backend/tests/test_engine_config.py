@@ -26,7 +26,9 @@ def settings(**values: object) -> Settings:
 
 def test_auto_without_keys_runs_the_demo_agents() -> None:
     s = settings(agent_mode="auto", search_provider="auto")
-    assert (s.agent_mode, s.search_provider, s.llm_api_key) == ("fake", "fake", None)
+    assert (s.agent_mode, s.search_provider, s.llm_api_key) == ("fake", "open", None), (
+        "without a search key, auto uses the keyless open sources (Wikipedia, arXiv), never the fake provider"
+    )
 
 
 @pytest.mark.parametrize(

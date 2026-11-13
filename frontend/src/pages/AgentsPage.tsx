@@ -11,6 +11,7 @@ const SEARCH_LABELS: Record<string, string> = {
   fake: "Deterministic demo sources",
   tavily: "Tavily web search",
   corpus: "Offline evaluation corpus",
+  open: "Open web sources: Wikipedia and arXiv (no key needed)",
 };
 
 /** The agents and approval gates behind every run, so users and examiners can see what each

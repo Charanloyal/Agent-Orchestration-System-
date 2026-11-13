@@ -385,6 +385,19 @@ export function useUploadFile(workspaceId: string) {
   });
 }
 
+export function useReindexUploads(workspaceId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      api<{ documents: number; passages_before: number; passages_after: number }>(
+        `/api/v1/workspaces/${workspaceId}/uploads/reindex`,
+        { method: "POST", body: {} },
+      ),
+    onSuccess: () => client.invalidateQueries({ queryKey: ["uploads", workspaceId] }),
+    meta: { error: "Could not re-index the documents" },
+  });
+}
+
 export function useDeleteUpload(workspaceId: string) {
   const client = useQueryClient();
   return useMutation({

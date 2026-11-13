@@ -139,9 +139,16 @@ exact passage it relies on before approving:
 - **Reject report** ends the run as needing attention.
 
 Before approval, **Download draft** produces Markdown watermarked *"DRAFT - NOT APPROVED"*.
-After approval, the download is the clean, approved version:
+After approval, the download is the clean, approved version, and **✨ Open in Style studio**
+opens a copy of the report there, with citations as `[1]`, `[2]` so the fact lock keeps them.
+The approved report and its export are not changed:
 
 ![Approved report](assets/screenshots/08-approved-report.png)
+
+**Where sources come from.** With a Tavily key, research searches the web. Without one, the
+hosted app uses open sources with official free APIs: Wikipedia articles and arXiv abstracts.
+Every passage is the source's own text, cited by its real link. When a brief allows
+*Uploaded documents*, a short document (up to 15 passages, such as a resume) is read whole.
 
 ## 6. Runs, usage and activity
 
@@ -191,6 +198,10 @@ documents are used only by briefs whose source policy allows *Uploaded documents
 uploader or an admin can delete an upload. Deletion removes the stored file and its
 searchable text. Passages already used as evidence in a run stay with that run as part of its
 immutable record, until the run itself is deleted.
+
+Documents are split into passages that end on a sentence or line, never mid-word. Documents
+uploaded before this version may have passages that stop mid-sentence: select **Re-index
+documents** once to rebuild them. Runs that already cited the old passages keep them.
 
 > **Hosted demo storage.** The hosted demo keeps the text extracted from your document, not
 > the file itself: search, evidence and reports use the text, and nothing offers the original

@@ -24,9 +24,9 @@ from app.contracts import (
     validate_citations,
 )
 from app.providers.llm import LlmProvider
+from app.tools.chunking import clip
 
 MAX_WRITER_PASSAGES = 24
-PASSAGE_CHARS = 900
 
 
 def _generation(llm: LlmProvider, prompt_version: str, call: StructuredCall[Any]) -> dict[str, Any]:
@@ -60,7 +60,8 @@ def select_passages(
 
 
 def _refs(items: list[EvidenceView]) -> tuple[list[EvidenceRef], dict[str, str]]:
-    refs = [EvidenceRef(e.evidence_id, e.source_id, e.text[:PASSAGE_CHARS]) for e in items]
+    # Whole passages: they already end on sentence boundaries (ADR 0031).
+    refs = [EvidenceRef(e.evidence_id, e.source_id, clip(e.text)) for e in items]
     titles = {e.source_id: (e.title or e.source_id) for e in items}
     return refs, titles
 

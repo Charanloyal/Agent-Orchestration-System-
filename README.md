@@ -351,7 +351,7 @@ GROQ_API_KEY=<key>           # or GEMINI_API_KEY / OPENAI_API_KEY: endpoint and 
 # AOS_LLM_API_KEY=<key>, AOS_LLM_BASE_URL=<url>, AOS_LLM_MODEL=<model>
 # ...or local Ollama (free): AOS_LLM_BASE_URL=http://127.0.0.1:11434/v1, AOS_LLM_MODEL=llama3.1
 # ...or Azure OpenAI: AOS_LLM_API_STYLE=azure, AOS_LLM_AZURE_ENDPOINT=..., AOS_LLM_MODEL=<deployment>
-AOS_SEARCH_PROVIDER=auto     # Tavily web search when TAVILY_API_KEY is set
+AOS_SEARCH_PROVIDER=auto     # Tavily web search when TAVILY_API_KEY is set, else Wikipedia + arXiv (keyless)
 TAVILY_API_KEY=<key>
 ```
 

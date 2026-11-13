@@ -269,8 +269,8 @@ provider:
 2. **Add the key on Render.** Open **aos-web** → **Environment** → **Add Environment Variable**,
    enter for example `GROQ_API_KEY` and the key itself (not a masked `****` preview), then
    **Save, rebuild, and deploy**. No Blueprint sync is needed. Optionally add `TAVILY_API_KEY`
-   for web search; without it, briefs that allow only *Uploaded documents* still use real
-   sources. Set `AOS_PRICE_LLM_INPUT_PER_MILLION` and `AOS_PRICE_LLM_OUTPUT_PER_MILLION` to the
+   for general web search; without it, research uses the keyless open sources (Wikipedia
+   articles and arXiv abstracts, ADR 0031) plus uploaded documents. Set `AOS_PRICE_LLM_INPUT_PER_MILLION` and `AOS_PRICE_LLM_OUTPUT_PER_MILLION` to the
    provider's listed prices so the budget ledger estimates spending correctly (the defaults
    are small-model list prices, which overstate a free tier).
 3. **Check it.** After the deploy, the top bar shows a green **⚡ Live · <model>** pill

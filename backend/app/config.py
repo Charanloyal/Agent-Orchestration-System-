@@ -84,7 +84,9 @@ class Settings(BaseSettings):
     price_llm_input_per_million: float = 0.15
     price_llm_output_per_million: float = 0.60
     price_search_per_credit: float = 0.008
-    search_provider: Literal["fake", "tavily", "corpus"] = "fake"  # or `auto`: tavily when a key is set
+    search_provider: Literal["fake", "tavily", "corpus", "open"] = (
+        "fake"  # `auto`: tavily with a key, else open
+    )
     tavily_api_key: SecretStr | None = None
     corpus_dir: Path = BACKEND_DIR.parent / "eval" / "corpus" / "v1"
     object_store_dir: Path = BACKEND_DIR / ".data" / "objects"
@@ -234,7 +236,7 @@ class Settings(BaseSettings):
             has_key = bool(out.get("llm_api_key")) or out.get("llm_api_style") == "azure"
             out["agent_mode"] = "llm" if has_key else "fake"
         if out.get("search_provider") == "auto":
-            out["search_provider"] = "tavily" if out.get("tavily_api_key") else "fake"
+            out["search_provider"] = "tavily" if out.get("tavily_api_key") else "open"
         return out
 
     @model_validator(mode="before")

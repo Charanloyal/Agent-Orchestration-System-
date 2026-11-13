@@ -184,3 +184,87 @@ def search_chunks(
         ChunkHit(c.upload_id, c.chunk_index, filename, title, c.locator, c.text, float(r))
         for c, filename, title, r in rows
     ]
+
+
+WHOLE_DOCUMENT_PASSAGES = 15
+
+
+def with_short_documents_whole(
+    db: Session, workspace_id: uuid.UUID, hits: list[ChunkHit], max_passages: int = WHOLE_DOCUMENT_PASSAGES
+) -> list[ChunkHit]:
+    """For a matching document of at most `max_passages` passages (a resume, a short brief),
+    return all of its passages in order instead of only the matching ones, so nothing between
+    two headings is missing (ADR 0031). Longer documents keep their best-ranked passages.
+    Documents keep their rank order."""
+    out: list[ChunkHit] = []
+    seen: set[uuid.UUID] = set()
+    for hit in hits:
+        if hit.upload_id in seen:
+            continue
+        seen.add(hit.upload_id)
+        count = db.scalar(
+            select(func.count())
+            .select_from(UploadChunk)
+            .where(UploadChunk.workspace_id == workspace_id, UploadChunk.upload_id == hit.upload_id)
+        )
+        if count is not None and count <= max_passages:
+            rows = db.scalars(
+                select(UploadChunk)
+                .where(UploadChunk.workspace_id == workspace_id, UploadChunk.upload_id == hit.upload_id)
+                .order_by(UploadChunk.chunk_index)
+            ).all()
+            out += [
+                ChunkHit(c.upload_id, c.chunk_index, hit.filename, hit.title, c.locator, c.text, hit.rank)
+                for c in rows
+            ]
+        else:
+            out += [h for h in hits if h.upload_id == hit.upload_id]
+    return out
+
+
+_SENTENCE_FINAL = re.compile(r"[.!?:;\"\u201d)\]]$")
+
+
+def _page(locator: str | None) -> str | None:
+    """'page 2, passage 3' -> 'page 2'; 'passage 3' -> None."""
+    if not locator:
+        return None
+    head = locator.rsplit(", passage ", 1)[0]
+    return None if head.startswith("passage ") else head
+
+
+def rechunk_upload(db: Session, upload: Upload) -> tuple[int, int]:
+    """Rebuild a document's passages with sentence-aware chunking from its stored passages
+    (the original file is not needed, ADR 0031). Passages of one page are re-joined first:
+    with a space where the old chunker had cut inside a sentence, with a line break where a
+    passage had ended a sentence. Returns (passages before, passages after)."""
+    old = db.scalars(
+        select(UploadChunk).where(UploadChunk.upload_id == upload.id).order_by(UploadChunk.chunk_index)
+    ).all()
+    pages: list[tuple[str | None, str]] = []
+    for chunk in old:
+        page = _page(chunk.locator)
+        if pages and pages[-1][0] == page:
+            previous = pages[-1][1]
+            joiner = "\n" if _SENTENCE_FINAL.search(previous.rstrip()) else " "
+            pages[-1] = (page, previous + joiner + chunk.text)
+        else:
+            pages.append((page, chunk.text))
+    for chunk in old:
+        db.delete(chunk)
+    db.flush()
+    index = 0
+    for page, text_ in pages:
+        for number, passage in enumerate(split_passages(text_, limit=None), 1):
+            db.add(
+                UploadChunk(
+                    upload_id=upload.id,
+                    chunk_index=index,
+                    workspace_id=upload.workspace_id,
+                    locator=f"{page}, passage {number}" if page else f"passage {number}",
+                    text=passage,
+                )
+            )
+            index += 1
+    db.flush()
+    return len(old), index

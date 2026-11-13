@@ -80,6 +80,7 @@ BODIES: dict[tuple[str, str], dict[str, object]] = {
         "model": "llama-3.1-8b-instant",
     },
     ("POST", "/api/v1/workspaces/{workspace_id}/ai-config/test"): {},
+    ("POST", "/api/v1/workspaces/{workspace_id}/uploads/reindex"): {},
 }
 
 

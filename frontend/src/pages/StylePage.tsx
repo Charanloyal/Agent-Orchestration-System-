@@ -1,5 +1,5 @@
 import { Fragment, useId, useState, type FormEvent, type ReactNode } from "react";
-import { useParams, useSearchParams } from "react-router";
+import { useLocation, useParams, useSearchParams } from "react-router";
 
 import { saveBlob } from "../api/client";
 import { useAiEngine, useDocumentTitle, useStyleRewrite, useUploads } from "../api/hooks";
@@ -397,8 +397,10 @@ export function StylePage() {
   const [params] = useSearchParams();
   const uploads = useUploads(workspaceId);
   const rewrite = useStyleRewrite(workspaceId);
+  const location = useLocation();
+  const handed = (location.state ?? null) as { text?: string; source?: string } | null;
   const [mode, setMode] = useState<"text" | "upload">(params.get("upload") ? "upload" : "text");
-  const [text, setText] = useState("");
+  const [text, setText] = useState(handed?.text ?? "");
   const [uploadId, setUploadId] = useState(params.get("upload") ?? "");
   const [persona, setPersona] = useState<StylePersona>("journalist");
   const [engineChoice, setEngineChoice] = useState<"auto" | "rules">("auto");
@@ -423,6 +425,12 @@ export function StylePage() {
           </p>
         </div>
       </div>
+      {handed?.source && (
+        <p className="banner banner-info" role="status" data-testid="style-source-note">
+          Loaded from the {handed.source}. The rewrite is a separate copy: the approved report and its export stay
+          unchanged.
+        </p>
+      )}
 
       <Card title="Text">
         <form onSubmit={submit} className="stack">

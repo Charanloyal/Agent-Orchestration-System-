@@ -1,11 +1,16 @@
 import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { Outlet } from "react-router";
+import { Outlet, useLocation } from "react-router";
 import { describe, expect, it, vi } from "vitest";
 
 import type { Me, RunDetail } from "../api/types";
 import { mockFetch, renderRoutes } from "../test/utils";
-import { RunPage } from "./RunPage";
+import { reportMarkdown, RunPage } from "./RunPage";
+
+function StyleTarget() {
+  const state = useLocation().state as { text: string; source: string };
+  return <p data-testid="handed">{`${state.source}|${state.text.replace(/\s+/g, " ").trim()}`}</p>;
+}
 
 const WS = "11111111-1111-1111-1111-111111111111";
 const RUN = "22222222-2222-2222-2222-222222222222";
@@ -148,6 +153,60 @@ describe("RunPage", () => {
     await userEvent.setup().click(screen.getByRole("button", { name: "Retry from last checkpoint" }));
     expect(await screen.findByTestId("run-state")).toHaveTextContent("Writing");
     expect(calls.some((c) => c.method === "POST" && c.url.endsWith("/retry"))).toBe(true);
+  });
+
+  it("turns the report into Markdown with citations numbered in order of first use", () => {
+    const body = {
+      report_version: 1, plan_version: 1,
+      sections: [
+        { section_id: "s", title: "Summary", claims: [
+          { claim_id: "a", kind: "fact" as const, text: "FAISS runs on GPUs.", evidence_ids: ["e9", "e2"] },
+          { claim_id: "b", kind: "unknown" as const, text: "Pricing is unclear.", evidence_ids: [] },
+        ] },
+        { section_id: "f", title: "Findings", claims: [
+          { claim_id: "c", kind: "fact" as const, text: "It scales to 1B vectors.", evidence_ids: ["e2"] },
+        ] },
+      ],
+    };
+    expect(reportMarkdown("Vector search", body)).toBe(
+      "# Vector search\n\n## Summary\n\nFAISS runs on GPUs. [1][2] Pricing is unclear.\n\n## Findings\n\nIt scales to 1B vectors. [2]\n",
+    );
+  });
+
+  it("opens an approved report in the Style studio as a copy", async () => {
+    const detail = run({
+      state: "SUCCEEDED", pending_decision: null,
+      decisions: [{ id: "d1", kind: "report", version: 1, decision: "approve", comment: null, decided_by: "Rev", decided_at: "2026-10-15T10:07:00Z" }],
+      report: {
+        version: 1, digest: "b".repeat(64), created_at: "2026-10-15T10:05:00Z",
+        body: { report_version: 1, plan_version: 1, sections: [{ section_id: "summary", title: "Summary", claims: [
+          { claim_id: "c1", kind: "fact", text: "Tool A supports SSO.", evidence_ids: ["ev-1"] },
+        ] }] },
+      },
+    });
+    mockFetch([{ path: `/api/v1/runs/${RUN}`, body: detail }]);
+    renderRoutes([{ element: <Outlet context={me("analyst")} />, children: [
+      { path: "runs/:runId", element: <RunPage /> },
+      { path: "w/:workspaceId/style", element: <StyleTarget /> },
+    ] }], `/runs/${RUN}`);
+    await userEvent.setup().click(await screen.findByRole("button", { name: "✨ Open in Style studio" }));
+    expect(await screen.findByTestId("handed")).toHaveTextContent(
+      "approved report v1|# Compare search tools ## Summary Tool A supports SSO. [1]",
+    );
+  });
+
+  it("does not offer the Style studio for drafts", async () => {
+    const detail = run({
+      state: "AWAITING_REPORT_APPROVAL",
+      pending_decision: { kind: "report", version: 1, digest: "b".repeat(64) },
+      report: {
+        version: 1, digest: "b".repeat(64), created_at: "2026-10-15T10:05:00Z",
+        body: { report_version: 1, plan_version: 1, sections: [] },
+      },
+    });
+    renderRun("analyst", detail);
+    expect(await screen.findByRole("button", { name: "Download draft (v1)" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Style studio/ })).toBeNull();
   });
 
   it("renders claims with kinds and opens cited evidence; unsafe URLs are not linked", async () => {

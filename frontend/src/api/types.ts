@@ -37,7 +37,7 @@ export type Me = {
     environment: string;
     agent_mode: "fake" | "llm";
     llm_model?: string | null;
-    search_provider?: "fake" | "tavily" | "corpus";
+    search_provider?: "fake" | "tavily" | "corpus" | "open";
   };
   is_platform_admin: boolean;
   can_create_workspace: boolean;

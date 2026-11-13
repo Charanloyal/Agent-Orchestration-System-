@@ -18,7 +18,7 @@ from app.db.models import EvidencePassage, Run, Source, ToolExecution
 from app.observability.tracing import annotate, span
 from app.providers.search import SearchHit
 from app.services.events import append_event
-from app.services.uploads import search_chunks
+from app.services.uploads import search_chunks, with_short_documents_whole
 from app.tools.chunking import split_passages
 from app.tools.extract import ExtractionError, Segment, extract
 from app.tools.fetcher import FetchError
@@ -85,8 +85,12 @@ class RunResearchTools:
             return []
         execution_id = self._start("search_uploads")
         with self.ctx.sm() as session:
-            chunks = search_chunks(
-                session, self.ctx.workspace_id, query, limit=MAX_UPLOAD_RESULTS, match_any=True
+            chunks = with_short_documents_whole(
+                session,
+                self.ctx.workspace_id,
+                search_chunks(
+                    session, self.ctx.workspace_id, query, limit=MAX_UPLOAD_RESULTS, match_any=True
+                ),
             )
         self._finish(execution_id, "succeeded")
         return [

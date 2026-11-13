@@ -486,7 +486,12 @@ function ReportView({ run }: { run: RunDetail }) {
               </ul>
             </section>
           ))}
-          <ExportControls runId={run.id} version={shown} approved={decision?.decision === "approve"} />
+          <ExportControls
+            runId={run.id}
+            version={shown}
+            approved={decision?.decision === "approve"}
+            styleLink={{ workspaceId: run.workspace_id, text: reportMarkdown(run.topic, report) }}
+          />
         </Card>
         {selected && (
           <aside className="card evidence-panel" aria-label="Cited evidence">
@@ -515,14 +520,55 @@ function claimFlags(findings: ReviewFinding[]): Map<string, Severity> {
   return flags;
 }
 
-function ExportControls({ runId, version, approved }: { runId: string; version: number; approved: boolean }) {
+/** The report as Markdown for the Style studio: sections as headings, claims as paragraphs,
+ *  citations numbered in order of first use so the fact lock keeps them. */
+export function reportMarkdown(topic: string, report: ReportBody): string {
+  const numbers = new Map<string, number>();
+  const cite = (id: string) => {
+    if (!numbers.has(id)) numbers.set(id, numbers.size + 1);
+    return `[${numbers.get(id)}]`;
+  };
+  const sections = report.sections.map((section) => {
+    const paragraph = section.claims
+      .map((claim) => `${claim.text.trim()}${claim.evidence_ids.length ? ` ${claim.evidence_ids.map(cite).join("")}` : ""}`)
+      .join(" ");
+    return `## ${section.title}\n\n${paragraph}`;
+  });
+  return `# ${topic}\n\n${sections.join("\n\n")}\n`;
+}
+
+function ExportControls({
+  runId,
+  version,
+  approved,
+  styleLink,
+}: {
+  runId: string;
+  version: number;
+  approved: boolean;
+  styleLink?: { workspaceId: string; text: string };
+}) {
   const exporter = useExportReport(runId);
+  const navigate = useNavigate();
   return (
     <div className="export-controls stack">
       <div className="row wrap">
         <button type="button" className="btn btn-secondary" disabled={exporter.isPending} onClick={() => exporter.mutate(version)}>
           {approved ? `Download approved report (v${version})` : `Download draft (v${version})`}
         </button>
+        {approved && styleLink && (
+          <button
+            type="button"
+            className="btn btn-primary"
+            onClick={() =>
+              navigate(`/w/${styleLink.workspaceId}/style`, {
+                state: { text: styleLink.text, source: `approved report v${version}` },
+              })
+            }
+          >
+            ✨ Open in Style studio
+          </button>
+        )}
         <span className="small muted">
           {approved
             ? "Markdown with approver, time, and digest."

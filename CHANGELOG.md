@@ -59,6 +59,14 @@ been deployed yet; the hosted steps are prepared and listed under *Not done*.
     (`AOS_RATE_STYLE_PER_USER_HOUR`, default 120). Nothing is stored. No detector-evasion
     claims.
 - **Agents page:** what each agent does, its inputs and outputs, and its guards.
+- **Research data** ([ADR 0031](docs/decisions/0031-open-sources-and-complete-passages.md)):
+  - without a search key, `auto` uses keyless open sources (Wikipedia, arXiv) instead of the
+    test provider;
+  - passages end on sentence or line boundaries (PDF text normalised), and the writer and
+    reviewer no longer cut passages at 900 characters;
+  - short uploaded documents (15 passages or fewer) reach the researcher whole;
+  - **Re-index documents** rebuilds existing passages;
+  - **✨ Open in Style studio** on approved reports.
 - **Gemini 4** ([ADR 0029 amendment 2](docs/decisions/0029-workspace-model-keys.md)):
   - `gemini-4-hydrogen` is the default; 3.1 Pro, Argon, Carbon, 3.8 Flash and Flash-Lite are
     offered, with their free-tier availability shown;

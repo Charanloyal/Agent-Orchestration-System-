@@ -15,8 +15,10 @@ from app.contracts import Brief, PlanTask, ResearcherOutput
 from app.providers.llm import LlmProvider
 from app.providers.search import SearchHit
 
-MAX_PASSAGES = 8
+MAX_PASSAGES = 24
 MAX_HITS_PER_SEARCH = 3
+# A short uploaded document comes back whole (ADR 0031); keep all of it.
+MAX_UPLOAD_HITS = 15
 
 
 def format_passages(refs: list[EvidenceRef], titles: dict[str, str]) -> str:
@@ -36,10 +38,11 @@ class LlmResearcher:
 
     def research(self, brief: Brief, task: PlanTask, tools: ResearchTools) -> AgentCall[ResearcherOutput]:
         hits: list[SearchHit] = []
+        # Uploads first: a short document comes back whole and must not be cut by the limit.
+        if "search_uploads" in task.tools:
+            hits += tools.search_uploads(task.question)[:MAX_UPLOAD_HITS]
         if "web_search" in task.tools:
             hits += tools.search(task.question)[:MAX_HITS_PER_SEARCH]
-        if "search_uploads" in task.tools:
-            hits += tools.search_uploads(task.question)[:MAX_HITS_PER_SEARCH]
         refs: list[EvidenceRef] = []
         titles: dict[str, str] = {}
         for hit in hits:

@@ -12,9 +12,10 @@ from app.auth.deps import AppSettings, DbSession, WorkspaceAccess, workspace_acc
 from app.db.models import Upload, UploadChunk, User
 from app.errors import Forbidden, NotFound
 from app.policy.permissions import Action, is_allowed
+from app.services.audit import audit
 from app.services.ratelimit import user_limit
 from app.services.retention import delete_upload as remove_upload
-from app.services.uploads import ingest_upload, search_chunks
+from app.services.uploads import ingest_upload, rechunk_upload, search_chunks
 from app.storage import get_object_store
 
 router = APIRouter(prefix="/api/v1/workspaces/{workspace_id}/uploads", tags=["uploads"])
@@ -108,6 +109,35 @@ def search_uploads(
         ChunkHitOut(upload_id=h.upload_id, filename=h.filename, locator=h.locator, text=h.text, rank=h.rank)
         for h in search_chunks(db, access.workspace_id, q, limit)
     ]
+
+
+class ReindexOut(BaseModel):
+    documents: int
+    passages_before: int
+    passages_after: int
+
+
+@router.post("/reindex", response_model=ReindexOut, dependencies=[Depends(user_limit("upload"))])
+def reindex_uploads(
+    access: Annotated[WorkspaceAccess, Depends(workspace_access(Action.UPLOAD_CREATE))],
+    db: DbSession,
+) -> ReindexOut:
+    """Re-chunk this workspace's documents with sentence-aware chunking (ADR 0031). Evidence
+    already cited by runs keeps its own copy and is not changed."""
+    uploads = db.scalars(select(Upload).where(Upload.workspace_id == access.workspace_id)).all()
+    before = after = 0
+    for upload in uploads:
+        old, new = rechunk_upload(db, upload)
+        before, after = before + old, after + new
+    audit(
+        db,
+        "upload.reindex",
+        actor_user_id=access.principal.user_id,
+        workspace_id=access.workspace_id,
+        details={"documents": len(uploads), "passages_before": before, "passages_after": after},
+    )
+    db.commit()
+    return ReindexOut(documents=len(uploads), passages_before=before, passages_after=after)
 
 
 def _get(db: DbSession, workspace_id: uuid.UUID, upload_id: uuid.UUID) -> Upload:
