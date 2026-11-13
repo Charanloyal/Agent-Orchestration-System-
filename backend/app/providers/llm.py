@@ -44,6 +44,15 @@ def _retry_after(error: openai.APIStatusError) -> float | None:
         return None
 
 
+def _detail(error: openai.APIStatusError, client: Any) -> str:
+    """The provider's own message, without the key, for the timeline and the settings test."""
+    body = error.body if isinstance(error.body, dict) else {}
+    inner = body.get("error") if isinstance(body.get("error"), dict) else body
+    message = str((inner or {}).get("message") or error.message or "no details")
+    key = str(getattr(client, "api_key", "") or "")
+    return (message.replace(key, "***") if key else message)[:300]
+
+
 class OpenAICompatibleLlm:
     def __init__(self, settings: Settings, *, client: Any | None = None, api_key: str | None = None) -> None:
         self.model = settings.llm_model
@@ -102,7 +111,8 @@ class OpenAICompatibleLlm:
         except openai.APIStatusError as exc:
             # 400/401/403/404/422: configuration or request errors; retrying cannot help.
             raise StepFailed(
-                "model", f"model provider rejected the request (HTTP {exc.status_code})"
+                "model",
+                f"model provider rejected the request (HTTP {exc.status_code}: {_detail(exc, self._client)})",
             ) from exc
         choice = completion.choices[0] if completion.choices else None
         text = (choice.message.content or "") if choice else ""

@@ -77,7 +77,16 @@ class RunGraphState(TypedDict, total=False):
 
 def provenance(generation: dict[str, Any]) -> dict[str, Any]:
     """Event-safe summary of how an artifact was produced (no prompts or outputs)."""
-    keys = ("provider", "model", "prompt_version", "attempts", "input_tokens", "output_tokens")
+    keys = (
+        "provider",
+        "model",
+        "prompt_version",
+        "attempts",
+        "input_tokens",
+        "output_tokens",
+        "fallback_reason",
+        "fallback_from",
+    )
     return {k: generation[k] for k in keys if k in generation}
 
 

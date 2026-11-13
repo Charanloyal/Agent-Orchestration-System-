@@ -298,6 +298,14 @@ function GenerationNote({ artifact }: { artifact: { author?: string; generation?
   if (artifact.author === "user") {
     return <p className="small muted">Edited by a person{g?.edited_from ? ` from v${g.edited_from}` : ""}.</p>;
   }
+  if (g?.fallback_reason) {
+    return (
+      <p className="small text-warning" data-testid="generation">
+        Produced by the deterministic fallback agent because the model ({g.fallback_from}) failed:{" "}
+        {g.fallback_reason}
+      </p>
+    );
+  }
   if (!g || g.provider === "fake") return <p className="small muted">Produced by the deterministic test agent.</p>;
   return (
     <p className="small muted" data-testid="generation">

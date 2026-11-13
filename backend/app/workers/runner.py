@@ -27,6 +27,7 @@ from sqlalchemy.orm import Session, sessionmaker
 
 from app.agents.base import AgentSuite
 from app.agents.fake import fake_agents
+from app.agents.fallback import with_fallback
 from app.agents.llm_planner import LlmPlanner
 from app.agents.llm_researcher import LlmResearcher
 from app.agents.llm_writer_reviewer import LlmReviewer, LlmWriter
@@ -41,10 +42,10 @@ from app.observability.logging import configure_logging, startup_summary
 from app.observability.tracing import annotate, configure_tracing, span
 from app.providers.breaker import BreakerLlm, BreakerSearch
 from app.providers.corpus import CorpusSearch
-from app.providers.llm import LlmProvider, OpenAICompatibleLlm
+from app.providers.llm import LlmProvider
 from app.providers.search import FakeSearch, SearchProvider
 from app.providers.tavily import TavilySearch
-from app.services.ai_engine import workspace_llm
+from app.services.ai_engine import default_llm, workspace_llm
 from app.services.events import append_event, set_run_state
 from app.services.ratelimit import purge_old_windows
 from app.tools.fetcher import Fetcher, FetchPolicy, SafeFetcher
@@ -64,14 +65,17 @@ OperationalError_ = (SqlAlchemyOperationalError, PsycopgOperationalError)
 WAIT_STATES = {"plan": RunState.AWAITING_PLAN_APPROVAL, "report": RunState.AWAITING_REPORT_APPROVAL}
 
 
-def build_agents(settings: Settings, ctx: RunContext, llm: LlmProvider | None = None) -> AgentSuite:
+def build_agents(
+    settings: Settings, ctx: RunContext, llm: LlmProvider | None = None, *, fallback: bool = False
+) -> AgentSuite:
     """Fake agents by default; every role is an LLM agent (metered against the run budget)
-    when configured."""
+    when configured. With `fallback`, a step whose model call fails permanently is done by the
+    deterministic agent and labelled as such (ADR 0030); evaluation never uses it."""
     if settings.agent_mode == "fake" and llm is None:
         return fake_agents()
-    base = llm or OpenAICompatibleLlm(settings)
+    base = llm or default_llm(settings)
     tokens = settings.llm_max_output_tokens
-    return replace(
+    suite = replace(
         fake_agents(),
         planner=LlmPlanner(
             BreakerLlm(MeteredLlm(base, ctx.meter, "planner"), settings), max_output_tokens=tokens
@@ -86,6 +90,7 @@ def build_agents(settings: Settings, ctx: RunContext, llm: LlmProvider | None = 
             BreakerLlm(MeteredLlm(base, ctx.meter, "reviewer"), settings), max_output_tokens=min(tokens, 1500)
         ),
     )
+    return with_fallback(suite, fake_agents(), f"{base.name}/{base.model}") if fallback else suite
 
 
 def build_search(settings: Settings) -> SearchProvider:
@@ -175,7 +180,11 @@ def process_one(
         # A workspace's own engine (ADR 0029) takes precedence over the deployment's.
         with sm() as session:
             llm = workspace_llm(session, settings, ctx.workspace_id)
-    ctx.agents = agents or (agent_factory or build_agents)(settings, ctx, llm)
+    ctx.agents = agents or (
+        agent_factory(settings, ctx, llm)
+        if agent_factory
+        else build_agents(settings, ctx, llm, fallback=settings.llm_fallback)
+    )
     ctx.search = BreakerSearch(MeteredSearch(ctx.search, ctx.meter), settings)
     heartbeat = Heartbeat(ctx)
     heartbeat.start()

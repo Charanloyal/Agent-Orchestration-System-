@@ -23,6 +23,8 @@ describe("describeEvent", () => {
     [event("tool_calls_abandoned", { count: 1, reservations: 2 }),
       "Recovered from a stopped worker: 1 interrupted tool call(s) and 2 unsettled budget reservation(s) recorded as possibly billed"],
     [event("something_new", {}), "something new"],
+    [event("plan_proposed", { version: 1, tasks: 3, provider: "fake", fallback_reason: "HTTP 400: API key not valid" }),
+      "Plan v1 proposed with 3 task(s), by the deterministic fallback (model failed: HTTP 400: API key not valid)"],
   ])("describes %o", (input, expected) => {
     expect(describeEvent(input)).toBe(expected);
   });

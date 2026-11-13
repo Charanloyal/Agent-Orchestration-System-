@@ -61,8 +61,15 @@ export const REVIEW_OUTCOMES: Record<string, string> = {
 
 export const SEVERITY_TONES: Record<Severity, Tone> = { blocker: "danger", major: "warning", minor: "neutral" };
 
-/** One readable sentence per timeline event. Payloads are structured summaries only. */
+/** One readable sentence per timeline event. Payloads are structured summaries only. A step
+ *  the deterministic agent did because the model failed says so (ADR 0030). */
 export function describeEvent(event: RunEvent): string {
+  const text = describeEventBody(event);
+  const reason = event.payload.fallback_reason;
+  return reason ? `${text}, by the deterministic fallback (model failed: ${str(reason)})` : text;
+}
+
+function describeEventBody(event: RunEvent): string {
   const p = event.payload;
   switch (event.type) {
     case "run_created":

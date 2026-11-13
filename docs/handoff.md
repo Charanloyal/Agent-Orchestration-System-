@@ -19,6 +19,11 @@ Current state (2026-11-13 15:00): main = release/deploy-ready, pushed after this
   composite instead), a 5th "humanizer" agent inside the run workflow (the Style studio uses
   the same engine but is not a run step), one-click admin demo login, hard-coded admin emails.
   Not built: multi-document contradiction matrix.
+  Hotfix (ADR 0030): the live Gemini run failed at planning with a bare "HTTP 400". Errors
+  now carry Google's message (key masked), so Settings -> Test connection shows the real
+  reason (most often "API key not valid": paste the key again). Non-key 400s retry once with
+  plain settings; permanent model errors fall back to the deterministic agent, labelled in the
+  timeline and on the plan/report. Retry the failed run after deploying.
   Earlier: smoke_prod.py 27/27 on 29449a6; check 12 (a) PASSED with AOS_TRUSTED_PROXY_HOPS=3
   (measured with /network-check; attempts 1-30 reach Google, 31-32 rate-limited despite
   forged headers). Records in docs/operations/rehearsals.md and records/. OPEN (owner, in the

@@ -129,6 +129,24 @@ def build_llm(settings: Settings, provider: str, model: str, api_key: str) -> Ll
     return OpenAICompatibleLlm(overrides, api_key=api_key)
 
 
+def default_llm(settings: Settings) -> LlmProvider:
+    """The deployment's model from the environment. A Gemini key uses the native API, which
+    accepts the agents' JSON mode reliably, rather than Gemini's OpenAI-compatible endpoint."""
+    base = settings.llm_base_url or ""
+    if (
+        settings.llm_api_style == "openai"
+        and "generativelanguage.googleapis.com" in base
+        and settings.llm_api_key
+    ):
+        return GeminiLlm(
+            settings.llm_api_key.get_secret_value(),
+            settings.llm_model,
+            temperature=settings.llm_temperature,
+            timeout_seconds=settings.llm_timeout_seconds,
+        )
+    return OpenAICompatibleLlm(settings)
+
+
 def workspace_llm(db: Session, settings: Settings, workspace_id: uuid.UUID) -> LlmProvider | None:
     """The workspace's own model, or None to use the deployment's engine."""
     config = db.get(WorkspaceAiConfig, workspace_id)
@@ -143,7 +161,7 @@ def engine_llm(db: Session, settings: Settings, workspace_id: uuid.UUID) -> LlmP
     own = workspace_llm(db, settings, workspace_id)
     if own is not None:
         return own
-    return OpenAICompatibleLlm(settings) if settings.agent_mode == "llm" else None
+    return default_llm(settings) if settings.agent_mode == "llm" else None
 
 
 @dataclass(frozen=True)

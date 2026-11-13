@@ -74,6 +74,9 @@ class Settings(BaseSettings):
     llm_max_output_tokens: int = 2500
     llm_seed: int | None = 7
     llm_timeout_seconds: float = 60.0
+    # A step whose model call fails permanently is done by the deterministic agent, labelled
+    # in the timeline and the artifact (ADR 0030). False makes such a run fail instead.
+    llm_fallback: bool = True
 
     # Estimated-cost accounting (FR-09). Configured estimates, not quotes: verify against
     # current provider price pages. Defaults reflect publicly listed small-model pricing.

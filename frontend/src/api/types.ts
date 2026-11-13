@@ -170,6 +170,9 @@ export type Generation = {
   input_tokens?: number;
   output_tokens?: number;
   edited_from?: number;
+  /** Set when the model failed and the deterministic agent did this step (ADR 0030). */
+  fallback_reason?: string;
+  fallback_from?: string;
 };
 
 export type Artifact<T> = {

@@ -59,6 +59,11 @@ been deployed yet; the hosted steps are prepared and listed under *Not done*.
     (`AOS_RATE_STYLE_PER_USER_HOUR`, default 120). Nothing is stored. No detector-evasion
     claims.
 - **Agents page:** what each agent does, its inputs and outputs, and its guards.
+- **Model errors** ([ADR 0030](docs/decisions/0030-labelled-model-fallback.md)): the provider's
+  own message (key masked) in the timeline, the run's failure reason and the settings test;
+  Gemini retries a non-key 400 once with plain generation settings; server-level Gemini keys
+  use the native adapter; a step whose model call fails permanently is done by the
+  deterministic agent and labelled as such (`AOS_LLM_FALLBACK`, default on).
 - **Workspace AI engine** ([ADR 0029](docs/decisions/0029-workspace-model-keys.md)):
   - the first card on workspace Settings: choose Google Gemini, Groq or OpenAI and a model,
     paste a key (show/hide), **Test connection** (latency in ms, saves nothing), **Save**;

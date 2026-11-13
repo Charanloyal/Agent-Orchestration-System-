@@ -212,6 +212,7 @@ All four agents are LLM-backed when `AOS_AGENT_MODE=llm`; fakes are the default.
 | [0027](decisions/0027-style-studio-honest-metrics.md) | Style studio: measured metrics, fact-locked rewrite, no detector-evasion claims; amended for Markdown structure and measured rhythm | Accepted |
 | [0028](decisions/0028-engine-from-provider-keys.md) | The engine follows provider keys in the environment (`auto` modes); amended by 0029 | Accepted |
 | [0029](decisions/0029-workspace-model-keys.md) | Workspace admins save a model key in the app, encrypted (`AOS_SECRETS_KEY`); native Gemini API | Accepted |
+| [0030](decisions/0030-labelled-model-fallback.md) | Provider error details; a permanent model error falls back to the deterministic agent, labelled | Accepted |
 
 ## Session handoff
 
