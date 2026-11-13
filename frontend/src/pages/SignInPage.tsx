@@ -6,7 +6,9 @@ import { fetchHealth } from "../api/health";
 import { useAuthConfig, useDocumentTitle, useMe, useRequestAccess } from "../api/hooks";
 import { signInPath } from "../api/session";
 import type { SignupMode } from "../api/types";
+import { AgentFlow } from "../components/AgentFlow";
 import { Spinner } from "../components/ui";
+import { ThemeToggle } from "../theme";
 
 type Notice = { tone: "danger" | "warning" | "info" | "success"; text: string };
 
@@ -81,36 +83,82 @@ export function SignInPage() {
   if (me.data) return <Navigate to={next} replace />;
 
   return (
-    <div className="signin">
-      <main className="signin-card" id="main">
-        <span className="brand-mark large" aria-hidden="true">
-          ◆
-        </span>
-        <h1>Agent Orchestration System</h1>
-        <p className="muted">Evidence-backed research reports, planned by agents and approved by people.</p>
-        {notice && (
-          <div
-            className={`banner banner-${notice.tone}`}
-            role={notice.tone === "danger" || notice.tone === "warning" ? "alert" : "status"}
-            data-testid="signin-notice"
-          >
-            {notice.text}
+    <div className="portal">
+      <main className="portal-grid" id="main">
+        <header className="portal-hero">
+          <div className="portal-top">
+            <p className="eyebrow">
+              <span className="engine-dot" aria-hidden="true" /> AOS v1.0 · Multi-agent research with human approval
+            </p>
+            <ThemeToggle />
           </div>
-        )}
-        <a className="btn btn-primary btn-block" href={`/api/v1/auth/login?next=${encodeURIComponent(next)}`}>
-          Continue with {provider}
-        </a>
-        {mode === "request" && params.get("status") !== "access_requested" && (
-          <RequestAccess open={error === "not_allowed"} />
-        )}
-        {mode === "invite" && (
-          <p className="small muted">New here? Access is by invitation: ask a workspace admin to invite you.</p>
-        )}
-        <ApiStatus />
+          <h1>Agent Orchestration System</h1>
+          <p className="lead">
+            AI agents plan, research, write and review a cited report. People approve the plan and the exact final
+            version before anything leaves the system.
+          </p>
+        </header>
+
+        <section className="signin-card" aria-labelledby="signin-title">
+          <span className="brand-mark large" aria-hidden="true">
+            ◆
+          </span>
+          <h2 id="signin-title">Sign in</h2>
+          <p className="muted">Evidence-backed research reports, planned by agents and approved by people.</p>
+          {notice && (
+            <div
+              className={`banner banner-${notice.tone}`}
+              role={notice.tone === "danger" || notice.tone === "warning" ? "alert" : "status"}
+              data-testid="signin-notice"
+            >
+              {notice.text}
+            </div>
+          )}
+          <a className="btn btn-primary btn-block btn-large" href={`/api/v1/auth/login?next=${encodeURIComponent(next)}`}>
+            Continue with {provider}
+          </a>
+          {mode === "request" && params.get("status") !== "access_requested" && (
+            <RequestAccess open={error === "not_allowed"} />
+          )}
+          {mode === "invite" && (
+            <p className="small muted">New here? Access is by invitation: ask a workspace admin to invite you.</p>
+          )}
+          <ApiStatus />
+        </section>
+
+        <section className="portal-more" aria-labelledby="portal-how">
+          <h2 id="portal-how" className="visually-hidden">
+            How it works
+          </h2>
+          <AgentFlow label="How a run works" />
+          <ul className="capabilities">
+            {CAPABILITIES.map(([title, text]) => (
+              <li key={title} className="card capability">
+                <h3>{title}</h3>
+                <p className="small muted">{text}</p>
+              </li>
+            ))}
+          </ul>
+        </section>
       </main>
     </div>
   );
 }
+
+const CAPABILITIES = [
+  [
+    "Citation-checked research",
+    "Every claim cites a passage from the run's own evidence; the reviewer flags unsupported figures.",
+  ],
+  [
+    "Two human approval gates",
+    "Approvals bind to an exact plan and report version, and every decision is in the activity log.",
+  ],
+  [
+    "Style studio with a fact lock",
+    "Measure rhythm and templated phrasing, then rewrite for a reader without changing a number, quote or citation.",
+  ],
+] as const;
 
 function RequestAccess({ open }: { open: boolean }) {
   const request = useRequestAccess();
@@ -149,7 +197,7 @@ function RequestAccess({ open }: { open: boolean }) {
 
   return (
     <form className="request-access" onSubmit={submit} aria-labelledby="request-access-title">
-      <h2 id="request-access-title">Request access</h2>
+      <h3 id="request-access-title">Request access</h3>
       <p className="small muted">
         Use the email address you sign in with. An administrator reviews each request; you'll be able to sign
         in once it's approved.

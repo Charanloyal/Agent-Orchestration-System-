@@ -1,4 +1,5 @@
 import { screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 
 import type { Me } from "../api/types";
@@ -48,13 +49,31 @@ describe("AppShell", () => {
   it("labels deployments that use demo agents", async () => {
     render(me("analyst", "fake"));
     await screen.findByText("runs page");
-    expect(screen.getByText("Demo agents")).toHaveAttribute("title", expect.stringContaining("not a language model"));
+    const pill = screen.getByRole("link", { name: "Demo agents" });
+    expect(pill).toHaveAttribute("title", expect.stringContaining("not a language model"));
+    expect(pill).toHaveAttribute("href", `/w/${WS}/agents`);
   });
 
-  it("does not show the demo badge for model-backed deployments", async () => {
-    render(me("analyst", "llm"));
+  it("names the model for model-backed deployments", async () => {
+    const user = me("analyst", "llm");
+    render({ ...user, deployment: { ...user.deployment, llm_model: "llama-3.3-70b-versatile" } });
     await screen.findByText("runs page");
     expect(screen.queryByText("Demo agents")).toBeNull();
+    expect(screen.getByRole("link", { name: "Model agents · llama-3.3-70b-versatile" })).toHaveClass("engine-live");
+  });
+
+  it("switches the colour theme: dark by default, then light, then the system's", async () => {
+    const userEvents = userEvent.setup();
+    window.localStorage.removeItem("aos-theme");
+    render(me("analyst", "fake"));
+    await screen.findByText("runs page");
+    expect(document.documentElement.dataset.theme).toBe("dark");
+    await userEvents.click(screen.getByRole("button", { name: "Colour theme: Dark. Switch to Light" }));
+    expect(document.documentElement.dataset.theme).toBe("light");
+    expect(window.localStorage.getItem("aos-theme")).toBe("light");
+    await userEvents.click(screen.getByRole("button", { name: "Colour theme: Light. Switch to System" }));
+    expect(window.localStorage.getItem("aos-theme")).toBe("system");
+    window.localStorage.removeItem("aos-theme");
   });
 
   it("shows navigation by role", async () => {

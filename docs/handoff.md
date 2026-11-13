@@ -4,24 +4,34 @@ Uses the template from the context prompt (§4). Contains no secrets or private 
 
 ```text
 Project: Agent Orchestration System
-Current state (2026-11-13 04:30): main = release/deploy-ready = 60adbbc, CI green up to
-  26159a4 (60adbbc running at handoff). DEPLOYED at https://aos-web-8b4t.onrender.com
-  (render.free.yaml; last verified live commit 29449a6). The owner must Manual Deploy to ship
-  96df17e..60adbbc: Agents page, Style studio (ADR 0027), glass theme. Code needs no Blueprint
-  sync (no blueprint change). After deploying: footer shows 60adbbc; sign in with Google (the
-  owner replaced the masked client secret on 2026-11-12, not yet confirmed working); open
-  Style studio and run one rewrite.
+Current state (2026-11-13 13:30): main = release/deploy-ready, pushed after this handoff.
+  DEPLOYED at https://aos-web-8b4t.onrender.com (render.free.yaml; last verified live commit
+  29449a6). The owner must ship the new commits: this time the BLUEPRINT CHANGED
+  (AOS_AGENT_MODE=auto, AOS_SEARCH_PROVIDER=auto), so do Blueprint -> Manual sync, then Manual
+  Deploy. After deploying: footer shows the new commit; dark theme, split sign-in page; sign in
+  with Google (secret replaced 2026-11-12, still not confirmed); Style studio -> Load synthetic
+  sample -> Measure and rewrite. To go live: add GROQ_API_KEY (free tier) in aos-web ->
+  Environment, Save, rebuild and deploy; the pill turns green "Model agents ? <model>"
+  (deploy-render.md section 6, ADR 0028). Budget is still USD 0: free tiers only.
+  Declined again (ADR 0027 amendment): "95% humanizer accuracy", Turnitin/GPTZero/Originality
+  pass probabilities, one-click admin demo login, keys in the database, hard-coded admin
+  emails. Not built: multi-document contradiction matrix (needs reliable claim extraction;
+  feasible with a live model, noise without one).
   Earlier: smoke_prod.py 27/27 on 29449a6; check 12 (a) PASSED with AOS_TRUSTED_PROXY_HOPS=3
   (measured with /network-check; attempts 1-30 reach Google, 31-32 rate-limited despite
   forged headers). Records in docs/operations/rehearsals.md and records/. OPEN (owner, in the
   browser): checks 4-11 and 12 (b) of deploy-render.md, both rollback rehearsals, GitHub
   About settings, v1.0.0 tag. Live model: deploy-render.md section 6 (keys in Render's
-  environment; AOS_AGENT_MODE is pinned in the blueprint); budget still USD 0.
+  environment); budget still USD 0.
   Render does not auto-deploy: use Manual Deploy (code) or Blueprint Manual sync (settings).
   Free Postgres expires after about 30 days: upgrade or recreate before the viva.
   PUSH: `powershell -ExecutionPolicy Bypass -File .vscode\push.ps1` (classic token, repo +
   workflow). Tokens pasted in chat on 2026-11-11/12 must be deleted by the owner.
 Commits after the deployment (newest first), all on main:
+  (next) Style studio v2 (Markdown-aware, openers, measured rhythm, voices, rings, exports),
+         obsidian theme + switch, sign-in portal, interactive Agents page, engine from
+         provider keys (ADR 0028). Tests: backend 564 passed / 1 live deselected, ruff + mypy
+         clean; Vitest 17 files / 95 tests; Playwright 14 passed (Chrome channel, CI=1).
   60adbbc ui: glass theme (contrast computed for overlapping aurora); deploy-render.md section 6
   26159a4 Style studio: measured metrics, fact-locked persona rewrite, no detector claims (0027)
   96df17e Agents page; sticky header never covers scrolled-to content
@@ -54,7 +64,7 @@ Commits after M16 (d8de167), in order:
   3d9ddba F13 ADR 0004 superseded; project brief and risk register current
   (this handoff)
 
-Architecture decisions: 0001-0027 (0004 superseded by 0018/0023; 0022 amended by 0026).
+Architecture decisions: 0001-0028 (0004 superseded by 0018/0023; 0022 amended by 0026).
 Database migrations: 0001 ... 0010 (0009 stays compatible with 0010; ADR 0020). Phase C added
   none.
 

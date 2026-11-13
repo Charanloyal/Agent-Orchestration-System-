@@ -2,7 +2,8 @@
 
 import pytest
 
-from app.services.style import PERSONAS, analyze, fact_lock, facts, rewrite, stock_phrases
+from app.services import style
+from app.services.style import PERSONAS, analyze, blocks, fact_lock, facts, rewrite, stock_phrases
 
 BOILERPLATE = (
     "It is important to note that the platform processed 1,250 requests in 2024. "
@@ -117,3 +118,122 @@ def test_but_and_so_survive_a_split() -> None:
 def test_fact_lock_reports_what_a_rewrite_lost() -> None:
     lock = fact_lock("Revenue grew 12% in 2025 [1].", "Revenue grew in 2025.")
     assert lock.total == 3 and lock.preserved == 1 and set(lock.missing) == {"12%", "[1]"}
+
+
+MARKDOWN = (
+    "# Sovereign AI in India\n\n"
+    "In today's rapidly evolving technological landscape, India is building its own compute. "
+    "As nations delve into AI sovereignty, governments are funding GPU clusters.\n\n"
+    "## Key pillars\n\n"
+    "Key pillars driving this foundational transformation include:\n\n"
+    "- The deployment of sovereign GPU clusters in three regions.\n"
+    "- The adoption of shared data platforms by 40% of ministries [3].\n"
+    "1. Moreover, a numbered item stays numbered.\n\n"
+    '> "Compute is the new electricity," an official said in 2024.\n\n'
+    "```\nleverage = 1  # code is never rewritten\n```\n\n"
+    "| Year | GPUs |\n| --- | --- |\n| 2024 | 18,000 |\n"
+)
+
+
+def _shape(text: str) -> list[tuple[str, str]]:
+    return [(b.kind, b.prefix) for b in blocks(text)]
+
+
+@pytest.mark.parametrize("persona", PERSONAS)
+def test_markdown_structure_is_kept_exactly(persona: str) -> None:
+    result = rewrite(MARKDOWN, persona)  # type: ignore[arg-type]
+    assert _shape(result.text) == _shape(MARKDOWN), "same blocks, markers and blank lines"
+    assert result.text.count("\n") == MARKDOWN.count("\n")
+    for verbatim in (
+        '> "Compute is the new electricity," an official said in 2024.',
+        "```\nleverage = 1  # code is never rewritten\n```",
+        "| 2024 | 18,000 |",
+        "# Sovereign AI in India",
+    ):
+        assert verbatim in result.text
+    assert fact_lock(MARKDOWN, result.text).missing == ()
+
+
+def test_templated_openers_are_removed_or_restructured() -> None:
+    text = rewrite(MARKDOWN, "journalist").text
+    assert "In today's" not in text and "delve" not in text
+    assert "India is building its own compute. Nations examine AI sovereignty. Governments are" in text
+    assert "This core transformation rests on:" in text
+    assert "- Deploying sovereign GPU clusters in three regions." in text
+    assert "- Adopting shared data platforms by 40% of ministries [3]." in text
+    assert "1. A numbered item stays numbered." in text
+
+
+def test_inverted_not_only_becomes_two_sentences() -> None:
+    text = "Not only does the new policy cut costs by 12%, but it also improves uptime."
+    assert rewrite(text).text == "The new policy cuts costs by 12%. It also improves uptime."
+    assert (
+        rewrite("Not only is it cheaper, but it is also faster.").text == "It is cheaper. It is also faster."
+    )
+    unsure = "Not only is the old system slow, but it is also costly."
+    assert rewrite(unsure).text == unsure, "left alone when the subject cannot be found safely"
+
+
+def test_noun_phrase_items_with_a_verb_are_left_alone() -> None:
+    item = "- The adoption of cloud tools grew 20% in 2025.\n"
+    assert rewrite(item).text == item
+
+
+def test_single_line_breaks_between_sentences_are_kept() -> None:
+    text = "First line ends here.\nSecond line starts a paragraph.\nThird line is wrapped\nmid sentence."
+    result = rewrite(text)
+    expected = "First line ends here.\nSecond line starts a paragraph.\nThird line is wrapped mid sentence."
+    assert result.text == expected
+    assert analyze(text).paragraphs == 3
+
+
+def test_changes_are_listed_with_their_rules() -> None:
+    result = rewrite(MARKDOWN, "journalist")
+    rules = {rule for change in result.changes for rule in change.rules}
+    assert {"opener", "stock phrase", "noun phrase to action"} <= rules
+    assert all(change.accepted for change in result.changes)
+    assert result.changed_sentences == len(result.changes)
+
+
+def test_vocabulary_diversity_is_a_share_between_zero_and_one() -> None:
+    long_text = " ".join(f"word{n % 30} filler" for n in range(200))
+    assert 0 < analyze(long_text).vocabulary_mattr <= 1
+
+
+def test_each_voice_has_its_own_vocabulary() -> None:
+    text = "We don't think it's basically a very big problem, and approximately 30 individuals agree."
+    assert rewrite(text, "academic").text == (
+        "We do not think it is basically a very large problem, and approximately 30 individuals agree."
+    )
+    assert (
+        rewrite(text, "executive").text
+        == "We don't think it's a big problem, and about 30 individuals agree."
+    )
+    assert rewrite(text, "journalist").text == (
+        "We don't think it's basically a very big problem, and about 30 people agree."
+    )
+    assert (
+        rewrite(text, "technical").text
+        == "We don't think it's a big problem, and about 30 individuals agree."
+    )
+
+
+def test_quoted_words_are_not_edited_but_the_rest_of_the_sentence_is() -> None:
+    text = 'Moreover, the minister said "we leverage robust tools" on Monday.'
+    assert rewrite(text, "journalist").text == 'The minister said "we leverage robust tools" on Monday.'
+
+
+def test_rhythm_changes_only_raise_sentence_length_variation(monkeypatch: pytest.MonkeyPatch) -> None:
+    text = MARKDOWN + "\n" + BOILERPLATE + "\n\n" + UNIFORM
+    with_rhythm = {p: analyze(rewrite(text, p).text).sentence_length_cv for p in PERSONAS}
+    monkeypatch.setattr(style, "_rhythm", lambda parts, persona: (parts, []))
+    for persona in PERSONAS:
+        assert with_rhythm[persona] >= analyze(rewrite(text, persona).text).sentence_length_cv, persona
+
+
+def test_uniform_short_sentences_are_joined_when_that_varies_the_rhythm() -> None:
+    text = "Costs fell in May. It surprised staff. Sales rose in June. They beat targets."
+    result = rewrite(text, "journalist")
+    assert result.text.startswith("Costs fell in May, and it surprised staff.")
+    assert analyze(result.text).sentence_length_cv > analyze(text).sentence_length_cv
+    assert [c.rules for c in result.changes] == [("rhythm",)]

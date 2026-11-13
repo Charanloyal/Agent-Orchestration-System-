@@ -5,8 +5,11 @@ captured from the real application by `frontend/e2e/screenshots.spec.ts`, using 
 deterministic **demo agents** (no language model). Re-capture them with
 `$env:AOS_SCREENSHOTS=1; npx playwright test screenshots` from `frontend/`.
 
-> The amber **Demo agents** badge in the top bar means the deployment uses fake agents.
-> Reports then show how the workflow behaves, not how good a model's research would be.
+> The amber **Demo agents** pill in the top bar means the deployment uses fake agents.
+> Reports then show how the workflow behaves, not how good a model's research would be. A
+> green **Model agents ? <model>** pill names the language model instead. Either pill opens
+> the **Agents** page, which shows the workflow step by step: select a step to see its
+> inputs, outputs, tools, prompt version and guards.
 
 ## Roles
 
@@ -194,29 +197,53 @@ immutable record, until the run itself is deleted.
 
 ### Style studio
 
+![Style studio with measurements, rhythm chart and the formatted rewrite](assets/screenshots/19-style-studio.png)
+
 **Style studio** (every workspace member) measures a piece of writing and rewrites it for a
-chosen reader. Paste up to 50,000 characters, or choose an uploaded document (the **Style**
-link next to each document opens it here). Then pick a voice and select **Measure and rewrite**:
+chosen reader. Paste up to 50,000 characters of plain text or Markdown, choose an uploaded
+document (the **Style** link next to each document opens it here), or select **Load synthetic
+sample** (a draft whose figures are invented, written in a templated style). Then pick a voice
+and select **Measure and rewrite**.
 
-| Voice | What changes |
+What every voice does:
+
+- removes templated openers ("In today's rapidly evolving ? landscape,", "In conclusion,",
+  "It is important to note that") and stock phrases ("delve into", "a testament to");
+- splits "As nations delve into X, Y" and "Not only does X ?, but it also ?" into two plain
+  sentences;
+- turns noun-phrase list items into actions ("The deployment of clusters" ? "Deploying
+  clusters");
+- varies the rhythm: a long sentence is split, or two short ones are joined, only when that
+  measurably raises the sentence-length variation.
+
+| Voice | Its own choices |
 | --- | --- |
-| Journalist | Short, direct sentences; stock phrases removed |
-| Executive | Short sentences; stock phrases removed |
-| Academic | Long sentences kept; formal transitions such as "moreover" kept |
-| Technical | Medium sentences; stock phrases removed, but "robust" and "consequently" kept |
+| Journalist | Plain verbs ("purchase" ? "buy", "individuals" ? "people"); splits sentences over 18 words |
+| Executive | Drops hedges ("basically", "very", "arguably"); splits sentences over 16 words |
+| Academic | Keeps formal transitions ("moreover"); expands contractions; splits only past 32 words |
+| Technical | Drops vague intensifiers; keeps "robust" and "consequently"; splits past 26 words |
 
-The page shows each measurement before and after the rewrite:
+Headings, lists, block quotes, code and tables keep their place. Quotes, code and tables are
+never edited, and neither is any quoted wording inside a sentence.
 
-- **Sentence-length variation:** how much sentence lengths differ. Uniform lengths read flat.
-- **Vocabulary diversity:** the share of distinct words, averaged over 50-word windows.
-- **Stock phrases per 1,000 words:** phrases such as "it is important to note that". The
-  sentences that contain them are highlighted.
-- **Facts preserved:** numbers, dates, percentages, quoted text, citations and links, compared
-  exactly. Any change that would alter one is rejected, so this should always read *n / n*.
+The page shows:
 
-**Download .md** saves the rewritten text. Nothing is stored. The measurements describe the
-text; they are not a prediction of who or what wrote it, and the studio does not try to get
-past AI-detection tools ([ADR 0027](decisions/0027-style-studio-honest-metrics.md)).
+- **Four measurements as rings.** The outer arc is the value after the rewrite and the inner
+  arc the value before; the numbers are next to each ring.
+  - *Sentence-length variation:* how much sentence lengths differ (uniform lengths read flat).
+  - *Vocabulary diversity:* the share of distinct words, averaged over 50-word windows.
+  - *Stock phrases per 1,000 words:* templated wording. The sentences that contain it are
+    highlighted in the original.
+  - *Facts preserved:* numbers, dates, percentages, quoted text, citations and links, compared
+    exactly. A change that would alter one is rejected, so this should always read 100%.
+- **Sentence rhythm:** one bar per sentence, before and after.
+- **Document** tabs: the rewritten and the original text formatted as Markdown, **Changes**
+  (every changed sentence, with the rule that changed it) and the **Markdown** source.
+
+**Download .md**, **.txt** or **.docx** saves the rewritten text, and **Copy text** copies it
+without Markdown marks. Nothing is stored. The measurements describe the text; they are not
+a prediction of who or what wrote it. The studio reports no "AI detector" scores and does not
+try to get past such tools ([ADR 0027](decisions/0027-style-studio-honest-metrics.md)).
 
 ## 9. Workspace settings (admins)
 
@@ -244,16 +271,19 @@ Platform admins see **Access** in the top bar, with the number of requests waiti
   Removing someone signs them out everywhere and revokes their pending invitations; their
   memberships and work stay, so access can be restored.
 
-## 11. Mobile, dark mode and accessibility
+## 11. Mobile, themes and accessibility
 
 ![Run page on a phone](assets/screenshots/12-mobile-run.png)
 
 - Every page works on screens 360 px wide: the top bar compacts, the stepper wraps into a
   grid, and tables keep their essential columns.
-- **Dark mode** follows your operating system setting, with the same contrast as the light
-  theme.
+- The app opens in the **dark** theme. The moon/sun button in the top bar (and on the sign-in
+  page) switches between **Dark**, **Light** and **System** (follow the operating system);
+  the choice is remembered in this browser. Both themes keep WCAG AA contrast.
 
-![Dark mode](assets/screenshots/17-dark-mode.png)
+![Dark theme](assets/screenshots/17-dark-mode.png)
+
+![Light theme](assets/screenshots/18-light-mode.png)
 
 - A **Skip to content** link is the first focusable element on every page, and every page
   sets a descriptive browser title.
@@ -261,6 +291,6 @@ Platform admins see **Access** in the top bar, with the number of requests waiti
 - All controls work with the keyboard. Confirmations take focus, and Escape backs out.
 - Notifications appear bottom-right (bottom of the screen on phones). Screen readers
   announce them.
-- Every page is checked against WCAG 2.2 A/AA rules with axe-core, in light and dark mode,
+- Every page is checked against WCAG 2.2 A/AA rules with axe-core, in the light and dark themes,
   on every test run. Manual screen-reader checks are listed in
   [product/accessibility-checklist.md](product/accessibility-checklist.md).

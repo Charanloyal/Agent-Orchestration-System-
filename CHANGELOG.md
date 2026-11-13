@@ -63,6 +63,33 @@ been deployed yet; the hosted steps are prepared and listed under *Not done*.
   and a gradient primary button. Aurora strength and glass opacity are capped so text keeps
   WCAG AA contrast in light and dark mode. Opaque fallbacks apply without `backdrop-filter`,
   with reduced transparency and in forced colours. Screenshots regenerated.
+- **Obsidian theme, dark by default:**
+  - deep-space backdrop with three slowly drifting colour orbs and a dot grid; frosted glass
+    cards; a theme switch (Dark, Light, System) remembered per browser;
+  - contrast computed for the worst case (two orbs overlapping under a card), with orbs
+    capped at 16% and dark-mode muted and link colours brightened to keep at least 5:1;
+  - wider pages (1,440 px) and a 12-column bento grid for dashboards.
+- **Sign-in portal:** a split screen with the product summary, the real workflow (four agents
+  and two approval gates, with animated hand-offs) and three capability cards beside the
+  sign-in card.
+- **Agents page:** an interactive workflow; selecting a step shows its inputs, outputs, tools,
+  prompt version and guards, plus this deployment's engine and search provider.
+- **Engine from provider keys** ([ADR 0028](docs/decisions/0028-engine-from-provider-keys.md)):
+  - `AOS_AGENT_MODE=auto` and `AOS_SEARCH_PROVIDER=auto` use a live service when a key is set;
+  - `GROQ_API_KEY`, `GEMINI_API_KEY`, `OPENAI_API_KEY` and `TAVILY_API_KEY` are detected with
+    the provider's endpoint and a default model;
+  - `render.free.yaml` uses `auto`;
+  - the top bar shows **Model agents · <model>** or **Demo agents**. Keys stay in the
+    environment.
+- **Style studio, second version** ([ADR 0027](docs/decisions/0027-style-studio-honest-metrics.md),
+  amendment):
+  - Markdown-aware: headings, lists, quotes, code, tables and paragraph breaks are kept;
+  - templated openers are removed or restructured;
+  - rhythm changes are kept only if they raise the measured variation;
+  - each voice has its own vocabulary;
+  - the page has measurement rings, a rhythm chart, a formatted preview, a list of changes,
+    .md/.txt/.docx export, copy and a synthetic sample.
+  - Fixed: the vocabulary-diversity measure was not divided by the window size.
 - Deployment guide §6: switching the hosted app to a live model with Render environment
   variables (keys never in the repository or the settings page).
 - `GET /network-check?address=`: reports where a given address appears in `X-Forwarded-For`

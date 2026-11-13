@@ -33,7 +33,12 @@ export type Me = {
   display_name: string;
   csrf_token: string;
   memberships: Membership[];
-  deployment: { environment: string; agent_mode: "fake" | "llm" };
+  deployment: {
+    environment: string;
+    agent_mode: "fake" | "llm";
+    llm_model?: string | null;
+    search_provider?: "fake" | "tavily" | "corpus";
+  };
   is_platform_admin: boolean;
   can_create_workspace: boolean;
 };
@@ -345,7 +350,17 @@ export type StyleReport = {
   paragraph_length_cv: number;
   flagged: number[];
   sentence_list: StyleSentence[];
+  blocks: StyleBlock[];
 };
+export type StyleBlockKind = "heading" | "paragraph" | "item" | "quote" | "verbatim" | "blank";
+export type StyleBlock = {
+  kind: StyleBlockKind;
+  prefix: string;
+  text: string;
+  first_sentence: number;
+  sentence_count: number;
+};
+export type StyleChange = { before: string; after: string; rules: string[]; accepted: boolean };
 export type StyleSourceInput = { text: string } | { upload_id: string };
 export type StyleRewrite = {
   source: string;
@@ -358,4 +373,5 @@ export type StyleRewrite = {
   passes: number;
   changed_sentences: number;
   rejected_changes: number;
+  changes: StyleChange[];
 };

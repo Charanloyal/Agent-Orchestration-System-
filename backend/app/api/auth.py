@@ -216,6 +216,9 @@ class MembershipOut(BaseModel):
 class DeploymentOut(BaseModel):
     environment: str
     agent_mode: str
+    # Model and search provider names (never keys), so people can see which engine runs.
+    llm_model: str | None = None
+    search_provider: str = "fake"
 
 
 class MeOut(BaseModel):
@@ -247,7 +250,12 @@ def me(principal: CurrentPrincipal, db: DbSession, settings: AppSettings) -> MeO
         display_name=principal.display_name,
         csrf_token=principal.csrf_token,
         memberships=[MembershipOut(workspace_id=w, workspace_name=n, role=r) for w, n, r in rows],
-        deployment=DeploymentOut(environment=settings.env, agent_mode=settings.agent_mode),
+        deployment=DeploymentOut(
+            environment=settings.env,
+            agent_mode=settings.agent_mode,
+            llm_model=settings.llm_model if settings.agent_mode == "llm" else None,
+            search_provider=settings.search_provider,
+        ),
         is_platform_admin=settings.is_platform_admin(principal.email),
         can_create_workspace=can_create_workspace(settings, principal.email),
     )

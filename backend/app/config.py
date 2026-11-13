@@ -18,6 +18,15 @@ def _is_local_url(url: str) -> bool:
     return host in ("localhost", "127.0.0.1", "::1", "0.0.0.0") or host.endswith(".localhost")  # noqa: S104
 
 
+# Provider key variables read when AOS_LLM_API_KEY is unset, in this order:
+# (variable, OpenAI-compatible base URL or None for OpenAI itself, default model).
+_LLM_PROVIDERS: tuple[tuple[str, str | None, str], ...] = (
+    ("GROQ_API_KEY", "https://api.groq.com/openai/v1", "llama-3.3-70b-versatile"),
+    ("GEMINI_API_KEY", "https://generativelanguage.googleapis.com/v1beta/openai/", "gemini-2.5-flash"),
+    ("OPENAI_API_KEY", None, "gpt-4o-mini"),
+)
+
+
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="AOS_", env_file=BACKEND_DIR / ".env", extra="ignore", frozen=True
@@ -47,7 +56,8 @@ class Settings(BaseSettings):
     # (for example inside Docker Compose). The `iss` claim is still checked against oidc_issuer.
     oidc_backchannel_url: str | None = None
 
-    # Workflow execution
+    # Workflow execution. `auto` (read once at start-up): model agents when an LLM key is
+    # configured (AOS_LLM_API_KEY, GROQ_API_KEY, GEMINI_API_KEY or OPENAI_API_KEY), demo otherwise.
     agent_mode: Literal["fake", "llm"] = "fake"
     # LLM provider (ADR 0002): any OpenAI-compatible chat-completions endpoint.
     llm_api_style: Literal["openai", "azure"] = "openai"
@@ -68,7 +78,7 @@ class Settings(BaseSettings):
     price_llm_input_per_million: float = 0.15
     price_llm_output_per_million: float = 0.60
     price_search_per_credit: float = 0.008
-    search_provider: Literal["fake", "tavily", "corpus"] = "fake"
+    search_provider: Literal["fake", "tavily", "corpus"] = "fake"  # or `auto`: tavily when a key is set
     tavily_api_key: SecretStr | None = None
     corpus_dir: Path = BACKEND_DIR.parent / "eval" / "corpus" / "v1"
     object_store_dir: Path = BACKEND_DIR / ".data" / "objects"
@@ -192,6 +202,33 @@ class Settings(BaseSettings):
 
     def is_platform_admin(self, email: str | None) -> bool:
         return email is not None and email.lower() in self.platform_admin_set
+
+    @model_validator(mode="before")
+    @classmethod
+    def _provider_keys(cls, data: Any) -> Any:
+        """A provider's own key variable (GROQ_API_KEY, GEMINI_API_KEY, OPENAI_API_KEY,
+        TAVILY_API_KEY) configures the client when the AOS_ variable is not set, with that
+        provider's endpoint and a default model. `auto` modes use the live service when a key
+        is configured and the deterministic fakes otherwise. Keys stay in the environment."""
+        if not isinstance(data, dict):
+            return data
+        out = dict(data)
+        if not out.get("llm_api_key"):
+            for variable, base_url, model in _LLM_PROVIDERS:
+                if key := os.environ.get(variable):
+                    out["llm_api_key"] = key
+                    if base_url and not out.get("llm_base_url"):
+                        out["llm_base_url"] = base_url
+                    out.setdefault("llm_model", model)
+                    break
+        if not out.get("tavily_api_key") and (tavily := os.environ.get("TAVILY_API_KEY")):
+            out["tavily_api_key"] = tavily
+        if out.get("agent_mode") == "auto":
+            has_key = bool(out.get("llm_api_key")) or out.get("llm_api_style") == "azure"
+            out["agent_mode"] = "llm" if has_key else "fake"
+        if out.get("search_provider") == "auto":
+            out["search_provider"] = "tavily" if out.get("tavily_api_key") else "fake"
+        return out
 
     @model_validator(mode="before")
     @classmethod

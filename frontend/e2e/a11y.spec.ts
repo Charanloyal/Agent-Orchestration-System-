@@ -42,19 +42,26 @@ async function visitAll(page: Page, runUrl: string, check: (label: string) => Pr
   await check("not found");
 }
 
-test("every page passes axe in light and dark mode", async ({ page }) => {
+async function setTheme(page: Page, theme: "light" | "dark"): Promise<void> {
+  await page.evaluate((value) => window.localStorage.setItem("aos-theme", value), theme);
+}
+
+test("every page passes axe in dark and light themes", async ({ page }) => {
   await page.goto("/signin");
   await page.getByRole("button", { name: "Request access" }).click();
-  await expectNoA11yViolations(page, "sign-in");
-  await page.emulateMedia({ colorScheme: "dark" });
   await expectNoA11yViolations(page, "sign-in (dark)");
-  await page.emulateMedia({ colorScheme: "light" });
+  await setTheme(page, "light");
+  await page.reload();
+  await page.getByRole("button", { name: "Request access" }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await expectNoA11yViolations(page, "sign-in (light)");
 
   await signIn(page, "Carol Admin");
   const runUrl = await submitBrief(page);
-  await visitAll(page, runUrl, (label) => expectNoA11yViolations(page, label));
-  await page.emulateMedia({ colorScheme: "dark" });
+  await visitAll(page, runUrl, (label) => expectNoA11yViolations(page, `${label} (light)`));
+  await setTheme(page, "dark");
   await visitAll(page, runUrl, (label) => expectNoA11yViolations(page, `${label} (dark)`));
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
 });
 
 test("every page fits a 360 px wide screen", async ({ page }) => {

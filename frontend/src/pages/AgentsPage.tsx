@@ -1,64 +1,38 @@
-import { useOutletContext } from "react-router";
+import { useState } from "react";
+import { Link, useOutletContext, useParams } from "react-router";
 
 import { useDocumentTitle } from "../api/hooks";
 import type { Me } from "../api/types";
+import { AgentFlow, FLOW } from "../components/AgentFlow";
 import { Card } from "../components/ui";
 
-type Agent = { name: string; does: string; input: string; output: string; guards: string[] };
+const SEARCH_LABELS: Record<string, string> = {
+  fake: "Deterministic demo sources",
+  tavily: "Tavily web search",
+  corpus: "Offline evaluation corpus",
+};
 
-// The four agents of the workflow (backend/app/agents), in the order a run uses them.
-const AGENTS: Agent[] = [
-  {
-    name: "Planner",
-    does: "Turns the brief into a typed research plan: tasks, their dependencies, tools and the report outline.",
-    input: "The brief: topic, audience, research questions, source policy and limits.",
-    output: "A versioned plan that a person approves, edits or rejects.",
-    guards: ["JSON-schema contract for the plan", "Human approval of the exact plan version before any research"],
-  },
-  {
-    name: "Researcher",
-    does: "Runs one plan task: searches, fetches pages or workspace documents, and extracts passages with provenance.",
-    input: "One task with its questions and the brief's source policy.",
-    output: "Evidence passages with source, retrieval date and hash.",
-    guards: [
-      "Several researchers run in parallel, bounded by the brief's limits",
-      "SSRF-safe fetcher and domain allow/block lists",
-      "Budget reserved before every model or search call",
-    ],
-  },
-  {
-    name: "Writer",
-    does: "Drafts the report from the collected evidence only; every claim is labelled and cited.",
-    input: "The approved plan and this run's evidence.",
-    output: "A report version whose citations point at this run's passages.",
-    guards: ["Citations validated against this run's evidence", "Revises the draft when the reviewer finds blockers"],
-  },
-  {
-    name: "Reviewer",
-    does: "Checks claims against their cited passages and flags unsupported figures, gaps and conflicts.",
-    input: "The draft and the passages it cites.",
-    output: "Findings by severity; blockers send the draft back to the writer.",
-    guards: [
-      "Deterministic support checks plus the model",
-      "at most 2 review rounds, then the run needs attention",
-      "Human approval of the exact final report version before an approved export",
-    ],
-  },
-];
-
-/** The agents behind every run, so users and examiners can see what each one does and which
- *  rules constrain it. Describes the real workflow; nothing here changes how runs execute. */
+/** The agents and approval gates behind every run, so users and examiners can see what each
+ *  does and which rules constrain it. Describes the real workflow; nothing here changes how
+ *  runs execute. */
 export function AgentsPage() {
   useDocumentTitle("Agents");
   const me = useOutletContext<Me>();
+  const { workspaceId = "" } = useParams();
   const live = me.deployment?.agent_mode === "llm";
+  const [selected, setSelected] = useState("planner");
+  const step = FLOW.find((s) => s.id === selected) ?? FLOW[0];
+  const agents = FLOW.filter((s) => s.kind === "agent").length;
 
   return (
     <div className="stack">
       <div className="page-header">
         <div>
           <h1>Agents</h1>
-          <p className="muted">The four agents that turn a brief into an approved, cited report.</p>
+          <p className="muted">
+            {agents} agents and two human approval gates turn a brief into an approved, cited report. Select a step
+            to see what it does and what constrains it.
+          </p>
         </div>
         <span className={`badge ${live ? "badge-success" : "badge-waiting"}`} data-testid="agent-mode">
           {live ? "Language-model agents" : "Deterministic demo agents"}
@@ -66,34 +40,71 @@ export function AgentsPage() {
       </div>
       {!live && (
         <p className="small muted">
-          This deployment runs deterministic demo agents: the workflow, approvals, citations and
-          recovery are real, but the text is not written by a language model.
+          This deployment runs deterministic demo agents: the workflow, approvals, citations and recovery are real,
+          but the text is not written by a language model.
         </p>
       )}
-      <ol className="agent-list" aria-label="Agents in pipeline order">
-        {AGENTS.map((agent, index) => (
-          <li key={agent.name}>
-            <Card>
-              <div className="agent-head">
-                <span className="agent-step" aria-hidden="true">{index + 1}</span>
-                <h2>{agent.name}</h2>
-              </div>
-              <p>{agent.does}</p>
-              <dl className="agent-io">
-                <dt>Input</dt>
-                <dd>{agent.input}</dd>
-                <dt>Output</dt>
-                <dd>{agent.output}</dd>
-              </dl>
-              <ul className="agent-guards">
-                {agent.guards.map((guard) => (
-                  <li key={guard}>{guard}</li>
-                ))}
-              </ul>
-            </Card>
-          </li>
-        ))}
-      </ol>
+
+      <Card title="Workflow" className="flow-card">
+        <AgentFlow selected={selected} onSelect={setSelected} />
+        <p className="small muted flow-note">
+          The reviewer can send a draft back to the writer at most twice. A run waiting for a person holds no worker.
+        </p>
+      </Card>
+
+      {step && (
+        <div className="bento">
+          <section className="card flow-drawer span-8" aria-labelledby="step-title" aria-live="polite">
+            <header className="card-header">
+              <h2 id="step-title">{step.name}</h2>
+              <span className={`badge ${step.kind === "human" ? "badge-waiting" : "badge-progress"}`}>
+                {step.kind === "human" ? "Human approval" : "Agent"}
+              </span>
+            </header>
+            <p>{step.does}</p>
+            <dl className="agent-io">
+              <dt>Input</dt>
+              <dd>{step.input}</dd>
+              <dt>Output</dt>
+              <dd>{step.output}</dd>
+              {step.tools.length > 0 && (
+                <>
+                  <dt>Tools</dt>
+                  <dd>{step.tools.join(" · ")}</dd>
+                </>
+              )}
+              {step.prompt && (
+                <>
+                  <dt>Prompt</dt>
+                  <dd>
+                    <code>{step.prompt}</code> (recorded with every artifact it produces)
+                  </dd>
+                </>
+              )}
+            </dl>
+            <h3>Guards</h3>
+            <ul className="agent-guards">
+              {step.guards.map((guard) => (
+                <li key={guard}>{guard}</li>
+              ))}
+            </ul>
+          </section>
+          <Card title="This deployment" className="span-4">
+            <dl className="agent-io">
+              <dt>Engine</dt>
+              <dd>{live ? `Language model: ${me.deployment.llm_model ?? "configured"}` : "Deterministic demo agents"}</dd>
+              <dt>Search</dt>
+              <dd>{SEARCH_LABELS[me.deployment?.search_provider ?? "fake"] ?? me.deployment?.search_provider}</dd>
+              <dt>Budget</dt>
+              <dd>Each brief sets a spending limit; every model or search call reserves its cost first.</dd>
+            </dl>
+            <p className="small muted">
+              Per-run calls, tokens and costs are on each run's cost card and on the{" "}
+              <Link to={`/w/${workspaceId}/usage`}>usage page</Link>.
+            </p>
+          </Card>
+        </div>
+      )}
     </div>
   );
 }

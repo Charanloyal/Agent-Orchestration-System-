@@ -60,6 +60,15 @@ test("capture documentation screenshots", async ({ page, browser }) => {
   await expect(page.getByRole("table", { name: "Workspace activity log" })).toBeVisible();
   await shot(page, "11-activity-log", false);
 
+  await page.getByRole("navigation", { name: "Workspace" }).getByRole("link", { name: "Style studio" }).click();
+  await page.getByRole("button", { name: "Load synthetic sample" }).click();
+  await page.getByRole("button", { name: "Measure and rewrite" }).click();
+  await expect(page.getByTestId("fact-lock")).toBeVisible();
+  await shot(page, "19-style-studio");
+  await page.getByRole("navigation", { name: "Workspace" }).getByRole("link", { name: "Agents" }).click();
+  await page.getByRole("button", { name: /Reviewer/ }).click();
+  await shot(page, "20-agents", false);
+
   const phone = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 });
   await signIn(phone, "Alice Analyst");
   await phone.goto(runUrl);
@@ -73,4 +82,12 @@ test("capture documentation screenshots", async ({ page, browser }) => {
   await expect(dark.getByTestId("run-state")).toHaveText("Succeeded");
   await shot(dark, "17-dark-mode", false);
   await dark.close();
+
+  const light = await browser.newPage({ viewport: { width: 1360, height: 900 } });
+  await light.addInitScript(() => window.localStorage.setItem("aos-theme", "light"));
+  await signIn(light, "Bob Reviewer");
+  await light.goto(runUrl);
+  await expect(light.getByTestId("run-state")).toHaveText("Succeeded");
+  await shot(light, "18-light-mode", false);
+  await light.close();
 });

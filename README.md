@@ -30,11 +30,13 @@ brief ──▶ planner ──▶ [HUMAN: approve plan] ──▶ researchers (p
 The two **human approval gates** bind to a version and a digest: approving plan v2 never
 approves an edited v3, and the export records who approved which exact report.
 
-**Style studio.** A separate page measures any pasted text or uploaded document (sentence-length
-variation, vocabulary diversity, stock phrases per 1,000 words) and rewrites it for a journalist,
-academic, executive or technical reader. Numbers, dates, quotes, citations and links are locked, so
-a change that would alter one is rejected. The metrics describe the text; they do not predict who
-or what wrote it, and the feature makes no detector-evasion claims
+**Style studio.** A separate page measures any pasted text, Markdown or uploaded document
+(sentence-length variation, vocabulary diversity, stock phrases per 1,000 words) and rewrites it
+for a journalist, academic, executive or technical reader. Templated openers ("In today's
+rapidly evolving…") are removed, and rhythm changes are kept only when they measurably vary
+sentence length. Headings, lists and quotes keep their place. Numbers, dates, quotes, citations
+and links are locked, so a change that would alter one is rejected. The metrics describe the
+text; they do not predict who or what wrote it, and the feature makes no detector-evasion claims
 ([ADR 0027](docs/decisions/0027-style-studio-honest-metrics.md)).
 
 ```mermaid
@@ -343,21 +345,22 @@ Everything runs on deterministic fakes by default. To use a real model, add the 
 `backend/.env`. The project ceiling is **USD 10** ([ADR 0005](docs/decisions/0005-spending-ceiling.md)).
 
 ```text
-AOS_AGENT_MODE=llm
-# OpenAI:
-AOS_LLM_API_KEY=<key>
-AOS_LLM_MODEL=gpt-4o-mini
-# ...or Groq: AOS_LLM_BASE_URL=https://api.groq.com/openai/v1 and a Groq model name
+AOS_AGENT_MODE=auto          # model agents when a key below is set, demo agents otherwise
+GROQ_API_KEY=<key>           # or GEMINI_API_KEY / OPENAI_API_KEY: endpoint and model are chosen for you
+# ...or any OpenAI-compatible endpoint:
+# AOS_LLM_API_KEY=<key>, AOS_LLM_BASE_URL=<url>, AOS_LLM_MODEL=<model>
 # ...or local Ollama (free): AOS_LLM_BASE_URL=http://127.0.0.1:11434/v1, AOS_LLM_MODEL=llama3.1
 # ...or Azure OpenAI: AOS_LLM_API_STYLE=azure, AOS_LLM_AZURE_ENDPOINT=..., AOS_LLM_MODEL=<deployment>
-AOS_SEARCH_PROVIDER=tavily
-AOS_TAVILY_API_KEY=<key>
+AOS_SEARCH_PROVIDER=auto     # Tavily web search when TAVILY_API_KEY is set
+TAVILY_API_KEY=<key>
 ```
 
 Opt-in live smoke test (one small planner call): `$env:AOS_LIVE_TESTS="1"; .\.venv\Scripts\python.exe -m pytest -m live -s tests/live`.
 
-On Render, keys go in the service's environment, never in the repository; follow
-[deploy-render.md §6](docs/operations/deploy-render.md#6-optional-switch-the-hosted-app-to-a-live-model).
+On Render, `render.free.yaml` already uses `auto`: add `GROQ_API_KEY` (or another provider's key)
+in the service's Environment tab and save. Keys never go in the repository or the database
+([deploy-render.md §6](docs/operations/deploy-render.md#6-optional-switch-the-hosted-app-to-a-live-model),
+[ADR 0028](docs/decisions/0028-engine-from-provider-keys.md)).
 
 ### Evaluation
 

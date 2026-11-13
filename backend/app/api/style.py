@@ -41,6 +41,14 @@ class SentenceOut(BaseModel):
     phrases: list[str]
 
 
+class BlockOut(BaseModel):
+    kind: str
+    prefix: str
+    text: str
+    first_sentence: int
+    sentence_count: int
+
+
 class ReportOut(BaseModel):
     words: int
     sentences: int
@@ -56,6 +64,14 @@ class ReportOut(BaseModel):
     paragraph_length_cv: float
     flagged: list[int]
     sentence_list: list[SentenceOut]
+    blocks: list[BlockOut]
+
+
+class ChangeOut(BaseModel):
+    before: str
+    after: str
+    rules: list[str]
+    accepted: bool
 
 
 class FactLockOut(BaseModel):
@@ -81,15 +97,17 @@ class RewriteOut(BaseModel):
     passes: int
     changed_sentences: int
     rejected_changes: int
+    changes: list[ChangeOut]
 
 
 def _report(report: style.StyleReport) -> ReportOut:
     return ReportOut(
-        **{k: v for k, v in vars(report).items() if k not in {"flagged", "sentence_list"}},
+        **{k: v for k, v in vars(report).items() if k not in {"flagged", "sentence_list", "blocks"}},
         flagged=list(report.flagged),
         sentence_list=[
             SentenceOut(text=s.text, words=s.words, phrases=list(s.phrases)) for s in report.sentence_list
         ],
+        blocks=[BlockOut(**vars(b)) for b in report.blocks],
     )
 
 
@@ -140,4 +158,8 @@ def rewrite(
         passes=result.passes,
         changed_sentences=result.changed_sentences,
         rejected_changes=result.rejected_changes,
+        changes=[
+            ChangeOut(before=c.before, after=c.after, rules=list(c.rules), accepted=c.accepted)
+            for c in result.changes
+        ],
     )

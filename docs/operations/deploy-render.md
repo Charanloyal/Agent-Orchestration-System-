@@ -27,8 +27,8 @@ each result in [rehearsals.md](rehearsals.md); do not assume.
 | Rollback rehearsals | Supported (redeploy an earlier commit) | Supported | Supported |
 | Database connections, worst case | 43 (pools 5 + 5) | 83 (pools 10 + 10) | 43 (pools 5 + 5) |
 
-All three run the deterministic demo agents (`AOS_AGENT_MODE=fake`) and are labelled as such
-in the UI. All use the access model in [ADR 0021](../decisions/0021-access-model.md) with
+All three start with the deterministic demo agents, labelled as such in the UI;
+`render.free.yaml` switches to a live model when a key is added (section 6). All use the access model in [ADR 0021](../decisions/0021-access-model.md) with
 `AOS_SIGNUP_MODE=request`, and all are in the `singapore` region. Render cannot move a
 service or database to another region after creation.
 
@@ -232,43 +232,47 @@ Merge the release with a merge commit (not a squash), so the 0009 commit exists 
 
 ## 6. Optional: switch the hosted app to a live model
 
-The blueprints run the deterministic demo agents. A live model costs money per call, so first
-agree a budget within the project ceiling (USD 10, [ADR 0005](../decisions/0005-spending-ceiling.md)).
-With a USD 0 budget, use only a provider's free tier.
+`render.free.yaml` sets `AOS_AGENT_MODE=auto` and `AOS_SEARCH_PROVIDER=auto`: the app runs the
+deterministic demo agents until a model key is present, and the live model once one is
+([ADR 0028](../decisions/0028-engine-from-provider-keys.md)). The other two blueprints still pin
+`fake`, because their worker is a separate service that would need the key too.
 
-Keys belong in Render's environment, never in the repository and never in the app's settings
-page: Render stores them encrypted, and the app reads them at start-up. Any OpenAI-compatible
-endpoint works:
+A live model can cost money per call, so first agree a budget within the project ceiling
+(USD 10, [ADR 0005](../decisions/0005-spending-ceiling.md)). With a USD 0 budget, use only a
+provider's free tier (Groq and Google AI Studio offer one; check their current terms).
 
-| Provider | `AOS_LLM_BASE_URL` | `AOS_LLM_MODEL` (example; check the provider's list) |
+Keys belong in Render's environment, never in the repository and never in the app's database
+or settings page: Render stores them encrypted, and the app reads them at start-up. The first
+of these variables that is set decides the provider:
+
+| Variable | Endpoint used | Default model (`AOS_LLM_MODEL` overrides it) |
 | --- | --- | --- |
-| OpenAI | *(leave unset)* | `gpt-4o-mini` |
-| Groq | `https://api.groq.com/openai/v1` | a current Groq model name |
-| Google Gemini | `https://generativelanguage.googleapis.com/v1beta/openai/` | a current Gemini model name |
+| `GROQ_API_KEY` | `https://api.groq.com/openai/v1` | `llama-3.3-70b-versatile` |
+| `GEMINI_API_KEY` | `https://generativelanguage.googleapis.com/v1beta/openai/` | `gemini-2.5-flash` |
+| `OPENAI_API_KEY` | OpenAI | `gpt-4o-mini` |
+| `TAVILY_API_KEY` (optional) | Tavily web search | - |
 
-1. **Try it locally first.** Put the same `AOS_AGENT_MODE=llm` and `AOS_LLM_*` values in
-   `backend/.env` and run the live smoke test (one small planner call):
+`AOS_LLM_API_KEY` with `AOS_LLM_BASE_URL` still works for any other OpenAI-compatible endpoint.
+
+1. **Try it locally first.** Put the same key and `AOS_AGENT_MODE=auto` in `backend/.env` and
+   run the live smoke test (one small planner call):
    `$env:AOS_LIVE_TESTS="1"; .\.venv\Scripts\python.exe -m pytest -m live -s tests/live`.
    If the provider rejects JSON mode, add `AOS_LLM_RESPONSE_FORMAT=none`.
-2. **Add the secrets on Render.** Open **aos-web** → **Environment**, then add
-   `AOS_LLM_API_KEY` (the key itself, not the masked `****` preview), `AOS_LLM_MODEL` and, if
-   needed, `AOS_LLM_BASE_URL`. For web search, also add `AOS_SEARCH_PROVIDER=tavily` and
-   `AOS_TAVILY_API_KEY`. Without search, briefs that allow only *Uploaded documents* still
-   use real sources. Set the price estimates (`AOS_PRICE_LLM_INPUT_PER_MILLION`,
-   `AOS_PRICE_LLM_OUTPUT_PER_MILLION`) to the provider's listed prices, so the budget ledger
-   stops runs before the ceiling.
-3. **Change the mode in the blueprint, not only in the Dashboard.** The blueprint sets
-   `AOS_AGENT_MODE` and `AOS_SEARCH_PROVIDER`, and a Blueprint sync re-applies values from
-   the file. Change them in `render.free.yaml` (or the blueprint you use), commit, push, then
-   **Blueprint → Manual sync** and **Manual Deploy**.
-4. **Check it.** The "Demo agents" badge disappears from the top bar. Run one small brief and
-   check the run's cost card against the provider's usage page.
+2. **Add the key on Render.** Open **aos-web** ? **Environment** ? **Add Environment Variable**,
+   enter for example `GROQ_API_KEY` and the key itself (not a masked `****` preview), then
+   **Save, rebuild, and deploy**. No Blueprint sync is needed. Optionally add `TAVILY_API_KEY`
+   for web search; without it, briefs that allow only *Uploaded documents* still use real
+   sources. Set `AOS_PRICE_LLM_INPUT_PER_MILLION` and `AOS_PRICE_LLM_OUTPUT_PER_MILLION` to the
+   provider's listed prices so the budget ledger estimates spending correctly (the defaults
+   are small-model list prices, which overstate a free tier).
+3. **Check it.** After the deploy, the top bar shows a green **Model agents ? <model>** pill
+   instead of **Demo agents**, and the Agents page names the model. Run one small brief and
+   compare the run's cost card with the provider's usage page.
 
 Production refuses `AOS_SIGNUP_MODE=open` with model agents. The free blueprint uses
 `request`, so only people you approve can spend the budget.
 
-To return to demo agents, set `AOS_AGENT_MODE=fake` (and `AOS_SEARCH_PROVIDER=fake`) in the
-blueprint again, then sync and deploy.
+To return to demo agents, delete the key variable and deploy again.
 
 ## Known limitations of this deployment
 
@@ -280,9 +284,9 @@ blueprint again, then sync and deploy.
   per service, and nothing reads a copy back. Uploads live on as extracted text in Postgres,
   and exports are rendered from Postgres on every download, so a redeploy loses nothing.
   Serving original files back would need an S3-compatible store first.
-- `AOS_AGENT_MODE=fake`: deterministic demo agents, not a real model. To use a model, follow
-  [section 6](#6-optional-switch-the-hosted-app-to-a-live-model) on **every** service that runs
-  agents, within an approved budget (ADR 0005). Production refuses `AOS_SIGNUP_MODE=open` with
+- Without a model key the agents are deterministic demo agents, not a real model. To use a
+  model, follow [section 6](#6-optional-switch-the-hosted-app-to-a-live-model), with the key on
+  **every** service that runs agents, within an approved budget (ADR 0005). Production refuses `AOS_SIGNUP_MODE=open` with
   model agents.
 - A single web instance is assumed. Rate-limit and SSE state live in Postgres, so scaling out
   works, but it has not been load-tested on Render.

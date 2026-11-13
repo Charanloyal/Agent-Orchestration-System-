@@ -3,6 +3,7 @@ import { Link, NavLink, Navigate, Outlet, useLocation, useOutletContext, usePara
 import { useAdminSummary, useBuild, useMe, useSignOut } from "../api/hooks";
 import type { Me } from "../api/types";
 import { OnboardingPage } from "../pages/OnboardingPage";
+import { ThemeToggle } from "../theme";
 import { ErrorBanner, Spinner } from "./ui";
 
 /** Gate for signed-in pages. Unauthenticated users go to /signin and come back afterwards. */
@@ -22,7 +23,6 @@ function AppShell({ me }: { me: Me }) {
   const { workspaceId } = useParams();
   const signOut = useSignOut();
   const current = me.memberships.find((m) => m.workspace_id === workspaceId) ?? me.memberships[0];
-  const demoAgents = me.deployment?.agent_mode === "fake";
 
   return (
     <div className="shell">
@@ -49,14 +49,7 @@ function AppShell({ me }: { me: Me }) {
           </nav>
         )}
         <div className="topbar-right">
-          {demoAgents && (
-            <span
-              className="badge badge-waiting"
-              title="This deployment uses deterministic demo agents, not a language model. Reports show the workflow, not model quality."
-            >
-              Demo agents
-            </span>
-          )}
+          <EnginePill me={me} workspaceId={current?.workspace_id} />
           {me.is_platform_admin && <AccessLink />}
           {me.memberships.length > 1 && current && (
             <WorkspaceSwitcher me={me} currentId={current.workspace_id} />
@@ -66,6 +59,7 @@ function AppShell({ me }: { me: Me }) {
             {me.display_name}
             {current && <span className="muted small"> · {current.role}</span>}
           </span>
+          <ThemeToggle />
           <button type="button" className="btn btn-ghost" onClick={() => signOut.mutate()}>
             Sign out
           </button>
@@ -76,6 +70,32 @@ function AppShell({ me }: { me: Me }) {
       </main>
       <BuildFooter />
     </div>
+  );
+}
+
+/** Which engine writes the reports: a language model (its name) or the deterministic demo
+ *  agents. Links to the agents page, which explains the difference. */
+function EnginePill({ me, workspaceId }: { me: Me; workspaceId?: string }) {
+  const live = me.deployment?.agent_mode === "llm";
+  const text = live ? `Model agents${me.deployment.llm_model ? ` · ${me.deployment.llm_model}` : ""}` : "Demo agents";
+  const title = live
+    ? `Reports are written by a language model (${me.deployment.llm_model ?? "configured model"}), with citations checked in code.`
+    : "This deployment uses deterministic demo agents, not a language model. Reports show the workflow, not model quality.";
+  const body = (
+    <>
+      <span className="engine-dot" aria-hidden="true" />
+      <span className="engine-label">{text}</span>
+    </>
+  );
+  const className = `engine-pill ${live ? "engine-live" : "engine-demo"}`;
+  return workspaceId ? (
+    <Link to={`/w/${workspaceId}/agents`} className={className} title={title}>
+      {body}
+    </Link>
+  ) : (
+    <span className={className} title={title}>
+      {body}
+    </span>
   );
 }
 

@@ -69,3 +69,38 @@ stock phrases, and adapting the register to a reader, without changing any fact.
   restructure arguments or invent content.
 - If someone asks in the viva whether it "beats detectors", the answer is that it was not
   designed to, and why.
+
+## Amendment (2026-11-13): structure, openers, measured rhythm, voices
+
+The first version flattened Markdown: lists and headings separated by single line breaks ran
+together, and the page printed sentences without their paragraphs. It also left templated
+openers such as "In today's rapidly evolving technological landscape," in place, and its
+rhythm splits could make sentence lengths *more* uniform. Changes:
+
+1. **Markdown-aware.** The text is parsed into blocks: headings, paragraphs, list items, block
+   quotes, code, tables and blank lines. Only headings (phrases only), paragraphs and list
+   items are rewritten. Markers, blank lines and order are kept exactly; quotes, code and
+   tables are copied verbatim. A line that ends a sentence followed by a capitalised line is
+   kept as its own paragraph, so text pasted with single line breaks keeps its shape.
+2. **Templated openers** are removed or restructured:
+   - "In today's … landscape," and "In an era of …," are removed;
+   - "As X delve into Y, Z" becomes two sentences;
+   - "Not only does X …, but it also …" becomes two sentences, but only when the subject can
+     be found safely;
+   - "Key pillars driving X include:" becomes "X rests on:";
+   - noun-phrase list items become actions ("The deployment of" → "Deploying").
+3. **Rhythm is guided by the measurement.** A split of a long sentence, or a join of two short
+   ones where the second starts with a pronoun, is kept only if it raises the document's
+   sentence-length variation. The rewrite therefore never flattens the rhythm it reports.
+4. **Voices differ in vocabulary.** Academic expands contractions; executive drops hedges
+   ("basically", "very", "arguably"); journalist prefers plain verbs ("purchase" → "buy");
+   technical drops vague intensifiers. Quoted words are never edited.
+5. **The page** shows the measurements as rings (the outer arc is after, the inner arc before),
+   a sentence-rhythm chart, a formatted preview with highlights, a list of changes with their
+   rules, and the Markdown source. It exports .md, .txt and .docx (built in the browser, no new
+   dependency) and copies clean text. A clearly labelled synthetic sample loads with one click.
+
+Requested again and **declined again**: a "Humanizer accuracy ≥ 95%" score and pass
+probabilities for Turnitin, GPTZero or Originality.ai. No detector was run, so such numbers
+would be invented. A tool advertised to get past them would serve academic dishonesty. The
+page keeps "These are measurements of the text, not a prediction of who or what wrote it."

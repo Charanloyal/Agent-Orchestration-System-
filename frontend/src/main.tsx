@@ -6,8 +6,10 @@ import { RouterProvider } from "react-router/dom";
 import { createQueryClient } from "./api/queryClient";
 import { Toaster } from "./components/toast";
 import { router } from "./router";
+import { applyTheme, storedTheme } from "./theme";
 import "./styles.css";
 
+applyTheme(storedTheme());
 const queryClient = createQueryClient();
 
 const rootElement = document.getElementById("root");
