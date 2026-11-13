@@ -84,3 +84,6 @@ services:
         sync: false
       - key: AOS_METRICS_TOKEN
         generateValue: true
+      # Encrypts model keys saved in workspace settings (ADR 0029); generated once by Render.
+      - key: AOS_SECRETS_KEY
+        generateValue: true

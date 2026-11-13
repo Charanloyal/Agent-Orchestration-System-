@@ -44,6 +44,7 @@ from app.providers.corpus import CorpusSearch
 from app.providers.llm import LlmProvider, OpenAICompatibleLlm
 from app.providers.search import FakeSearch, SearchProvider
 from app.providers.tavily import TavilySearch
+from app.services.ai_engine import workspace_llm
 from app.services.events import append_event, set_run_state
 from app.services.ratelimit import purge_old_windows
 from app.tools.fetcher import Fetcher, FetchPolicy, SafeFetcher
@@ -170,6 +171,10 @@ def process_one(
     )
     # `agent_factory` lets the evaluation harness build alternative systems (ADR 0017) that
     # still need the run context, e.g. for budget metering.
+    if agents is None and agent_factory is None and llm is None:
+        # A workspace's own engine (ADR 0029) takes precedence over the deployment's.
+        with sm() as session:
+            llm = workspace_llm(session, settings, ctx.workspace_id)
     ctx.agents = agents or (agent_factory or build_agents)(settings, ctx, llm)
     ctx.search = BreakerSearch(MeteredSearch(ctx.search, ctx.meter), settings)
     heartbeat = Heartbeat(ctx)

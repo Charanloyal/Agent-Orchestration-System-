@@ -45,7 +45,7 @@ def _retry_after(error: openai.APIStatusError) -> float | None:
 
 
 class OpenAICompatibleLlm:
-    def __init__(self, settings: Settings, *, client: Any | None = None) -> None:
+    def __init__(self, settings: Settings, *, client: Any | None = None, api_key: str | None = None) -> None:
         self.model = settings.llm_model
         self._settings = settings
         if client is not None:
@@ -63,7 +63,7 @@ class OpenAICompatibleLlm:
             )
             self.name = "azure-openai"
         else:
-            key = (
+            key = api_key or (
                 settings.llm_api_key.get_secret_value()
                 if settings.llm_api_key
                 else "not-needed-for-local-servers"

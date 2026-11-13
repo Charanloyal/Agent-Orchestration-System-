@@ -374,4 +374,20 @@ export type StyleRewrite = {
   changed_sentences: number;
   rejected_changes: number;
   changes: StyleChange[];
+  score_before: StyleScore;
+  score_after: StyleScore;
+  engine: { kind: "model" | "rules"; note: string };
 };
+export type StyleScore = { total: number; rhythm: number; vocabulary: number; plain: number; facts: number };
+export type AiProviderId = "gemini" | "groq" | "openai";
+export type AiEngine = {
+  source: "workspace" | "environment" | "demo";
+  live: boolean;
+  label: string;
+  provider: string | null;
+  model: string | null;
+  key_hint: string | null;
+  problem: string | null;
+  providers: { id: AiProviderId; label: string; models: string[] }[];
+};
+export type AiEngineTest = { ok: boolean; latency_ms: number; model: string; detail: string };

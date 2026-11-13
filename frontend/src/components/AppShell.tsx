@@ -1,6 +1,6 @@
 import { Link, NavLink, Navigate, Outlet, useLocation, useOutletContext, useParams } from "react-router";
 
-import { useAdminSummary, useBuild, useMe, useSignOut } from "../api/hooks";
+import { useAdminSummary, useAiEngine, useBuild, useMe, useSignOut } from "../api/hooks";
 import type { Me } from "../api/types";
 import { OnboardingPage } from "../pages/OnboardingPage";
 import { ThemeToggle } from "../theme";
@@ -49,7 +49,7 @@ function AppShell({ me }: { me: Me }) {
           </nav>
         )}
         <div className="topbar-right">
-          <EnginePill me={me} workspaceId={current?.workspace_id} />
+          <EnginePill me={me} workspaceId={current?.workspace_id} isAdmin={current?.role === "admin"} />
           {me.is_platform_admin && <AccessLink />}
           {me.memberships.length > 1 && current && (
             <WorkspaceSwitcher me={me} currentId={current.workspace_id} />
@@ -73,13 +73,16 @@ function AppShell({ me }: { me: Me }) {
   );
 }
 
-/** Which engine writes the reports: a language model (its name) or the deterministic demo
- *  agents. Links to the agents page, which explains the difference. */
-function EnginePill({ me, workspaceId }: { me: Me; workspaceId?: string }) {
-  const live = me.deployment?.agent_mode === "llm";
-  const text = live ? `Model agents${me.deployment.llm_model ? ` · ${me.deployment.llm_model}` : ""}` : "Demo agents";
+/** Which engine writes this workspace's reports: a language model (its name) or the
+ *  deterministic demo agents. Admins go straight to the engine settings; others to the
+ *  agents page, which explains the difference. */
+function EnginePill({ me, workspaceId, isAdmin }: { me: Me; workspaceId?: string; isAdmin: boolean }) {
+  const engine = useAiEngine(workspaceId).data;
+  const live = engine ? engine.live : me.deployment?.agent_mode === "llm";
+  const model = engine ? engine.model : me.deployment?.llm_model;
+  const text = live ? `⚡ Live${model ? ` · ${model}` : ""}` : "Demo agents";
   const title = live
-    ? `Reports are written by a language model (${me.deployment.llm_model ?? "configured model"}), with citations checked in code.`
+    ? `Reports are written by a language model (${engine?.label ?? model ?? "configured model"}), with citations checked in code.`
     : "This deployment uses deterministic demo agents, not a language model. Reports show the workflow, not model quality.";
   const body = (
     <>
@@ -88,14 +91,18 @@ function EnginePill({ me, workspaceId }: { me: Me; workspaceId?: string }) {
     </>
   );
   const className = `engine-pill ${live ? "engine-live" : "engine-demo"}`;
-  return workspaceId ? (
-    <Link to={`/w/${workspaceId}/agents`} className={className} title={title}>
+  if (!workspaceId) {
+    return (
+      <span className={className} title={title}>
+        {body}
+      </span>
+    );
+  }
+  const to = isAdmin ? `/w/${workspaceId}/settings#ai-engine` : `/w/${workspaceId}/agents`;
+  return (
+    <Link to={to} className={className} title={title}>
       {body}
     </Link>
-  ) : (
-    <span className={className} title={title}>
-      {body}
-    </span>
   );
 }
 

@@ -46,6 +46,7 @@ export function UploadsPage() {
         </div>
       </div>
 
+      <div className="docs-tools">
       {canUpload && (
         <Card title="Upload a document">
           <form className="row wrap" onSubmit={onUpload}>
@@ -88,6 +89,7 @@ export function UploadsPage() {
           </ul>
         )}
       </Card>
+      </div>
 
       <Card title="Workspace documents">
         {uploads.isPending && <Spinner />}

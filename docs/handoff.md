@@ -4,19 +4,21 @@ Uses the template from the context prompt (§4). Contains no secrets or private 
 
 ```text
 Project: Agent Orchestration System
-Current state (2026-11-13 13:30): main = release/deploy-ready, pushed after this handoff.
-  DEPLOYED at https://aos-web-8b4t.onrender.com (render.free.yaml; last verified live commit
-  29449a6). The owner must ship the new commits: this time the BLUEPRINT CHANGED
-  (AOS_AGENT_MODE=auto, AOS_SEARCH_PROVIDER=auto), so do Blueprint -> Manual sync, then Manual
-  Deploy. After deploying: footer shows the new commit; dark theme, split sign-in page; sign in
-  with Google (secret replaced 2026-11-12, still not confirmed); Style studio -> Load synthetic
-  sample -> Measure and rewrite. To go live: add GROQ_API_KEY (free tier) in aos-web ->
-  Environment, Save, rebuild and deploy; the pill turns green "Model agents ? <model>"
-  (deploy-render.md section 6, ADR 0028). Budget is still USD 0: free tiers only.
-  Declined again (ADR 0027 amendment): "95% humanizer accuracy", Turnitin/GPTZero/Originality
-  pass probabilities, one-click admin demo login, keys in the database, hard-coded admin
-  emails. Not built: multi-document contradiction matrix (needs reliable claim extraction;
-  feasible with a live model, noise without one).
+Current state (2026-11-13 15:00): main = release/deploy-ready, pushed after this handoff.
+  DEPLOYED at https://aos-web-8b4t.onrender.com (render.free.yaml; the owner deployed b53af5c
+  or similar). The BLUEPRINTS CHANGED again (AOS_SECRETS_KEY generateValue; agents/search
+  auto), so: Blueprint -> Manual sync, then Manual Deploy (migration 0011 runs on start).
+  After deploying: Settings shows "AI engine and model provider" first; choose Google Gemini,
+  paste a key, Test connection, Save; the pill turns "⚡ Live · gemini-2.5-flash" and new
+  runs and Style studio rewrites use it (ADR 0029). Environment keys (GROQ_API_KEY etc.)
+  still work for all workspaces (ADR 0028). Budget is USD 0 unless the owner approves: use a
+  free-tier key with a provider-side limit. Gemini native adapter is unit-tested only; no live
+  call was made from this laptop (no key).
+  Owner override (2026-11-13): keys may be saved in the app (done, encrypted). Still declined:
+  a "95% humanizer accuracy" figure and detector pass rates (the Style score is a published
+  composite instead), a 5th "humanizer" agent inside the run workflow (the Style studio uses
+  the same engine but is not a run step), one-click admin demo login, hard-coded admin emails.
+  Not built: multi-document contradiction matrix.
   Earlier: smoke_prod.py 27/27 on 29449a6; check 12 (a) PASSED with AOS_TRUSTED_PROXY_HOPS=3
   (measured with /network-check; attempts 1-30 reach Google, 31-32 rate-limited despite
   forged headers). Records in docs/operations/rehearsals.md and records/. OPEN (owner, in the

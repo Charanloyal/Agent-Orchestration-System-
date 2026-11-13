@@ -75,6 +75,11 @@ BODIES: dict[tuple[str, str], dict[str, object]] = {
     ("PUT", "/api/v1/runs/{run_id}/plan"): {"base_version": 1, "plan": {}},
     ("POST", "/api/v1/workspaces/{workspace_id}/style/analyze"): {"text": "A short text."},
     ("POST", "/api/v1/workspaces/{workspace_id}/style/rewrite"): {"text": "A short text."},
+    ("PUT", "/api/v1/workspaces/{workspace_id}/ai-config"): {
+        "provider": "groq",
+        "model": "llama-3.1-8b-instant",
+    },
+    ("POST", "/api/v1/workspaces/{workspace_id}/ai-config/test"): {},
 }
 
 

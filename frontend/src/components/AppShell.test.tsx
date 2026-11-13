@@ -59,7 +59,21 @@ describe("AppShell", () => {
     render({ ...user, deployment: { ...user.deployment, llm_model: "llama-3.3-70b-versatile" } });
     await screen.findByText("runs page");
     expect(screen.queryByText("Demo agents")).toBeNull();
-    expect(screen.getByRole("link", { name: "Model agents · llama-3.3-70b-versatile" })).toHaveClass("engine-live");
+    expect(screen.getByRole("link", { name: "⚡ Live · llama-3.3-70b-versatile" })).toHaveClass("engine-live");
+  });
+
+  it("shows the workspace's own engine, and sends admins to its settings", async () => {
+    render(me("admin", "fake"), [
+      {
+        path: `/api/v1/workspaces/${WS}/ai-config`,
+        body: {
+          source: "workspace", live: true, label: "Google Gemini · gemini-2.5-flash", provider: "gemini",
+          model: "gemini-2.5-flash", key_hint: "WXYZ", problem: null, providers: [],
+        },
+      },
+    ]);
+    const pill = await screen.findByRole("link", { name: "⚡ Live · gemini-2.5-flash" });
+    expect(pill).toHaveAttribute("href", `/w/${WS}/settings#ai-engine`);
   });
 
   it("switches the colour theme: dark by default, then light, then the system's", async () => {

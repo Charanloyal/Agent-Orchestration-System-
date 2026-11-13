@@ -88,6 +88,9 @@ services:
         sync: false
       - key: AOS_METRICS_TOKEN
         generateValue: true
+      # Encrypts model keys saved in workspace settings (ADR 0029); generated once by Render.
+      - key: AOS_SECRETS_KEY
+        generateValue: true
 
   - type: worker
     name: aos-worker
@@ -107,3 +110,9 @@ services:
           property: connectionString
       # The worker serves no HTTP, so it needs no sign-in, cookie or public URL settings
       # (ADR 0023). Add the AOS_LLM_* variables here too if AOS_AGENT_MODE=llm.
+      # It decrypts the model keys that workspace admins save (ADR 0029) with the web's secret.
+      - key: AOS_SECRETS_KEY
+        fromService:
+          type: web
+          name: aos-web
+          envVarKey: AOS_SECRETS_KEY

@@ -357,8 +357,11 @@ TAVILY_API_KEY=<key>
 
 Opt-in live smoke test (one small planner call): `$env:AOS_LIVE_TESTS="1"; .\.venv\Scripts\python.exe -m pytest -m live -s tests/live`.
 
-On Render, `render.free.yaml` already uses `auto`: add `GROQ_API_KEY` (or another provider's key)
-in the service's Environment tab and save. Keys never go in the repository or the database
+The simplest way: a workspace admin opens **Settings → AI engine**, picks Google Gemini, pastes the
+key, tests and saves it; the key is encrypted with `AOS_SECRETS_KEY` and never shown again
+([ADR 0029](docs/decisions/0029-workspace-model-keys.md)). Or, for the whole deployment,
+`render.free.yaml` already uses `auto`: add `GROQ_API_KEY` (or another provider's key) in the
+service's Environment tab and save. Keys never go in the repository
 ([deploy-render.md §6](docs/operations/deploy-render.md#6-optional-switch-the-hosted-app-to-a-live-model),
 [ADR 0028](docs/decisions/0028-engine-from-provider-keys.md)).
 

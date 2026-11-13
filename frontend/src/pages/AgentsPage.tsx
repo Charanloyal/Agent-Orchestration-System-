@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { Link, useOutletContext, useParams } from "react-router";
 
-import { useDocumentTitle } from "../api/hooks";
+import { useAiEngine, useDocumentTitle, useTestAiEngine } from "../api/hooks";
 import type { Me } from "../api/types";
 import { AgentFlow, FLOW } from "../components/AgentFlow";
+import { engineSourceText } from "../components/AiEngineCard";
 import { Card } from "../components/ui";
 
 const SEARCH_LABELS: Record<string, string> = {
@@ -19,7 +20,8 @@ export function AgentsPage() {
   useDocumentTitle("Agents");
   const me = useOutletContext<Me>();
   const { workspaceId = "" } = useParams();
-  const live = me.deployment?.agent_mode === "llm";
+  const engine = useAiEngine(workspaceId).data;
+  const live = engine ? engine.live : me.deployment?.agent_mode === "llm";
   const [selected, setSelected] = useState("planner");
   const step = FLOW.find((s) => s.id === selected) ?? FLOW[0];
   const agents = FLOW.filter((s) => s.kind === "agent").length;
@@ -89,22 +91,62 @@ export function AgentsPage() {
               ))}
             </ul>
           </section>
-          <Card title="This deployment" className="span-4">
-            <dl className="agent-io">
-              <dt>Engine</dt>
-              <dd>{live ? `Language model: ${me.deployment.llm_model ?? "configured"}` : "Deterministic demo agents"}</dd>
-              <dt>Search</dt>
-              <dd>{SEARCH_LABELS[me.deployment?.search_provider ?? "fake"] ?? me.deployment?.search_provider}</dd>
-              <dt>Budget</dt>
-              <dd>Each brief sets a spending limit; every model or search call reserves its cost first.</dd>
-            </dl>
-            <p className="small muted">
-              Per-run calls, tokens and costs are on each run's cost card and on the{" "}
-              <Link to={`/w/${workspaceId}/usage`}>usage page</Link>.
-            </p>
-          </Card>
+          <EngineCard workspaceId={workspaceId} me={me} />
         </div>
       )}
     </div>
+  );
+}
+
+/** The engine this workspace's agents use, and a live diagnostic for admins. */
+function EngineCard({ workspaceId, me }: { workspaceId: string; me: Me }) {
+  const engine = useAiEngine(workspaceId);
+  const test = useTestAiEngine(workspaceId);
+  const isAdmin = me.memberships.find((m) => m.workspace_id === workspaceId)?.role === "admin";
+  const data = engine.data;
+  return (
+    <Card title="This workspace's engine" className="span-4">
+      <dl className="agent-io">
+        <dt>Engine</dt>
+        <dd data-testid="engine-label">
+          {data?.live ? `${data.label} (live language model)` : "Deterministic demo agents"}
+        </dd>
+        <dt>Source</dt>
+        <dd>{data ? engineSourceText(data) : "…"}</dd>
+        <dt>Search</dt>
+        <dd>{SEARCH_LABELS[me.deployment?.search_provider ?? "fake"] ?? me.deployment?.search_provider}</dd>
+        <dt>Budget</dt>
+        <dd>Each brief sets a spending limit; every model or search call reserves its cost first.</dd>
+        <dt>Also used by</dt>
+        <dd>
+          The <Link to={`/w/${workspaceId}/style`}>Style studio</Link> rewrites with this engine, checked by its fact
+          lock.
+        </dd>
+      </dl>
+      {isAdmin && (
+        <div className="row wrap">
+          <button
+            type="button"
+            className="btn btn-secondary"
+            disabled={!data?.live || test.isPending}
+            onClick={() => test.mutate({})}
+          >
+            {test.isPending ? "Testing…" : "Run engine diagnostic"}
+          </button>
+          <Link to={`/w/${workspaceId}/settings#ai-engine`}>Engine settings</Link>
+        </div>
+      )}
+      {test.data && (
+        <p className={test.data.ok ? "small text-success" : "small text-warning"} role="status">
+          {test.data.ok
+            ? `✓ ${test.data.model} answered in ${test.data.latency_ms} ms`
+            : `✗ ${test.data.detail} (${test.data.latency_ms} ms)`}
+        </p>
+      )}
+      <p className="small muted">
+        Per-run calls, tokens and costs are on each run's cost card and on the{" "}
+        <Link to={`/w/${workspaceId}/usage`}>usage page</Link>.
+      </p>
+    </Card>
   );
 }

@@ -2,7 +2,7 @@ import { Fragment, useId, useState, type FormEvent, type ReactNode } from "react
 import { useParams, useSearchParams } from "react-router";
 
 import { saveBlob } from "../api/client";
-import { useDocumentTitle, useStyleRewrite, useUploads } from "../api/hooks";
+import { useAiEngine, useDocumentTitle, useStyleRewrite, useUploads } from "../api/hooks";
 import type { StyleBlock, StylePersona, StyleReport, StyleRewrite } from "../api/types";
 import { Ring } from "../components/Ring";
 import { notify } from "../components/toast";
@@ -190,8 +190,62 @@ function Results({ result }: { result: StyleRewrite }) {
     ["source", "Markdown"],
   ];
 
+  const sb = result.score_before;
+  const sa = result.score_after;
   return (
     <>
+      <Card title="Style score" className="score-card">
+        <div className="score-layout">
+          <Ring
+            value={sa.total / 100}
+            previous={sb.total / 100}
+            tone={sa.total >= sb.total ? "success" : "warning"}
+            center={`${sa.total.toFixed(0)}`}
+            label={`Style score: ${sb.total.toFixed(1)} before, ${sa.total.toFixed(1)} after, out of 100`}
+            size={156}
+          />
+          <div className="stack">
+            <p className="metric score-values" data-testid="style-score">
+              {sb.total.toFixed(1)} <span aria-hidden="true">→</span>
+              <span className="visually-hidden"> to </span> {sa.total.toFixed(1)}
+              <span className="small muted"> / 100</span>
+            </p>
+            <ul className="score-parts">
+              {(
+                [
+                  ["Rhythm", "rhythm", "30%", "sentence-length variation, full at 0.60"],
+                  ["Plain wording", "plain", "30%", "no stock phrases; zero at 20 per 1,000 words"],
+                  ["Vocabulary", "vocabulary", "20%", "diversity, from 0.50 to 0.90"],
+                  ["Facts kept", "facts", "20%", "share of facts preserved"],
+                ] as const
+              ).map(([name, key, weight, help]) => (
+                <li key={key}>
+                  <span className="score-part-name">
+                    {name} <span className="muted small">({weight})</span>
+                  </span>
+                  <span className="score-bar" aria-hidden="true">
+                    <span style={{ width: `${Math.round(sa[key] * 100)}%` }} />
+                  </span>
+                  <span className="small">
+                    {Math.round(sb[key] * 100)}% → {Math.round(sa[key] * 100)}%
+                  </span>
+                  <span className="visually-hidden">: {help}</span>
+                </li>
+              ))}
+            </ul>
+            <p className="small muted">
+              A weighted sum of the measurements below, with the formula shown. It describes the text; it is not an
+              AI-detector result and not a probability of who or what wrote it.
+            </p>
+          </div>
+        </div>
+      </Card>
+      <p className="small" data-testid="engine-used">
+        <span className={`badge ${result.engine.kind === "model" ? "badge-success" : "badge-neutral"}`}>
+          {result.engine.kind === "model" ? "Language model" : "Built-in rules"}
+        </span>{" "}
+        <span className="muted">{result.engine.note}</span>
+      </p>
       <section className="bento" aria-label="Measurements before and after">
         {METRICS.map((m) => {
           const before = m.value(result.before);
@@ -347,12 +401,15 @@ export function StylePage() {
   const [text, setText] = useState("");
   const [uploadId, setUploadId] = useState(params.get("upload") ?? "");
   const [persona, setPersona] = useState<StylePersona>("journalist");
+  const [engineChoice, setEngineChoice] = useState<"auto" | "rules">("auto");
+  const engine = useAiEngine(workspaceId);
   const ids = useId();
 
   const ready = mode === "text" ? text.trim().length > 0 : uploadId !== "";
   const submit = (event: FormEvent) => {
     event.preventDefault();
-    rewrite.mutate(mode === "text" ? { text, persona } : { upload_id: uploadId, persona });
+    const source = mode === "text" ? { text } : { upload_id: uploadId };
+    rewrite.mutate({ ...source, persona, ...(engineChoice === "rules" ? { engine: "rules" as const } : {}) });
   };
 
   return (
@@ -367,28 +424,26 @@ export function StylePage() {
         </div>
       </div>
 
-      <Card
-        title="Text"
-        actions={
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={() => {
-              setMode("text");
-              setText(STYLE_SAMPLE);
-            }}
-          >
-            Load synthetic sample
-          </button>
-        }
-      >
+      <Card title="Text">
         <form onSubmit={submit} className="stack">
-          <div className="versions" role="group" aria-label="Source">
-            <button type="button" aria-pressed={mode === "text"} onClick={() => setMode("text")}>
-              Paste text
-            </button>
-            <button type="button" aria-pressed={mode === "upload"} onClick={() => setMode("upload")}>
-              Workspace document
+          <div className="row wrap">
+            <div className="versions" role="group" aria-label="Source">
+              <button type="button" aria-pressed={mode === "text"} onClick={() => setMode("text")}>
+                Paste text
+              </button>
+              <button type="button" aria-pressed={mode === "upload"} onClick={() => setMode("upload")}>
+                Workspace document
+              </button>
+            </div>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => {
+                setMode("text");
+                setText(STYLE_SAMPLE);
+              }}
+            >
+              Load synthetic sample
             </button>
           </div>
           {mode === "text" ? (
@@ -428,6 +483,15 @@ export function StylePage() {
                   {p.label}: {p.hint}
                 </option>
               ))}
+            </select>
+          </label>
+          <label className="field">
+            <span>Rewrite with</span>
+            <select value={engineChoice} onChange={(e) => setEngineChoice(e.target.value as "auto" | "rules")}>
+              <option value="auto">
+                {engine.data?.live ? `Language model: ${engine.data.label} (checked by the fact lock)` : "Built-in rules (no model configured)"}
+              </option>
+              <option value="rules">Built-in rules only (deterministic, no model call)</option>
             </select>
           </label>
           <div className="row end">

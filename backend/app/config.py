@@ -63,6 +63,9 @@ class Settings(BaseSettings):
     llm_api_style: Literal["openai", "azure"] = "openai"
     llm_base_url: str | None = None  # e.g. https://api.groq.com/openai/v1, http://127.0.0.1:11434/v1
     llm_api_key: SecretStr | None = None
+    # Encrypts model keys that workspace admins save in the app (ADR 0029). Required in
+    # production to save a key; any long random string (Render: generateValue).
+    secrets_key: SecretStr | None = None
     llm_model: str = "gpt-4o-mini"
     llm_azure_endpoint: str | None = None
     llm_azure_api_version: str = "2024-10-21"
@@ -110,6 +113,7 @@ class Settings(BaseSettings):
     rate_upload_per_user_hour: int = 30
     rate_export_per_user_hour: int = 60
     rate_style_per_user_hour: int = 120
+    rate_ai_test_per_user_hour: int = 30
     rate_login_per_ip_5min: int = 30
     rate_access_request_per_ip_hour: int = 5
     # Proxies in front of the app that append to X-Forwarded-For (ADR 0025). 0: use the socket

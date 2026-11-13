@@ -8,12 +8,13 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import select
 
-from app.auth.deps import DbSession, WorkspaceAccess, workspace_access
+from app.auth.deps import AppSettings, DbSession, WorkspaceAccess, workspace_access
 from app.db.models import Upload, UploadChunk
 from app.errors import NotFound, Unprocessable
 from app.policy.permissions import Action
-from app.services import style
+from app.services import ai_engine, style
 from app.services.ratelimit import user_limit
+from app.services.style_model import model_rewrite
 
 router = APIRouter(prefix="/api/v1/workspaces/{workspace_id}/style", tags=["style"])
 
@@ -33,6 +34,8 @@ class StyleSource(BaseModel):
 
 class RewriteIn(StyleSource):
     persona: Literal["journalist", "academic", "executive", "technical"] = "journalist"
+    # auto: the workspace's language model when one is configured (ADR 0029), else the rules.
+    engine: Literal["auto", "rules"] = "auto"
 
 
 class SentenceOut(BaseModel):
@@ -86,6 +89,19 @@ class AnalyzeOut(BaseModel):
     report: ReportOut
 
 
+class ScoreOut(BaseModel):
+    total: float
+    rhythm: float
+    vocabulary: float
+    plain: float
+    facts: float
+
+
+class EngineUsedOut(BaseModel):
+    kind: Literal["model", "rules"]
+    note: str
+
+
 class RewriteOut(BaseModel):
     source: str
     persona: str
@@ -98,6 +114,9 @@ class RewriteOut(BaseModel):
     changed_sentences: int
     rejected_changes: int
     changes: list[ChangeOut]
+    score_before: ScoreOut
+    score_after: ScoreOut
+    engine: EngineUsedOut
 
 
 def _report(report: style.StyleReport) -> ReportOut:
@@ -143,21 +162,33 @@ def rewrite(
     body: RewriteIn,
     access: Annotated[WorkspaceAccess, Depends(workspace_access(Action.WORKSPACE_READ))],
     db: DbSession,
+    settings: AppSettings,
 ) -> RewriteOut:
     source, text = _text(db, access.workspace_id, body)
-    result = style.rewrite(text, body.persona)
+    engine = EngineUsedOut(kind="rules", note="rewritten with the built-in rules")
+    start = text
+    llm = ai_engine.engine_llm(db, settings, access.workspace_id) if body.engine == "auto" else None
+    if llm is not None:
+        drafted = model_rewrite(llm, text, body.persona)
+        engine = EngineUsedOut(kind="model" if drafted.text else "rules", note=drafted.note)
+        start = drafted.text or text
+    result = style.rewrite(start, body.persona)
     lock = style.fact_lock(text, result.text)
+    before, after = style.analyze(text), style.analyze(result.text)
     return RewriteOut(
         source=source,
         persona=body.persona,
         original=text,
         rewritten=result.text,
-        before=_report(style.analyze(text)),
-        after=_report(style.analyze(result.text)),
+        before=_report(before),
+        after=_report(after),
         fact_lock=FactLockOut(total=lock.total, preserved=lock.preserved, missing=list(lock.missing)),
         passes=result.passes,
         changed_sentences=result.changed_sentences,
         rejected_changes=result.rejected_changes,
+        score_before=ScoreOut(**vars(style.style_score(before))),
+        score_after=ScoreOut(**vars(style.style_score(after, lock))),
+        engine=engine,
         changes=[
             ChangeOut(before=c.before, after=c.after, rules=list(c.rules), accepted=c.accepted)
             for c in result.changes

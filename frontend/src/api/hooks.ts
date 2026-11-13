@@ -7,6 +7,9 @@ import type {
   AccessEntry,
   AccessRequest,
   AdminWorkspace,
+  AiEngine,
+  AiEngineTest,
+  AiProviderId,
   Artifact,
   AuditEvent,
   AuthConfig,
@@ -326,9 +329,44 @@ export function useUploadSearch(workspaceId: string, query: string) {
   });
 }
 
+export function useAiEngine(workspaceId: string | undefined) {
+  return useQuery({
+    queryKey: ["ai-engine", workspaceId],
+    queryFn: ({ signal }) => api<AiEngine>(`/api/v1/workspaces/${workspaceId}/ai-config`, { signal }),
+    enabled: Boolean(workspaceId),
+  });
+}
+
+export function useSaveAiEngine(workspaceId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (body: { provider: AiProviderId; model: string; api_key?: string }) =>
+      api<AiEngine>(`/api/v1/workspaces/${workspaceId}/ai-config`, { method: "PUT", body }),
+    onSuccess: (engine) => client.setQueryData(["ai-engine", workspaceId], engine),
+    meta: { success: "Engine saved: new runs and rewrites use it", error: "Could not save the engine" },
+  });
+}
+
+export function useRemoveAiEngine(workspaceId: string) {
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: () => api<void>(`/api/v1/workspaces/${workspaceId}/ai-config`, { method: "DELETE" }),
+    onSuccess: () => void client.invalidateQueries({ queryKey: ["ai-engine", workspaceId] }),
+    meta: { success: "Workspace key removed", error: "Could not remove the key" },
+  });
+}
+
+export function useTestAiEngine(workspaceId: string) {
+  return useMutation({
+    mutationFn: (body: { provider?: AiProviderId; model?: string; api_key?: string }) =>
+      api<AiEngineTest>(`/api/v1/workspaces/${workspaceId}/ai-config/test`, { method: "POST", body }),
+    meta: { error: "Could not test the engine" },
+  });
+}
+
 export function useStyleRewrite(workspaceId: string) {
   return useMutation({
-    mutationFn: (input: StyleSourceInput & { persona: StylePersona }) =>
+    mutationFn: (input: StyleSourceInput & { persona: StylePersona; engine?: "auto" | "rules" }) =>
       api<StyleRewrite>(`/api/v1/workspaces/${workspaceId}/style/rewrite`, { method: "POST", body: input }),
     meta: { error: "Could not rewrite the text" },
   });

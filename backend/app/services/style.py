@@ -865,8 +865,8 @@ def _prose_lengths(parts: list[Block]) -> list[int]:
 def _rhythm(parts: list[Block], persona: Persona) -> tuple[list[Block], list[Change]]:
     """Vary sentence rhythm, guided by the measurement itself: split a long paragraph sentence
     at a clause boundary (how long counts as long depends on the persona), or join two short
-    sentences when the second starts with a pronoun ("? costs. It also ?" -> "? costs, and it
-    also ?"). A candidate is kept only if it raises the document's sentence-length variation,
+    sentences when the second starts with a pronoun ("... costs. It also ..." -> "... costs, and
+    it also ..."). A candidate is kept only if it raises the document's sentence-length variation,
     so the rewrite never flattens the rhythm it reports."""
     long_after, min_part = _SPLIT_RULES[persona]
     lengths = _prose_lengths(parts)
@@ -992,3 +992,32 @@ def rewrite(text: str, persona: Persona = "journalist", max_passes: int = 3) -> 
         rejected_changes=len(rejected),
         changes=(*accepted, *rejected.values()),
     )
+
+
+@dataclass(frozen=True)
+class StyleScore:
+    """A composite of the measurements, 0 to 100, with a published formula (ADR 0027). It
+    describes the text; it is not a detector result or a probability of authorship."""
+
+    total: float
+    rhythm: float  # sentence-length variation, full at 0.60
+    vocabulary: float  # MATTR, 0 at 0.50 and full at 0.90
+    plain: float  # stock phrases per 1,000 words, full at 0 and zero at 20
+    facts: float  # share of facts preserved
+
+
+SCORE_WEIGHTS = {"rhythm": 0.3, "vocabulary": 0.2, "plain": 0.3, "facts": 0.2}
+
+
+def style_score(report: StyleReport, lock: FactLock | None = None) -> StyleScore:
+    def clamp(value: float) -> float:
+        return max(0.0, min(1.0, value))
+
+    parts = {
+        "rhythm": clamp(report.sentence_length_cv / 0.6),
+        "vocabulary": clamp((report.vocabulary_mattr - 0.5) / 0.4),
+        "plain": clamp(1 - report.stock_phrases_per_1000_words / 20),
+        "facts": (lock.preserved / lock.total) if lock and lock.total else 1.0,
+    }
+    total = round(100 * sum(SCORE_WEIGHTS[k] * v for k, v in parts.items()), 1)
+    return StyleScore(total, *(round(parts[k], 3) for k in ("rhythm", "vocabulary", "plain", "facts")))

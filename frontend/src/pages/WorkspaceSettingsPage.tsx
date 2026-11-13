@@ -13,6 +13,7 @@ import {
   useWorkspace,
 } from "../api/hooks";
 import type { Invitation, Me, Member, Role } from "../api/types";
+import { AiEngineCard } from "../components/AiEngineCard";
 import { notify } from "../components/toast";
 import { Badge, Card, ConfirmButton, EmptyState, ErrorBanner, Spinner } from "../components/ui";
 import { formatDate, ROLE_HELP, ROLE_LABELS } from "../format";
@@ -36,17 +37,26 @@ export function WorkspaceSettingsPage() {
     );
   }
   return (
-    <div className="stack narrow">
+    <div className="stack">
       <div className="page-header">
         <div>
           <h1>Workspace settings</h1>
-          <p className="muted">Who can use {membership.workspace_name}, and what each person can do.</p>
+          <p className="muted">
+            The engine {membership.workspace_name} runs on, who can use it, and what each person can do.
+          </p>
         </div>
       </div>
-      <RenameCard workspaceId={workspaceId} />
-      <MembersCard workspaceId={workspaceId} me={me} />
-      <InviteCard workspaceId={workspaceId} />
-      <InvitationsCard workspaceId={workspaceId} />
+      <AiEngineCard workspaceId={workspaceId} />
+      <div className="settings-grid">
+        <div className="stack">
+          <RenameCard workspaceId={workspaceId} />
+          <MembersCard workspaceId={workspaceId} me={me} />
+        </div>
+        <div className="stack">
+          <InviteCard workspaceId={workspaceId} />
+          <InvitationsCard workspaceId={workspaceId} />
+        </div>
+      </div>
     </div>
   );
 }

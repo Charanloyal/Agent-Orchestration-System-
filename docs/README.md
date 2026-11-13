@@ -210,7 +210,8 @@ All four agents are LLM-backed when `AOS_AGENT_MODE=llm`; fakes are the default.
 | [0025](decisions/0025-client-address-behind-proxy.md) | Client address for rate limits: trusted proxy hops from the right of `X-Forwarded-For` | Accepted |
 | [0026](decisions/0026-no-file-copies-on-render.md) | Keep no file copies on Render (`AOS_STORE_FILES=false`); amends 0022 | Accepted |
 | [0027](decisions/0027-style-studio-honest-metrics.md) | Style studio: measured metrics, fact-locked rewrite, no detector-evasion claims; amended for Markdown structure and measured rhythm | Accepted |
-| [0028](decisions/0028-engine-from-provider-keys.md) | The engine follows provider keys in the environment (`auto` modes); keys never in the database | Accepted |
+| [0028](decisions/0028-engine-from-provider-keys.md) | The engine follows provider keys in the environment (`auto` modes); amended by 0029 | Accepted |
+| [0029](decisions/0029-workspace-model-keys.md) | Workspace admins save a model key in the app, encrypted (`AOS_SECRETS_KEY`); native Gemini API | Accepted |
 
 ## Session handoff
 

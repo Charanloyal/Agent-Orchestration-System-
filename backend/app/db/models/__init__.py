@@ -1,4 +1,5 @@
 from app.db.models.access import AccessListEntry, AccessRequest, WorkspaceInvitation
+from app.db.models.ai_config import WorkspaceAiConfig
 from app.db.models.billing import BudgetReservation
 from app.db.models.identity import (
     AuditEvent,
@@ -54,5 +55,6 @@ __all__ = [
     "UploadChunk",
     "User",
     "Workspace",
+    "WorkspaceAiConfig",
     "WorkspaceInvitation",
 ]

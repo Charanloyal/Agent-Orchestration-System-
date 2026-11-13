@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from app.api import access, auth, health, runs, style, uploads, workspaces
+from app.api import access, ai_config, auth, health, runs, style, uploads, workspaces
 from app.config import Settings, get_settings
 from app.errors import install_error_handlers
 from app.observability.logging import configure_logging, startup_summary
@@ -37,6 +37,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         runs.router,
         uploads.router,
         style.router,
+        ai_config.router,
     )
     for router in routers:
         app.include_router(router)

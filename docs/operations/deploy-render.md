@@ -232,6 +232,14 @@ Merge the release with a merge commit (not a squash), so the 0009 commit exists 
 
 ## 6. Optional: switch the hosted app to a live model
 
+**Simplest: in the app.** Sign in as a workspace admin, open **Settings → AI engine**, choose
+Google Gemini, paste the key, **Test connection**, then **Save** (user guide §9,
+[ADR 0029](../decisions/0029-workspace-model-keys.md)). The key is encrypted with
+`AOS_SECRETS_KEY`, which every blueprint has Render generate. For an existing deployment,
+run **Blueprint → Manual sync** once so the variable exists, then deploy. No restart is needed
+after saving a key.
+
+**Or for the whole deployment, in the environment:**
 `render.free.yaml` sets `AOS_AGENT_MODE=auto` and `AOS_SEARCH_PROVIDER=auto`: the app runs the
 deterministic demo agents until a model key is present, and the live model once one is
 ([ADR 0028](../decisions/0028-engine-from-provider-keys.md)). The other two blueprints still pin
@@ -241,9 +249,9 @@ A live model can cost money per call, so first agree a budget within the project
 (USD 10, [ADR 0005](../decisions/0005-spending-ceiling.md)). With a USD 0 budget, use only a
 provider's free tier (Groq and Google AI Studio offer one; check their current terms).
 
-Keys belong in Render's environment, never in the repository and never in the app's database
-or settings page: Render stores them encrypted, and the app reads them at start-up. The first
-of these variables that is set decides the provider:
+Environment keys apply to every workspace without its own key. Render stores them encrypted,
+and the app reads them at start-up. The first of these variables that is set decides the
+provider:
 
 | Variable | Endpoint used | Default model (`AOS_LLM_MODEL` overrides it) |
 | --- | --- | --- |
@@ -258,14 +266,14 @@ of these variables that is set decides the provider:
    run the live smoke test (one small planner call):
    `$env:AOS_LIVE_TESTS="1"; .\.venv\Scripts\python.exe -m pytest -m live -s tests/live`.
    If the provider rejects JSON mode, add `AOS_LLM_RESPONSE_FORMAT=none`.
-2. **Add the key on Render.** Open **aos-web** ? **Environment** ? **Add Environment Variable**,
+2. **Add the key on Render.** Open **aos-web** → **Environment** → **Add Environment Variable**,
    enter for example `GROQ_API_KEY` and the key itself (not a masked `****` preview), then
    **Save, rebuild, and deploy**. No Blueprint sync is needed. Optionally add `TAVILY_API_KEY`
    for web search; without it, briefs that allow only *Uploaded documents* still use real
    sources. Set `AOS_PRICE_LLM_INPUT_PER_MILLION` and `AOS_PRICE_LLM_OUTPUT_PER_MILLION` to the
    provider's listed prices so the budget ledger estimates spending correctly (the defaults
    are small-model list prices, which overstate a free tier).
-3. **Check it.** After the deploy, the top bar shows a green **Model agents ? <model>** pill
+3. **Check it.** After the deploy, the top bar shows a green **⚡ Live · <model>** pill
    instead of **Demo agents**, and the Agents page names the model. Run one small brief and
    compare the run's cost card with the provider's usage page.
 

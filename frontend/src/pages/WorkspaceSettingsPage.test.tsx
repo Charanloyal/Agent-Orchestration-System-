@@ -50,6 +50,49 @@ function render(role: "admin" | "analyst", extra: MockRoute[] = []) {
 }
 
 describe("WorkspaceSettingsPage", () => {
+  it("puts the AI engine first, tests a Gemini key and saves it", async () => {
+    const user = userEvent.setup();
+    const demo = {
+      source: "demo", live: false, label: "Deterministic demo agents", provider: null, model: null,
+      key_hint: null, problem: null,
+      providers: [
+        { id: "gemini", label: "Google Gemini", models: ["gemini-2.5-flash", "gemini-2.5-pro"] },
+        { id: "groq", label: "Groq", models: ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"] },
+        { id: "openai", label: "OpenAI", models: ["gpt-4o-mini", "gpt-4o"] },
+      ],
+    };
+    const saved = {
+      ...demo, source: "workspace", live: true, label: "Google Gemini · gemini-2.5-flash", provider: "gemini",
+      model: "gemini-2.5-flash", key_hint: "WXYZ",
+    };
+    const calls = render("admin", [
+      { method: "PUT", path: `${BASE}/ai-config`, body: saved },
+      { method: "POST", path: `${BASE}/ai-config/test`, body: { ok: true, latency_ms: 240, model: "gemini-2.5-flash", detail: "ready" } },
+      { path: `${BASE}/ai-config`, body: demo },
+    ]);
+    expect(await screen.findByTestId("engine-status")).toHaveTextContent("Deterministic demo fallback");
+    const headings = screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent);
+    expect(headings.slice(0, 2)).toEqual(["AI engine and model provider", "Name"]);
+    expect(screen.getByRole("radio", { name: /Google Gemini/ })).toBeChecked();
+    expect(screen.getByRole("combobox", { name: "Model" })).toHaveValue("gemini-2.5-flash");
+
+    const key = screen.getByLabelText("API key");
+    expect(key).toHaveAttribute("type", "password");
+    await user.type(key, "AIzaSy-test-WXYZ");
+    await user.click(screen.getByRole("button", { name: "Show" }));
+    expect(key).toHaveAttribute("type", "text");
+
+    await user.click(screen.getByRole("button", { name: "Test connection" }));
+    expect(await screen.findByTestId("engine-test")).toHaveTextContent("Connected to gemini-2.5-flash · 240 ms");
+    const sent = { provider: "gemini", model: "gemini-2.5-flash", api_key: "AIzaSy-test-WXYZ" };
+    expect(calls.find((c) => c.method === "POST")?.body).toEqual(sent);
+
+    await user.click(screen.getByRole("button", { name: "Save and use this engine" }));
+    expect(await screen.findByText("Live · Google Gemini · gemini-2.5-flash")).toBeInTheDocument();
+    expect(calls.find((c) => c.method === "PUT")?.body).toEqual(sent);
+    expect(key).toHaveValue("");
+  });
+
   it("is for workspace admins only", async () => {
     const calls = render("analyst");
     expect(await screen.findByText("Admins only")).toBeInTheDocument();

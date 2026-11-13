@@ -16,8 +16,13 @@ function me(agentMode: "fake" | "llm", model: string | null = null): Me {
   };
 }
 
+const LIVE = {
+  source: "environment", live: true, label: "Groq · llama-3.3-70b-versatile", provider: "groq",
+  model: "llama-3.3-70b-versatile", key_hint: null, problem: null, providers: [],
+};
+
 function render(user: Me) {
-  mockFetch([]);
+  mockFetch(user.deployment.agent_mode === "llm" ? [{ path: "/api/v1/workspaces/w1/ai-config", body: LIVE }] : []);
   renderRoutes(
     [{ element: <Outlet context={user} />, children: [{ path: "w/:workspaceId/agents", element: <AgentsPage /> }] }],
     "/w/w1/agents",
@@ -54,6 +59,8 @@ describe("AgentsPage", () => {
   it("names the language model when live agents are configured", async () => {
     render(me("llm", "llama-3.3-70b-versatile"));
     expect(await screen.findByTestId("agent-mode")).toHaveTextContent("Language-model agents");
-    expect(screen.getByText("Language model: llama-3.3-70b-versatile")).toBeInTheDocument();
+    expect(await screen.findByTestId("engine-label")).toHaveTextContent(
+      "Groq · llama-3.3-70b-versatile (live language model)",
+    );
   });
 });

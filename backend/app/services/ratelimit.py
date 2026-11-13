@@ -73,6 +73,7 @@ def user_limit(action: str) -> Callable[..., None]:
             "upload": settings.rate_upload_per_user_hour,
             "export": settings.rate_export_per_user_hour,
             "style": settings.rate_style_per_user_hour,
+            "ai_test": settings.rate_ai_test_per_user_hour,
         }[action]
         enforce(f"{action}:user:{principal.user_id}", limit, 3600)
 

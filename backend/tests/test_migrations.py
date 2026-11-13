@@ -66,8 +66,8 @@ def test_upgrade_from_the_last_release_keeps_existing_data(migrated_database: No
 @pytest.fixture
 def previous_build(monkeypatch: pytest.MonkeyPatch) -> None:
     """Simulate the build before the access-model migration (its head is 0009) running
-    against today's database."""
-    known = schema_state.known_revisions() - {"0010"}
+    against today's database: it knows no later revision."""
+    known = frozenset(r for r in schema_state.known_revisions() if r <= "0009")
     monkeypatch.setattr(schema_state, "migration_heads", lambda: frozenset({"0009"}))
     monkeypatch.setattr(schema_state, "known_revisions", lambda: known)
 

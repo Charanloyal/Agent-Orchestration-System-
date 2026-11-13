@@ -7,9 +7,10 @@ deterministic **demo agents** (no language model). Re-capture them with
 
 > The amber **Demo agents** pill in the top bar means the deployment uses fake agents.
 > Reports then show how the workflow behaves, not how good a model's research would be. A
-> green **Model agents ? <model>** pill names the language model instead. Either pill opens
-> the **Agents** page, which shows the workflow step by step: select a step to see its
-> inputs, outputs, tools, prompt version and guards.
+> green **⚡ Live · <model>** pill names the language model instead. For workspace admins the
+> pill opens the engine settings (§9); for everyone else it opens the **Agents** page, which
+> shows the workflow step by step: select a step to see its inputs, outputs, tools, prompt
+> version and guards.
 
 ## Roles
 
@@ -207,7 +208,7 @@ and select **Measure and rewrite**.
 
 What every voice does:
 
-- removes templated openers ("In today's rapidly evolving ? landscape,", "In conclusion,",
+- removes templated openers ("In today's rapidly evolving … landscape,", "In conclusion,",
   "It is important to note that") and stock phrases ("delve into", "a testament to");
 - splits "As nations delve into X, Y" and "Not only does X ?, but it also ?" into two plain
   sentences;
@@ -247,9 +248,27 @@ try to get past such tools ([ADR 0027](decisions/0027-style-studio-honest-metric
 
 ## 9. Workspace settings (admins)
 
-![Workspace settings](assets/screenshots/13-workspace-settings.png)
+![Workspace settings with the AI engine card](assets/screenshots/21-settings-engine.png)
 
-**Settings** lets workspace admins:
+**Settings** starts with the **AI engine and model provider** card, which chooses the engine for
+this workspace's runs and Style studio rewrites ([ADR 0029](decisions/0029-workspace-model-keys.md)):
+
+1. Choose **Google Gemini** (recommended; a free key is available from Google AI Studio),
+   **Groq** or **OpenAI**, then a model (for example `gemini-2.5-flash`).
+2. Paste the API key (**Show** reveals it while you check it). Use a key with its own
+   spending limit at the provider.
+3. Select **Test connection**: one tiny request reports *Connected to … · N ms* or the
+   provider's reason. Testing saves nothing.
+4. Select **Save and use this engine**. The key is encrypted on the server and never shown
+   again (only its last 4 characters). The top bar changes from **Demo agents** to
+   **⚡ Live · <model>**, and new runs and rewrites use the model. To change only the model,
+   leave the key empty and save.
+
+**Remove workspace key** returns the workspace to the deployment's engine, or to the demo
+agents if the server has no key. Every member can see which engine runs; only admins can
+change it.
+
+Below the engine card, workspace admins can:
 
 - rename the workspace;
 - change a member's role, or remove them (you are asked to confirm). A workspace always keeps

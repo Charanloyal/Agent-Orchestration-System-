@@ -1,6 +1,6 @@
 # 0028: The engine follows the provider keys in the environment
 
-- **Status:** Accepted
+- **Status:** Accepted; decisions 3 and 4 amended by [ADR 0029](0029-workspace-model-keys.md)
 - **Date:** 2026-11-13
 - **Requirements:** owner's request to leave demo mode by adding a Gemini, Groq or OpenAI key,
   without code changes; ADR 0005 (spending ceiling); ADR 0002 (OpenAI-compatible providers)
